@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import Header from '../components/Header';
 import CartDrawer from '../components/CartDrawer';
 import ProductVisual from '../components/ProductVisual';
@@ -13,7 +14,31 @@ import { T, S } from '../lib/theme';
 const BANNER_MESSAGES = ['Free shipping $40+', '15% off with code ICONIC15'];
 
 export default function HomePage() {
+  const router = useRouter();
   const c = useCart();
+  const [newsEmail, setNewsEmail] = React.useState('');
+  const [newsStatus, setNewsStatus] = React.useState('idle'); // idle | submitting | sent | error
+  const [newsError, setNewsError] = React.useState('');
+
+  const onNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    if (newsStatus === 'submitting') return;
+    setNewsStatus('submitting');
+    setNewsError('');
+    try {
+      const res = await fetch('/api/email/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      setNewsStatus('sent');
+    } catch (err) {
+      setNewsStatus('error');
+      setNewsError(err.message);
+    }
+  };
   const featured = getFeaturedProducts();
   const babygirl = getProductById('babygirl');
   const reviewsByProduct = useAllReviews();
@@ -222,10 +247,33 @@ export default function HomePage() {
         <p style={S.label}>The list</p>
         <h2 style={{ ...S.h2, marginTop: 12 }}>Get access <span style={S.it}>before it drops.</span></h2>
         <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>New characters, restocks, and 15% off your first mist.</p>
-        <form style={newsForm} onSubmit={(e) => e.preventDefault()}>
-          <input type="email" placeholder="Email address" aria-label="email" style={newsInput} />
-          <button type="submit" style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: T.sans }}>Subscribe</button>
-        </form>
+        {router.query.confirmed === '1' ? (
+          <p style={{ fontSize: 13, color: T.soft }}>You're confirmed — welcome to the list.</p>
+        ) : newsStatus === 'sent' ? (
+          <p style={{ fontSize: 13, color: T.soft }}>Check your inbox to confirm — one click and you're in.</p>
+        ) : (
+          <form style={newsForm} onSubmit={onNewsletterSubmit}>
+            <input
+              type="email"
+              placeholder="Email address"
+              aria-label="email"
+              style={newsInput}
+              value={newsEmail}
+              onChange={(e) => setNewsEmail(e.target.value)}
+              required
+            />
+            <button
+              type="submit"
+              disabled={newsStatus === 'submitting'}
+              style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: T.sans }}
+            >
+              {newsStatus === 'submitting' ? 'Sending…' : 'Subscribe'}
+            </button>
+          </form>
+        )}
+        {newsStatus === 'error' && (
+          <p style={{ fontSize: 12, color: T.soft, marginTop: 10 }}>{newsError}</p>
+        )}
       </section>
 
       <Marquee />
