@@ -82,75 +82,26 @@ If charges still fail after both of the above are correct, the remaining possibi
 
 ---
 
-## Step 5: Set Up Email Marketing (Amazon SES)
+## Step 5: Connect the Email Platform
 
-The site has its own email marketing platform built in — double opt-in
-signup, one-click unsubscribe, bounce/complaint auto-suppression, a
-campaign composer, and welcome/win-back automations — sending through
-Amazon SES instead of a third-party ESP. None of this works until SES and
-DNS are configured; the app builds and runs fine without it, but
-`/api/email/*` routes will error until these steps are done.
+Email marketing (double opt-in signup, campaigns, automations, SES
+sending) lives in a separate app/repo — `email-platform` — not in this
+codebase. It's meant to be deployed independently and called
+cross-origin.
 
-### 5a. Verify a sending subdomain in SES
+1. Deploy `email-platform` and complete its own setup (AWS SES, DNS,
+   admin login, KV store — see that repo's `DEPLOYMENT.md`).
+2. On that deployment, set `ALLOWED_ORIGINS` to include this site's
+   origin(s) (e.g. `https://smellsiconic.com,https://smells-iconic.vercel.app`)
+   and `SITE_REDIRECT_URL` to this site's homepage, so the "you're
+   confirmed" message shows in-context here after someone double-opts in.
+3. Here, set `NEXT_PUBLIC_EMAIL_PLATFORM_URL` to that deployment's URL
+   (e.g. `https://mail.smellsiconic.com`) and redeploy. The homepage
+   newsletter form and the "Email marketing" link in `/admin` both read
+   this env var.
 
-1. In the SES console, **Verified identities → Create identity → Domain**.
-   Use a **subdomain** of your site, e.g. `mail.smellsiconic.com` (keeps
-   email DNS separate from your root domain's web/MX records).
-2. SES gives you 3 DKIM CNAME records — add all 3 at your DNS provider.
-3. Under that identity's **Custom MAIL FROM domain**, set something like
-   `bounce.mail.smellsiconic.com` and add the MX + SPF TXT records SES
-   shows you. This is what makes SPF pass on the *aligned* domain, which
-   Gmail/Yahoo's bulk-sender rules require — SES's shared MAIL FROM domain
-   alone doesn't align with your From address.
-4. At your DNS root, add a DMARC record: `_dmarc.smellsiconic.com` TXT
-   `v=DMARC1; p=none; rua=mailto:you@smellsiconic.com`. Start at `p=none`
-   (monitor only) and move to `p=quarantine` once DMARC reports look clean.
-
-### 5b. Request production access
-
-New SES accounts start in the **sandbox**: 200 emails/day, and only to
-addresses you've individually verified. In the SES console, **Account
-dashboard → Request production access** — describe the use case (opt-in
-marketing emails for an e-commerce store) and wait for approval (usually
-under 24h). Test everything in sandbox first using your own verified inbox
-as the recipient.
-
-### 5c. Set up bounce/complaint handling
-
-1. **Configuration sets → Create set**, name it (e.g. `smells-iconic`).
-2. Add an **Event destination** → SNS → create a new SNS topic → subscribe
-   that topic to `https://YOUR_DOMAIN/api/email/ses-webhook` (protocol
-   HTTPS). Select Bounce and Complaint events.
-3. The route confirms the SNS subscription automatically on first ping —
-   no manual "click to confirm" step needed.
-4. Copy the topic's ARN into `SES_SNS_TOPIC_ARN` so the webhook rejects
-   notifications from any other topic.
-
-### 5d. IAM credentials
-
-Create an IAM user (or role) with `ses:SendEmail` permission scoped to
-your verified identity, and put its access key in `AWS_ACCESS_KEY_ID` /
-`AWS_SECRET_ACCESS_KEY`.
-
-### 5e. Environment variables
-
-| Name | Value |
-|------|-------|
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | from the IAM user above |
-| `AWS_REGION` | the region your SES identity is verified in, e.g. `us-east-1` |
-| `SES_FROM_EMAIL` | an address on the verified domain, e.g. `hello@mail.smellsiconic.com` |
-| `SES_CONFIGURATION_SET` | the configuration set name from 5c |
-| `SES_SNS_TOPIC_ARN` | the SNS topic ARN from 5c |
-| `CRON_SECRET` | any random string — protects `/api/cron/automations` |
-
-### 5f. Automations cron
-
-`vercel.json` schedules `/api/cron/automations` once daily — **Vercel's
-Hobby plan only allows daily cron**, which is enough for the welcome
-series' day-granularity steps but coarse for anything faster. If you're on
-Hobby and want finer timing, use an external pinger (e.g. cron-job.org)
-hitting that same URL hourly with header `Authorization: Bearer
-<CRON_SECRET>` instead of/in addition to the Vercel cron entry.
+Without it set, the newsletter form will fail to submit and the admin
+link won't resolve — everything else on this site works fine regardless.
 
 ---
 
@@ -174,8 +125,7 @@ To change them:
 - `/product/[id]` — Individual product detail pages
 - `/checkout` — Custom single-page checkout
 - `/success` — Order confirmation page
-- `/unsubscribe` — Email unsubscribe confirmation page
-- `/admin` — Dashboard, live visitors, reviews, discounts, and email subscribers/campaigns/automations (password-protected)
+- `/admin` — Dashboard, live visitors, reviews, discounts, and a link out to the email platform's own admin (password-protected)
 
 ### Components
 - `Header.jsx` — Navigation, cart button, logo
@@ -188,7 +138,7 @@ To change them:
 - **Backend**: Vercel serverless functions at `/api/qb-checkout` (charges a card token via the QuickBooks Payments API) and `/api/qb-auth/connect` + `/api/qb-auth/callback` (one-time OAuth authorization)
 - **Payments**: QuickBooks Payments — card details are tokenized client-side (`lib/qbPayments.js`, a direct call to Intuit's Payments Tokens REST endpoint) before ever reaching the server
 - **Token refresh**: `lib/qbServerAuth.js` transparently refreshes the QuickBooks access token using a refresh token persisted in the KV store (`lib/qbTokenStore.js`) before every charge — no manual token rotation
-- **Email marketing**: sends through Amazon SES (`lib/sesEmail.js`) — double opt-in (`/api/email/subscribe`, `/api/email/confirm`), one-click unsubscribe (`/api/email/unsubscribe`, RFC 8058-compliant), bounce/complaint auto-suppression (`/api/email/ses-webhook`), click tracking (`/api/email/click`), a campaign composer + welcome/win-back automations run from `/admin`, and a daily cron (`/api/cron/automations`, see Step 5f) that advances automation steps
+- **Email marketing**: handled entirely by the separate `email-platform` app (see Step 5) — this repo only holds a newsletter signup form that POSTs to it and an admin link out
 - **Hosting**: Vercel (free tier handles all traffic)
 
 ---
@@ -216,14 +166,11 @@ To change them:
 - DNS can take 24–48 hours to propagate
 - Check Vercel's domain status (should show green ✓)
 
-**"AWS_REGION / AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY are not set" or emails not sending:**
-- Complete Step 5 (SES domain verification + IAM credentials); the site works fine without it, only `/api/email/*` routes need it
+**Newsletter form fails to submit, or "Email marketing" admin link is dead:**
+- `NEXT_PUBLIC_EMAIL_PLATFORM_URL` isn't set, or the `email-platform` deployment's `ALLOWED_ORIGINS` doesn't include this site's origin — see Step 5
 
-**Emails send but land in spam, or Gmail/Yahoo start bulk-folder or reject them:**
-- Confirm DKIM shows "Verified" in the SES console (can take a few hours after adding the CNAME records)
-- Confirm the custom MAIL FROM domain's SPF TXT record is in place (Step 5a) — SES's own shared MAIL FROM doesn't align with your From address, which Gmail/Yahoo's bulk-sender rules check for
-- Check the account isn't still in the SES sandbox (Step 5b) — sandbox sends to unverified addresses fail outright, they don't just land in spam
-- Check DMARC reports (`rua` address from Step 5a) for alignment failures
+**Emails send but land in spam, or Gmail/Yahoo bulk-folder or reject them:**
+- This is on the `email-platform` side — see that repo's `DEPLOYMENT.md` troubleshooting section (DKIM, SPF, SES sandbox, DMARC)
 
 ---
 

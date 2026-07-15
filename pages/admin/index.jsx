@@ -108,12 +108,6 @@ export default function AdminDashboard() {
   const [hoveredCountry, setHoveredCountry] = React.useState(null);
   const [orders, setOrders] = React.useState([]);
   const [ordersLoading, setOrdersLoading] = React.useState(true);
-  const [subscribers, setSubscribers] = React.useState([]);
-  const [campaigns, setCampaigns] = React.useState([]);
-  const [automations, setAutomations] = React.useState([]);
-  const [campaignForm, setCampaignForm] = React.useState({ subject: '', fromName: 'Smells Iconic', html: '', segment: 'all' });
-  const [campaignFormMessage, setCampaignFormMessage] = React.useState('');
-  const [sendingCampaignId, setSendingCampaignId] = React.useState(null);
 
   React.useEffect(() => {
     fetch('/api/admin/orders')
@@ -202,25 +196,10 @@ export default function AdminDashboard() {
     fetch('/api/admin/discounts').then((r) => r.json()).then((data) => setDiscounts(data.discounts || [])).catch(() => {});
   }, []);
 
-  const loadSubscribers = React.useCallback(() => {
-    fetch('/api/admin/email/subscribers').then((r) => r.json()).then((data) => setSubscribers(data.subscribers || [])).catch(() => {});
-  }, []);
-
-  const loadCampaigns = React.useCallback(() => {
-    fetch('/api/admin/email/campaigns').then((r) => r.json()).then((data) => setCampaigns(data.campaigns || [])).catch(() => {});
-  }, []);
-
-  const loadAutomations = React.useCallback(() => {
-    fetch('/api/admin/email/automations').then((r) => r.json()).then((data) => setAutomations(data.automations || [])).catch(() => {});
-  }, []);
-
   React.useEffect(() => {
     loadReviews();
     loadDiscounts();
-    loadSubscribers();
-    loadCampaigns();
-    loadAutomations();
-  }, [loadReviews, loadDiscounts, loadSubscribers, loadCampaigns, loadAutomations]);
+  }, [loadReviews, loadDiscounts]);
 
   // Covers both the initial load and refetching when the funnel time
   // filter changes.
@@ -357,75 +336,6 @@ export default function AdminDashboard() {
     });
     const data = await res.json();
     if (res.ok) setDiscounts(data.discounts);
-  };
-
-  const handleSuppressSubscriber = async (email) => {
-    if (!confirm(`Suppress ${email}? They will never receive an email again.`)) return;
-    const res = await fetch('/api/admin/email/subscribers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, action: 'suppress' }),
-    });
-    if (res.ok) loadSubscribers();
-  };
-
-  const handleCreateCampaign = async (e) => {
-    e.preventDefault();
-    setCampaignFormMessage('');
-    const res = await fetch('/api/admin/email/campaigns', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(campaignForm),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setCampaignFormMessage(data.error || 'Failed to create campaign.');
-      return;
-    }
-    setCampaigns((prev) => [...prev, data.campaign]);
-    setCampaignForm({ subject: '', fromName: 'Smells Iconic', html: '', segment: 'all' });
-    setCampaignFormMessage('Draft saved.');
-  };
-
-  const handleDeleteCampaign = async (id) => {
-    if (!confirm('Delete this draft?')) return;
-    const res = await fetch('/api/admin/email/campaigns', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-    const data = await res.json();
-    if (res.ok) setCampaigns(data.campaigns);
-  };
-
-  const handleSendCampaign = async (id) => {
-    if (!confirm('Send this campaign now? This cannot be undone.')) return;
-    setSendingCampaignId(id);
-    try {
-      const res = await fetch('/api/admin/email/send-campaign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Failed to send campaign.');
-        return;
-      }
-      loadCampaigns();
-    } finally {
-      setSendingCampaignId(null);
-    }
-  };
-
-  const handleToggleAutomation = async (automation) => {
-    const res = await fetch('/api/admin/email/automations', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: automation.id, enabled: !automation.enabled }),
-    });
-    const data = await res.json();
-    if (res.ok) setAutomations((prev) => prev.map((a) => (a.id === automation.id ? data.automation : a)));
   };
 
   const handleLogout = async () => {
@@ -832,136 +742,14 @@ export default function AdminDashboard() {
           {discountFormMessage && <p style={{ fontSize: 12, color: T.ink, marginTop: 12 }}>{discountFormMessage}</p>}
         </Section>
 
-        {/* EMAIL SUBSCRIBERS */}
-        <Section
-          title={`Email subscribers (${subscribers.length})`}
-          action={<a href="/api/admin/email/subscribers?format=csv" style={S.btnOutline}>Export CSV</a>}
-        >
-          {subscribers.length === 0 ? (
-            <p style={{ color: T.soft, fontSize: 14 }}>No subscribers yet.</p>
-          ) : (
-            <div>
-              <div style={orderHeadRow}>
-                <div style={{ flex: 2 }}>Email</div>
-                <div style={{ flex: 1 }}>Status</div>
-                <div style={{ flex: 1 }}>Tier</div>
-                <div style={{ flex: 1 }}>Joined</div>
-                <div style={{ width: 90 }} />
-              </div>
-              {subscribers.map((s) => (
-                <div key={s.email} style={orderRow}>
-                  <div style={{ flex: 2 }}>{s.email}</div>
-                  <div style={{ flex: 1 }}>{s.status}</div>
-                  <div style={{ flex: 1 }}>{s.tier}</div>
-                  <div style={{ flex: 1 }}>{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}</div>
-                  <div style={{ width: 90 }}>
-                    {s.status !== 'suppressed' && (
-                      <button onClick={() => handleSuppressSubscriber(s.email)} style={deleteBtn}>Suppress</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-
-        {/* EMAIL CAMPAIGNS */}
-        <Section title={`Email campaigns (${campaigns.length})`}>
-          {campaigns.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              {campaigns.map((c) => (
-                <div key={c.id} style={reviewRow}>
-                  <div style={{ flex: 1, fontSize: 14 }}>
-                    <strong>{c.subject}</strong> — {c.status} · {c.segment}
-                    <div style={{ fontSize: 12, color: T.soft, marginTop: 4 }}>
-                      Sent {c.stats.sent} · Clicked {c.stats.clicked} · Bounced {c.stats.bounced} · Complained {c.stats.complained}
-                    </div>
-                  </div>
-                  {c.status === 'draft' && (
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button onClick={() => handleSendCampaign(c.id)} disabled={sendingCampaignId === c.id} style={S.btnFill}>
-                        {sendingCampaignId === c.id ? 'Sending…' : 'Send now'}
-                      </button>
-                      <button onClick={() => handleDeleteCampaign(c.id)} style={deleteBtn}>Delete</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <form onSubmit={handleCreateCampaign}>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-              <div style={{ flex: 2, minWidth: 220 }}>
-                <label style={formLabel}>Subject</label>
-                <input
-                  value={campaignForm.subject}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
-                  style={formInput}
-                  required
-                />
-              </div>
-              <div style={{ flex: 1, minWidth: 160 }}>
-                <label style={formLabel}>From name</label>
-                <input
-                  value={campaignForm.fromName}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, fromName: e.target.value })}
-                  style={formInput}
-                />
-              </div>
-              <div style={{ width: 160 }}>
-                <label style={formLabel}>Segment</label>
-                <select
-                  value={campaignForm.segment}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, segment: e.target.value })}
-                  style={formInput}
-                >
-                  <option value="all">All subscribed</option>
-                  <option value="engaged">Engaged only</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <label style={formLabel}>Email body (HTML)</label>
-              <textarea
-                value={campaignForm.html}
-                onChange={(e) => setCampaignForm({ ...campaignForm, html: e.target.value })}
-                style={{ ...formInput, height: 160, padding: 12, fontFamily: 'monospace', fontSize: 13 }}
-                required
-              />
-            </div>
-            {campaignForm.html && (
-              <div style={{ marginBottom: 12 }}>
-                <label style={formLabel}>Preview</label>
-                <iframe
-                  title="Campaign preview"
-                  srcDoc={campaignForm.html}
-                  style={{ width: '100%', height: 200, border: `1px solid ${T.line}`, background: T.white }}
-                />
-              </div>
-            )}
-            <button type="submit" style={S.btnFill}>Save draft</button>
-            {campaignFormMessage && <span style={{ fontSize: 12, color: T.ink, marginLeft: 12 }}>{campaignFormMessage}</span>}
-          </form>
-        </Section>
-
-        {/* EMAIL AUTOMATIONS */}
-        <Section title="Email automations">
-          {automations.map((a) => (
-            <div key={a.id} style={{ paddingBottom: 20, marginBottom: 20, borderBottom: `1px solid ${T.line}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <strong style={{ fontSize: 14 }}>{a.name}</strong>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.soft }}>
-                  <input type="checkbox" checked={a.enabled} onChange={() => handleToggleAutomation(a)} />
-                  Enabled
-                </label>
-              </div>
-              {a.steps.map((step, i) => (
-                <div key={i} style={{ fontSize: 12, color: T.soft, marginTop: 4 }}>
-                  Day {step.delayDays}: {step.subject || '(suppress if still inactive)'}
-                </div>
-              ))}
-            </div>
-          ))}
+        {/* EMAIL MARKETING */}
+        <Section title="Email marketing">
+          <p style={{ color: T.soft, fontSize: 14, marginBottom: 16 }}>
+            Subscribers, campaigns, and automations are managed in the separate email platform app.
+          </p>
+          <a href={process.env.NEXT_PUBLIC_EMAIL_PLATFORM_URL ? `${process.env.NEXT_PUBLIC_EMAIL_PLATFORM_URL}/admin` : '#'} style={S.btnFill}>
+            Open email platform admin →
+          </a>
         </Section>
       </div>
 

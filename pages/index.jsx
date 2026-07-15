@@ -26,7 +26,7 @@ export default function HomePage() {
     setNewsStatus('submitting');
     setNewsError('');
     try {
-      const res = await fetch('/api/email/subscribe', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_EMAIL_PLATFORM_URL}/api/email/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: newsEmail }),
