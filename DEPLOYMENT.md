@@ -32,6 +32,40 @@ If charges still fail after both of the above are correct, the remaining possibi
 
 ---
 
+## Step 1B: Set Up Stripe (backup "or pay another way" options)
+
+QuickBooks Payments handles the card form. Below it, checkout also offers
+Cash App Pay, Klarna, Afterpay, and Affirm as radio-button alternatives —
+these are processed through Stripe, but the checkout UI never uses the word
+"Stripe" anywhere a customer can see it; each shows only under its own name.
+
+1. Go to https://dashboard.stripe.com and sign in (or create a Stripe account).
+2. Make sure you're in **Test mode** (toggle, top right) while setting this up.
+3. **Developers → API keys**: copy the **Publishable key** into
+   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and the **Secret key** into
+   `STRIPE_SECRET_KEY`.
+4. **Settings → Payment methods**: enable **Cash App Pay**, **Klarna**,
+   **Afterpay/Clearpay**, and **Affirm**. A method that's coded here but not
+   enabled in this list will simply fail when a customer picks it — this is
+   the single most common reason one of these stops working.
+5. **Developers → Webhooks → Add endpoint**:
+   - Endpoint URL: `https://YOUR_DOMAIN/api/stripe-webhook`
+   - Events to send: `payment_intent.succeeded`
+   - Copy the **Signing secret** it gives you into `STRIPE_WEBHOOK_SECRET`.
+   - This webhook is not optional — it's the only place an order placed
+     through one of these four methods actually gets recorded (see
+     `pages/api/stripe-webhook.js` for why: these are redirect-based, so
+     fulfillment can't happen synchronously the way it does for QuickBooks).
+6. Test each method with Stripe's published test flows for that method
+   (Stripe's docs for each payment method list a test scenario — there's no
+   generic "test card number" equivalent for Klarna/Afterpay/Affirm since
+   they redirect to a real-looking authorization step). Confirm the order
+   shows up in `/admin` after each one.
+7. Only after all four are confirmed working in test mode, switch the
+   Dashboard to **Live mode** and repeat steps 3–5 with the live keys/webhook.
+
+---
+
 ## Step 2: Deploy to Vercel
 
 ### Option A: Quick Deploy (Recommended)
@@ -46,8 +80,10 @@ If charges still fail after both of the above are correct, the remaining possibi
    - `QB_ENVIRONMENT` and `NEXT_PUBLIC_QB_ENVIRONMENT`: both `sandbox` (or both `production` once approved — see Step 1)
    - `KV_REST_API_URL` / `KV_REST_API_TOKEN`: from a KV store (Vercel Storage → Marketplace → Upstash, or a standalone Upstash Redis database — same REST API either way)
    - `NEXT_PUBLIC_BASE_URL`: your Vercel domain (e.g., `https://smells-iconic.vercel.app`)
+   - `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET`: from Step 1B
 7. Redeploy by going to "Deployments" → last deployment → "Redeploy"
 8. Visit `/api/qb-auth/connect` once to authorize QuickBooks (see Step 1)
+9. Point the Stripe webhook from Step 1B at this same deployed domain once you know it (Vercel gives you the URL after the first deploy — update the webhook endpoint URL in Stripe if you created it against a placeholder earlier)
 
 ### Option B: Deploy via Git
 

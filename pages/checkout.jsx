@@ -13,6 +13,8 @@ import { tokenizeCard } from '../lib/qbPayments';
 import { fbTrack, generateEventId } from '../lib/fbPixel';
 import { getStoredAttribution } from '../lib/attribution';
 import { getSessionId } from '../lib/session';
+import { ALT_PAYMENT_METHODS, getAltPaymentMethod } from '../lib/altPaymentMethods';
+import { getStripeClient } from '../lib/stripeClient';
 import { T, S } from '../lib/theme';
 
 const US_STATES = [
@@ -200,6 +202,7 @@ export default function CheckoutPage() {
   const [billingSame, setBillingSame] = React.useState(true);
   const [billing, setBilling] = React.useState(emptyAddress);
   const [card, setCard] = React.useState({ number: '', expiry: '', cvc: '' });
+  const [payMethod, setPayMethod] = React.useState('card');
   const [cvcTipOpen, setCvcTipOpen] = React.useState(false);
   const cvcTipRef = React.useRef(null);
 
@@ -230,6 +233,15 @@ export default function CheckoutPage() {
   React.useEffect(() => {
     if (hydrated && cart.length === 0) router.replace('/shop');
   }, [hydrated, cart.length, router]);
+
+  // Bounced back here from /success after a declined or abandoned "or pay
+  // another way" redirect (Cash App Pay, Klarna, Afterpay, Affirm) — the
+  // cart was never cleared for that path, so there's something to return to.
+  React.useEffect(() => {
+    if (!router.isReady || !router.query.payment_error) return;
+    setError('That payment didn’t go through — please try again or use a different method.');
+    router.replace('/checkout', undefined, { shallow: true });
+  }, [router.isReady, router.query.payment_error, router]);
 
   React.useEffect(() => {
     if (!hydrated || cart.length === 0) return;
@@ -286,11 +298,74 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleAltPaySubmit = async () => {
+    const methodDef = getAltPaymentMethod(payMethod);
+    const purchaseEventId = generateEventId();
+    const billingAddress = billingSame ? shipping : billing;
+
+    const res = await fetch('/api/stripe-payment-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        method: payMethod,
+        amount: grandTotal,
+        items: cart,
+        email,
+        shipping,
+        eventId: purchaseEventId,
+        url: window.location.href,
+        attribution: getStoredAttribution(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not start payment');
+
+    const stripe = await getStripeClient();
+    if (!stripe) throw new Error('That payment option isn’t available right now. Please try another.');
+
+    // Written before the redirect, not after — a redirect-based method may
+    // send the customer to an off-site authorization page and back, and
+    // sessionStorage survives that round trip within the same tab.
+    sessionStorage.setItem('si-purchase', JSON.stringify({
+      eventId: purchaseEventId,
+      amount: grandTotal,
+      contentIds: cart.map((i) => i.id),
+      contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
+    }));
+
+    const billingDetails = {
+      name: `${billingAddress.firstName} ${billingAddress.lastName}`.trim(),
+      email,
+      address: {
+        line1: billingAddress.address,
+        line2: billingAddress.apt || undefined,
+        city: billingAddress.city,
+        state: billingAddress.state,
+        postal_code: billingAddress.zip,
+        country: 'US',
+      },
+    };
+
+    const { error: confirmError } = await stripe[methodDef.confirmMethod](data.clientSecret, {
+      payment_method: { billing_details: billingDetails },
+      return_url: `${window.location.origin}/success`,
+    });
+
+    // Success navigates the browser away entirely, so reaching this line
+    // means the provider rejected it before ever leaving the page.
+    if (confirmError) throw new Error(confirmError.message || 'Payment failed. Please try again.');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSubmitting(true);
     try {
+      if (payMethod !== 'card') {
+        await handleAltPaySubmit();
+        return;
+      }
+
       const purchaseEventId = generateEventId();
       const [expMonth, expYear] = card.expiry.split('/').map((s) => s.trim());
       const billingAddress = billingSame ? shipping : billing;
@@ -502,82 +577,101 @@ export default function CheckoutPage() {
               </span>
             </div>
             <div style={paymentBox}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <label style={payRadioRow}>
+                <input type="radio" name="payMethod" checked={payMethod === 'card'} onChange={() => setPayMethod('card')} />
                 <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, whiteSpace: 'nowrap' }}>Credit card</span>
-                <CardBrandBadges />
-              </div>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.soft, display: 'flex' }}>
-                  <LockIcon />
-                </span>
-                <input
-                  placeholder="Card number"
-                  value={card.number}
-                  onChange={(e) => setCard({ ...card, number: formatCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16)) })}
-                  style={{ ...input, paddingLeft: 34, paddingRight: cardBrand ? 70 : 14 }}
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  required
-                />
-                {cardBrand && (
-                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
-                    <CardBrandIcon brand={cardBrand} />
+                <span style={{ marginLeft: 'auto' }}><CardBrandBadges /></span>
+              </label>
+
+              {payMethod === 'card' && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.soft, display: 'flex' }}>
+                      <LockIcon />
+                    </span>
+                    <input
+                      placeholder="Card number"
+                      value={card.number}
+                      onChange={(e) => setCard({ ...card, number: formatCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16)) })}
+                      style={{ ...input, paddingLeft: 34, paddingRight: cardBrand ? 70 : 14 }}
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      required
+                    />
+                    {cardBrand && (
+                      <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
+                        <CardBrandIcon brand={cardBrand} />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="row-2" style={{ marginTop: 8 }}>
-                <input
-                  placeholder="Expiration date (MM/YY)"
-                  value={card.expiry}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
-                    const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
-                    setCard({ ...card, expiry: formatted });
-                  }}
-                  style={input}
-                  inputMode="numeric"
-                  maxLength={5}
-                  autoComplete="cc-exp"
-                  required
-                />
-                <div style={{ position: 'relative' }} ref={cvcTipRef}>
-                  <input
-                    placeholder="Security code"
-                    value={card.cvc}
-                    onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, '').slice(0, 4) })}
-                    style={{ ...input, paddingRight: 34 }}
-                    type="password"
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setCvcTipOpen((o) => !o)}
-                    aria-label="What is the security code?"
-                    style={{
-                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                      color: T.soft, cursor: 'pointer', background: 'none', border: 'none', padding: 0, display: 'flex',
-                    }}
-                  >
-                    <QuestionIcon />
-                  </button>
-                  {cvcTipOpen && (
-                    <div style={cvcTooltip}>
-                      The 3-digit code on the back of your card (4 digits on the front for Amex).
+                  <div className="row-2" style={{ marginTop: 8 }}>
+                    <input
+                      placeholder="Expiration date (MM/YY)"
+                      value={card.expiry}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        const formatted = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+                        setCard({ ...card, expiry: formatted });
+                      }}
+                      style={input}
+                      inputMode="numeric"
+                      maxLength={5}
+                      autoComplete="cc-exp"
+                      required
+                    />
+                    <div style={{ position: 'relative' }} ref={cvcTipRef}>
+                      <input
+                        placeholder="Security code"
+                        value={card.cvc}
+                        onChange={(e) => setCard({ ...card, cvc: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                        style={{ ...input, paddingRight: 34 }}
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCvcTipOpen((o) => !o)}
+                        aria-label="What is the security code?"
+                        style={{
+                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                          color: T.soft, cursor: 'pointer', background: 'none', border: 'none', padding: 0, display: 'flex',
+                        }}
+                      >
+                        <QuestionIcon />
+                      </button>
+                      {cvcTipOpen && (
+                        <div style={cvcTooltip}>
+                          The 3-digit code on the back of your card (4 digits on the front for Amex).
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <label style={checkboxLabel}>
+                    <input type="checkbox" checked={billingSame} onChange={(e) => setBillingSame(e.target.checked)} />
+                    Use shipping address as billing address
+                  </label>
+                  {!billingSame && (
+                    <div style={{ marginTop: 10 }}>
+                      <AddressFields value={billing} onChange={setBilling} idPrefix="bill" />
                     </div>
                   )}
                 </div>
-              </div>
-              <label style={checkboxLabel}>
-                <input type="checkbox" checked={billingSame} onChange={(e) => setBillingSame(e.target.checked)} />
-                Use shipping address as billing address
-              </label>
-              {!billingSame && (
-                <div style={{ marginTop: 10 }}>
-                  <AddressFields value={billing} onChange={setBilling} idPrefix="bill" />
-                </div>
               )}
+
+              <div style={dividerRow}>
+                <span style={dividerLine} />
+                <span style={dividerText}>OR CHOOSE ANOTHER WAY TO PAY</span>
+                <span style={dividerLine} />
+              </div>
+
+              {ALT_PAYMENT_METHODS.map((m) => (
+                <label key={m.id} style={payRadioRow}>
+                  <input type="radio" name="payMethod" checked={payMethod === m.id} onChange={() => setPayMethod(m.id)} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{m.label}</span>
+                </label>
+              ))}
             </div>
           </section>
 
@@ -613,14 +707,20 @@ export default function CheckoutPage() {
               height: 58, fontSize: 13, opacity: submitting ? 0.6 : 1,
             }}
           >
-            {submitting ? 'Processing…' : `Place order — $${grandTotal.toFixed(2)}`}
+            {submitting
+              ? 'Processing…'
+              : payMethod === 'card'
+                ? `Place order — $${grandTotal.toFixed(2)}`
+                : `Continue to ${getAltPaymentMethod(payMethod)?.label} — $${grandTotal.toFixed(2)}`}
           </button>
           <div style={secureNote}>
             <LockIcon />
             <span>256-bit SSL encrypted &middot; your card details never touch our servers</span>
           </div>
           <p style={{ fontSize: 11, color: T.soft, textAlign: 'center', marginTop: 8 }}>
-            Payments securely processed by QuickBooks Payments (Intuit)
+            {payMethod === 'card'
+              ? 'Payments securely processed by QuickBooks Payments (Intuit)'
+              : `You’ll be redirected to complete payment with ${getAltPaymentMethod(payMethod)?.label}, then brought back here.`}
           </p>
         </form>
 
@@ -743,6 +843,10 @@ const input = {
 };
 const checkboxLabel = { display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, fontSize: 13, color: T.soft };
 const paymentBox = { border: `1px solid ${T.line}`, background: T.paper, padding: 16 };
+const payRadioRow = {
+  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', cursor: 'pointer',
+  fontFamily: T.sans,
+};
 const tasselCard = { border: `1px solid ${T.line}`, background: T.paper, padding: 16 };
 const tasselImgWrap = {
   width: 48, height: 48, flexShrink: 0, overflow: 'hidden', background: T.white,

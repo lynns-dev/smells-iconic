@@ -1,8 +1,10 @@
-# Smells Iconic — E-commerce (Next.js + QuickBooks Payments)
+# Smells Iconic — E-commerce (Next.js + QuickBooks Payments + Stripe)
 
 Blush-and-cream storefront for Smells Iconic body mists. Next.js 14
 (Pages Router) with a custom, Shopify-style single-page checkout that
-charges cards via QuickBooks Payments.
+charges cards via QuickBooks Payments, with Cash App Pay/Klarna/Afterpay/
+Affirm as backup "or choose another way to pay" options via Stripe —
+customers only ever see each method's own name, never "Stripe".
 
 Placeholder graphics stand in for real product photography — see
 "Notes before launch" below for what to swap in.
@@ -21,14 +23,18 @@ Placeholder graphics stand in for real product photography — see
    | `QB_ENVIRONMENT` / `NEXT_PUBLIC_QB_ENVIRONMENT` | `sandbox` or `production` (keep both in sync) |
    | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel KV / Upstash Redis store, used to persist the QuickBooks refresh token |
    | `NEXT_PUBLIC_BASE_URL` | your deployed URL, e.g. `https://smells-iconic.vercel.app` |
+   | `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | API keys from your Stripe Dashboard, power the Cash App Pay/Klarna/Afterpay/Affirm options |
+   | `STRIPE_WEBHOOK_SECRET` | signing secret for a webhook endpoint pointed at `/api/stripe-webhook`, subscribed to `payment_intent.succeeded` |
 
-The site builds and renders fully without QuickBooks configured — only the
-final **Pay now** button on `/checkout` needs it. Once the variables above are
-set, visit `/api/qb-auth/connect` once to authorize QuickBooks; after that,
+The site builds and renders fully without QuickBooks or Stripe configured —
+only the final **Pay now**/"or choose another way to pay" step on `/checkout`
+needs them. Once the QuickBooks variables above are set, visit
+`/api/qb-auth/connect` once to authorize QuickBooks; after that,
 `lib/qbServerAuth.js` refreshes the access token automatically forever (no
 manual rotation). Test everything in `sandbox` first — going live in
 `production` additionally requires Intuit's separate Payments production
-approval (see `DEPLOYMENT.md`). See `DEPLOYMENT.md` for the full walkthrough.
+approval (see `DEPLOYMENT.md`). See `DEPLOYMENT.md` for the full walkthrough,
+including the Stripe setup.
 
 ## Run locally
 
@@ -50,6 +56,10 @@ npm run dev
 - `lib/qbPayments.js` — client-side card tokenization (direct call to Intuit's Payments Tokens REST endpoint)
 - `lib/qbServerAuth.js` — server-side access token, refreshed automatically before every charge
 - `lib/qbTokenStore.js` — persists the QuickBooks token pair in a KV store between requests
+- `pages/api/stripe-payment-intent.js` — creates a Stripe PaymentIntent for whichever "or pay another way" method the customer picked
+- `pages/api/stripe-webhook.js` — the only thing that actually records an order for those methods, once Stripe confirms the redirect-based charge succeeded
+- `lib/altPaymentMethods.js` — the 4 backup methods (Cash App Pay, Klarna, Afterpay, Affirm) and their Stripe method types, shared by the checkout UI and API routes
+- `lib/stripeServer.js` / `lib/stripeClient.js` — server and client Stripe SDK setup
 - `lib/products.js` — product data (edit scents/prices here)
 - `lib/theme.js` — design tokens (colors, fonts, shared styles)
 - `lib/useCart.js` — cart Context provider, persisted to `localStorage` so it survives navigating to `/checkout`
@@ -66,6 +76,15 @@ npm run dev
 - **Production charges require a separate Intuit approval** beyond OAuth —
   see the "Required before Production charges will work" section in
   `DEPLOYMENT.md`. Always confirm the full flow works in `sandbox` first.
+- **Test the Cash App Pay/Klarna/Afterpay/Affirm flows end-to-end in Stripe
+  test mode before launch.** Each is a redirect to the provider's own
+  authorization page and back — that round trip can only be verified with
+  real Stripe test-mode keys and Stripe's own test credentials for each
+  method, not from a build/lint pass. Confirm `/api/stripe-webhook` is
+  actually receiving `payment_intent.succeeded` and creating orders in
+  `/admin` before enabling any of these for real customers. Also confirm
+  each method is enabled in Stripe Dashboard → Settings → Payment methods —
+  a method not enabled there simply won't work even though it's coded here.
 - Ratings and reviews on the homepage/product pages are **placeholders**.
   Connect a verified-review app and display only real reviews before launch.
 - Confirm scent names, notes, and prices in `lib/products.js` match your catalog.
