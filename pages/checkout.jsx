@@ -259,6 +259,25 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
 
+  // Syncs the checkout email to the email platform's subscriber list as
+  // soon as they leave the field — this is what lets the
+  // abandoned-checkout automation fire for someone who never completes
+  // the order, and is this custom checkout's replacement for what the
+  // Shopify customers/create webhook used to provide. Consent-gated on
+  // the newsletter checkbox: unchecked means the endpoint no-ops
+  // entirely (see pages/api/email/checkout-capture.js), same as anywhere
+  // else in this app that captures an address for marketing.
+  const handleEmailBlur = () => {
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
+    fetch(`${process.env.NEXT_PUBLIC_EMAIL_PLATFORM_URL}/api/email/checkout-capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: trimmed, consent: newsletter, cartValue: total }),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
   const cardBrand = React.useMemo(() => detectCardBrand(card.number.replace(/\D/g, '')), [card.number]);
 
   const hasTassel = cart.some((i) => i.id === TASSEL_GIFT.id);
@@ -456,6 +475,7 @@ export default function CheckoutPage() {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={handleEmailBlur}
               style={input}
               autoComplete="email"
               required
