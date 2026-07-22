@@ -55,6 +55,21 @@ function Tracking() {
     }).catch(() => {});
   }, [router.asPath]);
 
+  // ?discount=CODE auto-applies a code from a shareable/email link, then
+  // strips it from the URL so it doesn't linger or get re-applied on a
+  // later navigation within the same page. Waits on cart.hydrated so this
+  // can't race the effect in useCart.js that restores a previously-saved
+  // discount from localStorage on first mount.
+  React.useEffect(() => {
+    if (isAdmin || !cart.hydrated) return;
+    const code = router.query.discount;
+    if (!code || Array.isArray(code)) return;
+    cart.applyDiscount(code).then(() => {
+      const { discount, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    });
+  }, [isAdmin, cart.hydrated, cart.applyDiscount, router.query.discount, router.pathname]);
+
   React.useEffect(() => {
     const currentStage = () => {
       if (router.pathname === '/success') return 'purchased';
