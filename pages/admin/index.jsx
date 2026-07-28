@@ -95,6 +95,10 @@ export default function AdminDashboard() {
   const [live, setLive] = React.useState({ count: 0, byStage: {}, byCountry: {}, activity: EMPTY_ACTIVITY });
   const [reviews, setReviews] = React.useState([]);
   const [reviewsLoading, setReviewsLoading] = React.useState(true);
+  const [commentsLog, setCommentsLog] = React.useState([]);
+  const [commentsLoading, setCommentsLoading] = React.useState(true);
+  const [commentsRunning, setCommentsRunning] = React.useState(false);
+  const [commentsRunSummary, setCommentsRunSummary] = React.useState('');
   const [importForm, setImportForm] = React.useState({ productId: PRODUCTS[0]?.id || '', rating: 5, text: '', author: '' });
   const [importMessage, setImportMessage] = React.useState('');
   const [csvProductId, setCsvProductId] = React.useState(PRODUCTS[0]?.id || '');
@@ -196,10 +200,19 @@ export default function AdminDashboard() {
     fetch('/api/admin/discounts').then((r) => r.json()).then((data) => setDiscounts(data.discounts || [])).catch(() => {});
   }, []);
 
+  const loadCommentsLog = React.useCallback(() => {
+    setCommentsLoading(true);
+    fetch('/api/admin/comments')
+      .then((r) => r.json())
+      .then((data) => setCommentsLog(data.log || []))
+      .finally(() => setCommentsLoading(false));
+  }, []);
+
   React.useEffect(() => {
     loadReviews();
     loadDiscounts();
-  }, [loadReviews, loadDiscounts]);
+    loadCommentsLog();
+  }, [loadReviews, loadDiscounts, loadCommentsLog]);
 
   // Covers both the initial load and refetching when the funnel time
   // filter changes.
@@ -222,6 +235,26 @@ export default function AdminDashboard() {
       body: JSON.stringify({ productId, reviewId }),
     });
     loadReviews();
+  };
+
+  const handleRunCommentModeration = async () => {
+    setCommentsRunning(true);
+    setCommentsRunSummary('');
+    try {
+      const res = await fetch('/api/admin/comments', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        setCommentsRunSummary(`Error: ${data.error}`);
+      } else {
+        const spamCount = (data.actions || []).filter((a) => a.commentId).length;
+        setCommentsRunSummary(`Scanned ${data.postsScanned} post(s), ${data.commentsSeen} comment(s) — ${spamCount} spam action(s) taken.`);
+      }
+      loadCommentsLog();
+    } catch (err) {
+      setCommentsRunSummary(`Error: ${err.message}`);
+    } finally {
+      setCommentsRunning(false);
+    }
   };
 
   const handleApproveReview = async (productId, reviewId) => {
@@ -740,6 +773,44 @@ export default function AdminDashboard() {
             <button type="submit" style={S.btnFill}>Add code</button>
           </form>
           {discountFormMessage && <p style={{ fontSize: 12, color: T.ink, marginTop: 12 }}>{discountFormMessage}</p>}
+        </Section>
+
+        {/* AD COMMENT MODERATION */}
+        <Section
+          title={`Ad comment moderation (${commentsLog.length})`}
+          action={
+            <button onClick={handleRunCommentModeration} disabled={commentsRunning} style={S.btnOutline}>
+              {commentsRunning ? 'Scanning…' : 'Run now'}
+            </button>
+          }
+        >
+          <p style={{ fontSize: 12, color: T.soft, marginBottom: 16 }}>
+            Runs automatically every hour (see vercel.json) against the posts listed in
+            <code style={{ margin: '0 4px' }}>META_MONITORED_POST_IDS</code>. Comments scoring above the spam
+            threshold get a canned reply and are deleted; every action is logged below.
+          </p>
+          {commentsRunSummary && <p style={{ fontSize: 13, color: T.ink, marginBottom: 16 }}>{commentsRunSummary}</p>}
+          {commentsLoading ? (
+            <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>
+          ) : commentsLog.length === 0 ? (
+            <p style={{ color: T.soft, fontSize: 14 }}>No spam actions logged yet.</p>
+          ) : (
+            <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+              {commentsLog.map((entry) => (
+                <div key={entry.commentId} style={reviewRow}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: T.soft, marginBottom: 4 }}>
+                      {entry.author} · score {entry.score} · {entry.reasons?.join(', ')} · {new Date(entry.at).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: 14 }}>{entry.message}</div>
+                    <div style={{ fontSize: 12, color: entry.deleted ? '#2b7a3d' : '#a13d2b', marginTop: 4 }}>
+                      {entry.replied ? 'Replied' : 'Reply failed'} · {entry.deleted ? 'Deleted' : 'Delete failed'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Section>
       </div>
 

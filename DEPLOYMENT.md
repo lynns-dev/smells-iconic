@@ -154,6 +154,20 @@ To change them:
 
 ---
 
+## Step 5: Set Up Ad Comment Moderation (optional)
+
+Automatically replies to and deletes spam comments on your Facebook/Instagram ad posts.
+
+1. In [developers.facebook.com](https://developers.facebook.com), create/use an app with `pages_read_engagement` + `pages_manage_engagement`, and generate a long-lived **Page** access token (Graph API Explorer → select your Page → generate token → exchange for a long-lived one). Set it as `META_PAGE_ACCESS_TOKEN`.
+2. Find the post ID(s) behind your ads — in Ads Manager, open the ad preview and look for the underlying page-post ID (not the ad ID) — and set them as a comma-separated list in `META_MONITORED_POST_IDS`.
+3. Set `CRON_SECRET` to any random string (also add it to your Vercel project's environment variables — Vercel Cron sends it automatically as a bearer token).
+4. Deploy — `vercel.json` schedules `/api/cron/moderate-comments` to run hourly. (Vercel's Hobby plan only allows daily cron jobs; upgrade to Pro for hourly, or edit the schedule in `vercel.json`.)
+5. Check `/admin` → "Ad comment moderation" to see the action log or trigger a scan manually with "Run now".
+
+Spam is scored heuristically (`lib/spamDetector.js`) — links, phone numbers, WhatsApp mentions, crypto/investment pitches, "DM me"-style promo phrases, etc. Anything scoring ≥ `SPAM_SCORE_THRESHOLD` (default 50) gets a reply (`SPAM_REPLY_MESSAGE`) and is deleted. Tune the threshold or wording via those two env vars, or edit the pattern list directly for your specific spam.
+
+---
+
 ## Security Notes
 
 - `QB_CLIENT_SECRET` and the KV-stored tokens live only in Vercel's environment variables / KV store (never in code)
