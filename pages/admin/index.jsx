@@ -785,9 +785,9 @@ export default function AdminDashboard() {
           }
         >
           <p style={{ fontSize: 12, color: T.soft, marginBottom: 16 }}>
-            Runs automatically every hour (see vercel.json) against the posts listed in
-            <code style={{ margin: '0 4px' }}>META_MONITORED_POST_IDS</code>. Comments scoring above the spam
-            threshold get a canned reply and are deleted; every action is logged below.
+            Runs automatically every hour (see vercel.json), auto-discovering every ad in
+            <code style={{ margin: '0 4px' }}>META_AD_ACCOUNT_ID</code> — no per-ad setup needed. Comments scoring
+            above the spam threshold get a canned reply and are deleted; every action is logged below.
           </p>
           {commentsRunSummary && <p style={{ fontSize: 13, color: T.ink, marginBottom: 16 }}>{commentsRunSummary}</p>}
           {commentsLoading ? (
