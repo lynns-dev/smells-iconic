@@ -1,7 +1,7 @@
 import React from 'react';
 import { T } from '../lib/theme';
 
-const DEFAULT_MESSAGES = ['100% cruelty-free & vegan', 'Smells Iconic, an archive'];
+const DEFAULT_MESSAGES = ['30-day money-back guarantee', 'Free shipping over $89'];
 
 // Seamless scrolling marquee — repeats the message set 4x and animates
 // exactly one set-width of translation so the loop point is invisible.

@@ -62,7 +62,7 @@ export default function ApplePayButton({ amount, items, url, disabled, onSuccess
         supportedNetworks: config.supportedNetworks,
         requiredShippingContactFields: ['postalAddress', 'name'],
         requiredBillingContactFields: ['postalAddress'],
-        total: { label: 'SMELLS — ICONIC', amount: Number(stateRef.current.amount).toFixed(2), type: 'final' },
+        total: { label: 'The Sculpt Wand', amount: Number(stateRef.current.amount).toFixed(2), type: 'final' },
       };
 
       const session = new window.ApplePaySession(4, paymentRequest);

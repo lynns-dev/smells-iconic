@@ -5,7 +5,7 @@ export default function TermsOfService() {
   return (
     <PolicyLayout title="Terms & Conditions" updated="July 2026">
       <p>
-        These terms govern your use of smellsiconic.com and any purchase you make from us. By using this site or placing
+        These terms govern your use of this site and any purchase you make from us. By using this site or placing
         an order, you agree to these terms.
       </p>
 
@@ -36,24 +36,32 @@ export default function TermsOfService() {
 
       <PolicySection title="Shipping and returns">
         <p>
-          See our <a href="/shipping" style={{ textDecoration: 'underline' }}>Shipping Policy</a> and{' '}
-          <a href="/returns" style={{ textDecoration: 'underline' }}>Return Policy</a> for details on delivery times,
-          costs, and how to return or exchange an order.
+          Orders ship within 1–2 business days and typically arrive within 3–7 business days. If you're not happy
+          with your purchase, contact us within 30 days of delivery and we'll make it right.
+        </p>
+      </PolicySection>
+
+      <PolicySection title="Product use and disclaimer">
+        <p>
+          The Sculpt Wand is a personal massage and skincare tool, not a medical device, and is not intended to
+          diagnose, treat, cure, or prevent any medical condition. Results vary from person to person. Consult a
+          physician before use if you are pregnant, have a medical condition, or have concerns about whether this
+          product is right for you.
         </p>
       </PolicySection>
 
       <PolicySection title="Intellectual property">
         <p>
-          All content on this site — including text, graphics, logos, and product photography — belongs to Smells Iconic or
-          its licensors and may not be copied or reused without permission.
+          All content on this site — including text, graphics, logos, and product photography — belongs to The
+          Sculpt Wand or its licensors and may not be copied or reused without permission.
         </p>
       </PolicySection>
 
       <PolicySection title="Limitation of liability">
         <p>
-          Our products are provided "as is." To the fullest extent permitted by law, Smells Iconic is not liable for any
-          indirect, incidental, or consequential damages arising from your use of this site or our products. Nothing
-          here limits liability that cannot be limited under applicable law.
+          Our products are provided "as is." To the fullest extent permitted by law, The Sculpt Wand is not liable
+          for any indirect, incidental, or consequential damages arising from your use of this site or our
+          products. Nothing here limits liability that cannot be limited under applicable law.
         </p>
       </PolicySection>
 
@@ -67,7 +75,7 @@ export default function TermsOfService() {
       <PolicySection title="Contact">
         <p>
           Questions about these terms? Email{' '}
-          <a href="mailto:hello@smellsiconic.com" style={{ textDecoration: 'underline' }}>hello@smellsiconic.com</a>.
+          <a href="mailto:hello@thesculptwand.com" style={{ textDecoration: 'underline' }}>hello@thesculptwand.com</a>.
         </p>
       </PolicySection>
     </PolicyLayout>

@@ -8,7 +8,7 @@ import PayPalButton from '../components/PayPalButton';
 // finished yet; re-add the <ApplePayButton /> usage once that's sorted.
 import GooglePayButton from '../components/GooglePayButton';
 import { useCart } from '../lib/useCart';
-import { TASSEL_GIFT } from '../lib/products';
+import { GIFT_WITH_PURCHASE } from '../lib/products';
 import { tokenizeCard } from '../lib/qbPayments';
 import { fbTrack, generateEventId } from '../lib/fbPixel';
 import { getStoredAttribution } from '../lib/attribution';
@@ -231,7 +231,7 @@ export default function CheckoutPage() {
   }, [appliedDiscount]);
 
   React.useEffect(() => {
-    if (hydrated && cart.length === 0) router.replace('/shop');
+    if (hydrated && cart.length === 0) router.replace('/');
   }, [hydrated, cart.length, router]);
 
   // Bounced back here from /success after a declined or abandoned "or pay
@@ -273,11 +273,11 @@ export default function CheckoutPage() {
 
   const cardBrand = React.useMemo(() => detectCardBrand(card.number.replace(/\D/g, '')), [card.number]);
 
-  const hasTassel = cart.some((i) => i.id === TASSEL_GIFT.id);
+  const hasTassel = cart.some((i) => i.id === GIFT_WITH_PURCHASE.id);
   const tasselExpired = tasselSeconds <= 0;
   const tasselMins = Math.floor(tasselSeconds / 60);
   const tasselSecs = String(tasselSeconds % 60).padStart(2, '0');
-  const handleAddTassel = () => add({ ...TASSEL_GIFT, price: 0, originalPrice: TASSEL_GIFT.price }, 1);
+  const handleAddTassel = () => add({ ...GIFT_WITH_PURCHASE, price: 0, originalPrice: GIFT_WITH_PURCHASE.price }, 1);
 
   const shippingCost = total >= 50 || cart.length === 0 ? 0 : 5;
   const addressEntered = Boolean(shipping.address.trim() && shipping.city.trim() && shipping.state && shipping.zip.trim());
@@ -440,7 +440,7 @@ export default function CheckoutPage() {
     <div>
       <header style={topbar}>
         <Link href="/" style={{ ...S.wrap, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 64, textDecoration: 'none' }}>
-          <span style={{ fontFamily: T.display, fontSize: 16, color: T.ink }}>SMELLS — ICONIC</span>
+          <span style={{ fontFamily: T.display, fontSize: 16, color: T.ink }}>The Sculpt Wand</span>
         </Link>
       </header>
 
@@ -493,16 +493,16 @@ export default function CheckoutPage() {
           {!tasselExpired && (
             <section style={{ marginTop: 24 }}>
               <div style={tasselCard}>
-                <p style={{ ...S.label, marginBottom: 10 }}>Get a free {TASSEL_GIFT.name}</p>
+                <p style={{ ...S.label, marginBottom: 10 }}>Get a free {GIFT_WITH_PURCHASE.name}</p>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   <div style={tasselImgWrap}>
-                    <ProductVisual id={TASSEL_GIFT.id} images={TASSEL_GIFT.images} alt={TASSEL_GIFT.name} width={48} />
+                    <ProductVisual id={GIFT_WITH_PURCHASE.id} images={GIFT_WITH_PURCHASE.images} alt={GIFT_WITH_PURCHASE.name} width={48} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: T.sans, fontSize: 15, color: T.ink }}>{TASSEL_GIFT.name}</div>
+                    <div style={{ fontFamily: T.sans, fontSize: 15, color: T.ink }}>{GIFT_WITH_PURCHASE.name}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 3 }}>
                       <span style={{ fontSize: 13, color: T.soft, textDecoration: 'line-through' }}>
-                        ${TASSEL_GIFT.price.toFixed(2)}
+                        ${GIFT_WITH_PURCHASE.price.toFixed(2)}
                       </span>
                       <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>$0.00</span>
                     </div>
@@ -787,9 +787,6 @@ export default function CheckoutPage() {
 
       <div style={legalLinks}>
         <Link href="/terms">Terms & Conditions</Link>
-        <Link href="/privacy">Privacy Policy</Link>
-        <Link href="/returns">Return Policy</Link>
-        <Link href="/shipping">Shipping Policy</Link>
       </div>
 
       <style jsx>{`

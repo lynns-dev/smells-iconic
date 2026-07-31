@@ -11,7 +11,7 @@ export default function PolicyLayout({ title, updated, children }) {
   return (
     <div>
       <Head>
-        <title>{title} — Smells Iconic</title>
+        <title>{title} — The Sculpt Wand</title>
       </Head>
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
 
