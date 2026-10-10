@@ -78,7 +78,7 @@ export default function HomePage() {
       <section id="shop" style={band}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <p style={S.label}>The archive</p>
-          <h2 style={{ ...S.h2, marginTop: 12 }}>Two scents, <span style={S.it}>one closet.</span></h2>
+          <h2 style={{ ...S.h2, marginTop: 12 }}>Every character, <span style={S.it}>one closet.</span></h2>
           <div className="col-grid" style={colGrid}>
             {featured.map((p) => (
               <div key={p.id} className="col-item" style={pcard}>
@@ -135,7 +135,7 @@ export default function HomePage() {
               <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC mist</div>
               <div style={{ ...vbig, color: T.white }}>$28</div>
               <ul style={vlist}>
-                {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, soft, a little too sweet'].map((x, i) => (
+                {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, spiced, or cherry-sweet — your era'].map((x, i) => (
                   <li key={i} style={{ ...vli, color: 'rgba(251,245,241,0.78)', borderTop: i === 0 ? 'none' : `1px solid ${T.dline}` }}>{x}</li>
                 ))}
               </ul>
@@ -176,7 +176,7 @@ export default function HomePage() {
       <section id="notes" style={{ ...band, background: T.ink, color: T.white, textAlign: 'center' }}>
         <div style={S.wrap}>
           <p style={{ ...S.label, color: 'rgba(251,245,241,0.6)' }}>The formula</p>
-          <h2 style={{ ...S.h2, color: T.white, marginTop: 12 }}>Two moods, <span style={S.it}>one archive.</span></h2>
+          <h2 style={{ ...S.h2, color: T.white, marginTop: 12 }}>Every mood, <span style={S.it}>one archive.</span></h2>
           <div className="notes-grid" style={ncols}>
             {featured.map((p) => (
               <div key={p.id} className="notes-item" style={ncol}>
