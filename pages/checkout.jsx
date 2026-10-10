@@ -3,10 +3,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import ProductVisual from '../components/ProductVisual';
 import PayPalButton from '../components/PayPalButton';
-// ApplePayButton is temporarily not rendered on checkout — see git history /
-// components/ApplePayButton.jsx. Domain verification with PayPal isn't
-// finished yet; re-add the <ApplePayButton /> usage once that's sorted.
-import GooglePayButton from '../components/GooglePayButton';
+import AfterpayButton from '../components/AfterpayButton';
+import CashAppPayButton from '../components/CashAppPayButton';
+import {
+  createSquareCard, tokenizeSquareCard,
+  createApplePayButton, createGooglePayButton, tokenizeWalletWithContact,
+} from '../lib/squareClient';
 import { useCart } from '../lib/useCart';
 import { TASSEL_GIFT } from '../lib/products';
 import { tokenizeCard } from '../lib/qbPayments';
@@ -16,6 +18,21 @@ import { getSessionId } from '../lib/session';
 import { ALT_PAYMENT_METHODS, getAltPaymentMethod } from '../lib/altPaymentMethods';
 import { getStripeClient } from '../lib/stripeClient';
 import { T, S } from '../lib/theme';
+
+// Cards, Apple Pay and Google Pay go through Square (lib/squareClient.js,
+// /api/square-checkout), same as veil-ecommerce and Anese. Until the Square
+// keys are set in Vercel the page keeps its QuickBooks card form, so card
+// checkout never goes dark during the switch.
+const SQUARE_ENABLED = Boolean(process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID && process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID);
+
+// Afterpay and Cash App Pay have their own direct integration
+// (lib/afterpay.js); once one of those is live, its Stripe-backed
+// duplicate is hidden from the "another way to pay" list.
+const DIRECT_ALT_IDS = { afterpay_clearpay: 'afterpay', cashapp: 'cashapp' };
+
+function addressComplete(a) {
+  return Boolean(a?.address?.trim() && a?.city?.trim() && a?.state && a?.zip?.trim());
+}
 
 const US_STATES = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA',
@@ -221,6 +238,21 @@ export default function CheckoutPage() {
   const [error, setError] = React.useState('');
   const [tasselSeconds, setTasselSeconds] = React.useState(5 * 60);
 
+  // Square card form — Square renders its own number/expiry/CVC/ZIP fields
+  // into #square-card-container; the Card instance is kept for tokenize().
+  const squareCardRef = React.useRef(null);
+  const [squareReady, setSquareReady] = React.useState(false);
+  const [squareError, setSquareError] = React.useState('');
+  // Apple Pay / Google Pay (Square). null = still checking, so the
+  // containers exist for Square's attach(); false = not offered here.
+  const appleMethodRef = React.useRef(null);
+  const googleMethodRef = React.useRef(null);
+  const [appleAvailable, setAppleAvailable] = React.useState(SQUARE_ENABLED ? null : false);
+  const [googleAvailable, setGoogleAvailable] = React.useState(SQUARE_ENABLED ? null : false);
+  const [afterpayReady, setAfterpayReady] = React.useState(false);
+  const [cashAppReady, setCashAppReady] = React.useState(false);
+  const cashAppEventId = React.useMemo(() => generateEventId(), []);
+
   React.useEffect(() => {
     const t = setInterval(() => setTasselSeconds((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
@@ -271,6 +303,68 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
 
+  React.useEffect(() => {
+    if (!SQUARE_ENABLED || !hydrated || cart.length === 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const sqCard = await createSquareCard('square-card-container');
+        if (cancelled) { await sqCard.destroy(); return; }
+        squareCardRef.current = sqCard;
+        setSquareReady(true);
+      } catch (err) {
+        console.error('Square card setup failed:', err);
+        if (!cancelled) setSquareError('Payment form failed to load — please refresh and try again.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      squareCardRef.current?.destroy?.().catch(() => {});
+      squareCardRef.current = null;
+      setSquareReady(false);
+    };
+  }, [hydrated, cart.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Express Apple Pay / Google Pay sit above the form, so the wallet sheet
+  // also collects name, email and address — used when the form below
+  // hasn't been filled in yet. The total shown in the sheet is the one at
+  // mount; the amount charged is always read fresh from latestRef.
+  React.useEffect(() => {
+    if (!squareReady) return undefined;
+    let cancelled = false;
+    const cleanups = [];
+    (async () => {
+      const amount = latestRef.current.grandTotal;
+      const apple = await createApplePayButton(amount, undefined, { requestContact: true });
+      if (!cancelled) {
+        appleMethodRef.current = apple;
+        setAppleAvailable(Boolean(apple));
+      }
+      const google = await createGooglePayButton(amount, 'google-pay-button', undefined, { requestContact: true });
+      if (cancelled) {
+        google?.destroy?.().catch(() => {});
+      } else if (google) {
+        googleMethodRef.current = google;
+        setGoogleAvailable(true);
+        const btn = document.getElementById('google-pay-button');
+        const onClick = (event) => { event.preventDefault(); handleWalletPay(googleMethodRef, 'Google Pay'); };
+        btn?.addEventListener('click', onClick);
+        cleanups.push(() => btn?.removeEventListener('click', onClick));
+      } else {
+        setGoogleAvailable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      cleanups.forEach((fn) => fn());
+      appleMethodRef.current?.destroy?.().catch(() => {});
+      googleMethodRef.current?.destroy?.().catch(() => {});
+      appleMethodRef.current = null;
+      googleMethodRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [squareReady]);
+
   const cardBrand = React.useMemo(() => detectCardBrand(card.number.replace(/\D/g, '')), [card.number]);
 
   const hasTassel = cart.some((i) => i.id === TASSEL_GIFT.id);
@@ -284,6 +378,34 @@ export default function CheckoutPage() {
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
   const grandTotal = discountedTotal + shippingCost;
+
+  // Wallet click handlers are attached once and can fire much later — read
+  // the current form through this ref, not a stale closure.
+  const latestRef = React.useRef({});
+  latestRef.current = { email, shipping, cart, grandTotal };
+
+  const afterpayOrder = () => {
+    const { email, shipping, cart, grandTotal } = latestRef.current;
+    if (!email.trim() || !addressComplete(shipping)) {
+      return { error: 'Enter your email and delivery address first.' };
+    }
+    return {
+      amount: grandTotal, items: cart, email, shipping,
+      eventId: generateEventId(), url: window.location.href, attribution: getStoredAttribution(),
+    };
+  };
+  const cashAppOrder = email.trim() && addressEntered ? {
+    amount: grandTotal, items: cart, email, shipping,
+    eventId: cashAppEventId, url: typeof window !== 'undefined' ? window.location.href : null,
+    attribution: getStoredAttribution(),
+  } : null;
+  const altMethods = ALT_PAYMENT_METHODS.filter((m) => {
+    const direct = DIRECT_ALT_IDS[m.id];
+    return !(direct === 'afterpay' && afterpayReady) && !(direct === 'cashapp' && cashAppReady);
+  });
+  React.useEffect(() => {
+    if (payMethod !== 'card' && !altMethods.some((m) => m.id === payMethod)) setPayMethod('card');
+  }, [payMethod, altMethods]);
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) return;
@@ -356,6 +478,66 @@ export default function CheckoutPage() {
     if (confirmError) throw new Error(confirmError.message || 'Payment failed. Please try again.');
   };
 
+  // Shared by the Square card form and Apple Pay / Google Pay — every Square
+  // method produces the same single-use token, charged by /api/square-checkout.
+  const completeSquareOrder = async (token, paymentMethodLabel, override = {}) => {
+    const { cart, grandTotal } = latestRef.current;
+    const orderEmail = override.email ?? latestRef.current.email;
+    const orderShipping = override.shipping ?? latestRef.current.shipping;
+    const purchaseEventId = generateEventId();
+    const res = await fetch('/api/square-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token,
+        amount: grandTotal,
+        items: cart,
+        email: orderEmail,
+        shipping: orderShipping,
+        eventId: purchaseEventId,
+        url: window.location.href,
+        paymentMethod: paymentMethodLabel,
+        attribution: getStoredAttribution(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Payment failed');
+
+    sessionStorage.setItem('si-purchase', JSON.stringify({
+      eventId: purchaseEventId,
+      amount: grandTotal,
+      contentIds: cart.map((i) => i.id),
+      contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
+    }));
+    await router.push('/success');
+    clear();
+  };
+
+  // Apple Pay / Google Pay: use the form if it's filled in, otherwise the
+  // name/email/address the wallet sheet collected.
+  const handleWalletPay = async (methodRef, label) => {
+    setError('');
+    if (!methodRef.current) return;
+    setSubmitting(true);
+    try {
+      const { token, contact } = await tokenizeWalletWithContact(methodRef.current);
+      const { email, shipping } = latestRef.current;
+      const formOk = email.trim() && addressComplete(shipping);
+      const override = formOk ? {} : {
+        email: email.trim() || contact?.email || '',
+        shipping: addressComplete(shipping) ? shipping : contact,
+      };
+      if (!formOk && (!override.email || !addressComplete(override.shipping))) {
+        throw new Error(`Enter your email and delivery address below, then pay with ${label}.`);
+      }
+      await completeSquareOrder(token, label, override);
+    } catch (err) {
+      if (!err.cancelled) setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -363,6 +545,16 @@ export default function CheckoutPage() {
     try {
       if (payMethod !== 'card') {
         await handleAltPaySubmit();
+        return;
+      }
+
+      if (SQUARE_ENABLED) {
+        if (!squareReady || !squareCardRef.current) {
+          throw new Error('Payment form is still loading — please wait a moment and try again.');
+        }
+        if (!addressComplete(shipping)) throw new Error('Enter your delivery address.');
+        const token = await tokenizeSquareCard(squareCardRef.current);
+        await completeSquareOrder(token, 'Card');
         return;
       }
 
@@ -457,6 +649,18 @@ export default function CheckoutPage() {
           <section>
             <p style={{ ...S.label, marginBottom: 10 }}>Express checkout</p>
             <div style={expressStack}>
+              {appleAvailable !== false && (
+                <button
+                  type="button"
+                  className="apple-pay-button"
+                  aria-label="Apple Pay"
+                  disabled={submitting}
+                  onClick={() => handleWalletPay(appleMethodRef, 'Apple Pay')}
+                />
+              )}
+              {SQUARE_ENABLED && (
+                <div id="google-pay-button" style={{ width: '100%', minHeight: 44, display: googleAvailable === false ? 'none' : 'block' }} />
+              )}
               <PayPalButton
                 amount={grandTotal}
                 items={cart}
@@ -467,14 +671,6 @@ export default function CheckoutPage() {
               />
               <PayPalButton
                 fundingSource="venmo"
-                amount={grandTotal}
-                items={cart}
-                url={typeof window !== 'undefined' ? window.location.href : ''}
-                disabled={submitting}
-                onSuccess={handlePaypalSuccess}
-                onError={handlePaypalError}
-              />
-              <GooglePayButton
                 amount={grandTotal}
                 items={cart}
                 url={typeof window !== 'undefined' ? window.location.href : ''}
@@ -583,7 +779,17 @@ export default function CheckoutPage() {
                 <span style={{ marginLeft: 'auto' }}><CardBrandBadges /></span>
               </label>
 
-              {payMethod === 'card' && (
+              {SQUARE_ENABLED && (
+                <div style={{ marginTop: 14, display: payMethod === 'card' ? 'block' : 'none' }}>
+                  <div id="square-card-container" style={{ minHeight: 48 }} />
+                  {!squareReady && !squareError && (
+                    <p style={{ fontSize: 12, color: T.soft, marginTop: 8 }}>Loading payment form…</p>
+                  )}
+                  {squareError && <p style={{ fontSize: 12, color: '#a13d2b', marginTop: 8 }}>{squareError}</p>}
+                </div>
+              )}
+
+              {!SQUARE_ENABLED && payMethod === 'card' && (
                 <div style={{ marginTop: 14 }}>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.soft, display: 'flex' }}>
@@ -666,7 +872,11 @@ export default function CheckoutPage() {
                 <span style={dividerLine} />
               </div>
 
-              {ALT_PAYMENT_METHODS.map((m) => (
+              <AfterpayButton total={grandTotal} getOrder={afterpayOrder} onError={setError} onReady={setAfterpayReady} />
+              <CashAppPayButton order={cashAppOrder} purchaseKey="si-purchase" onError={setError} onReady={setCashAppReady} />
+              {(afterpayReady || cashAppReady) && altMethods.length > 0 && <div style={{ height: 6 }} />}
+
+              {altMethods.map((m) => (
                 <label key={m.id} style={payRadioRow}>
                   <input type="radio" name="payMethod" checked={payMethod === m.id} onChange={() => setPayMethod(m.id)} />
                   <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{m.label}</span>
@@ -701,7 +911,7 @@ export default function CheckoutPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (SQUARE_ENABLED && payMethod === 'card' && !squareReady)}
             style={{
               ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 20,
               height: 58, fontSize: 13, opacity: submitting ? 0.6 : 1,
@@ -719,7 +929,7 @@ export default function CheckoutPage() {
           </div>
           <p style={{ fontSize: 11, color: T.soft, textAlign: 'center', marginTop: 8 }}>
             {payMethod === 'card'
-              ? 'Payments securely processed by QuickBooks Payments (Intuit)'
+              ? `Payments securely processed by ${SQUARE_ENABLED ? 'Square' : 'QuickBooks Payments (Intuit)'}`
               : `You’ll be redirected to complete payment with ${getAltPaymentMethod(payMethod)?.label}, then brought back here.`}
           </p>
         </form>
@@ -793,6 +1003,20 @@ export default function CheckoutPage() {
       </div>
 
       <style jsx>{`
+        .apple-pay-button {
+          display: inline-block;
+          width: 100%;
+          min-height: 44px;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          -webkit-appearance: -apple-pay-button;
+          -apple-pay-button-type: buy;
+          -apple-pay-button-style: black;
+        }
+        @supports not (-webkit-appearance: -apple-pay-button) {
+          .apple-pay-button { display: none; }
+        }
         :global(.row-2) { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         :global(.row-3) { display: grid; grid-template-columns: 1.4fr 0.8fr 1fr; gap: 10px; }
         .summary-toggle { display: none; }
