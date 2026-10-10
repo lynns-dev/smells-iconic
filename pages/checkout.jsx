@@ -669,45 +669,6 @@ export default function CheckoutPage() {
 
       <div className="checkout-grid" style={checkoutGrid}>
         <form onSubmit={handleSubmit} style={formCol}>
-          <section>
-            <p style={{ ...S.label, marginBottom: 10 }}>Express checkout</p>
-            <div style={expressStack}>
-              {appleAvailable !== false && (
-                <button
-                  type="button"
-                  className="apple-pay-button"
-                  aria-label="Apple Pay"
-                  disabled={submitting}
-                  onClick={() => handleWalletPay(appleMethodRef, 'Apple Pay')}
-                />
-              )}
-              {SQUARE_ENABLED && (
-                <div id="google-pay-button" style={{ width: '100%', minHeight: 44, display: googleAvailable === false ? 'none' : 'block' }} />
-              )}
-              <PayPalButton
-                amount={grandTotal}
-                items={cart}
-                url={typeof window !== 'undefined' ? window.location.href : ''}
-                disabled={submitting}
-                onSuccess={handlePaypalSuccess}
-                onError={handlePaypalError}
-              />
-              <PayPalButton
-                fundingSource="venmo"
-                amount={grandTotal}
-                items={cart}
-                url={typeof window !== 'undefined' ? window.location.href : ''}
-                disabled={submitting}
-                onSuccess={handlePaypalSuccess}
-                onError={handlePaypalError}
-              />
-            </div>
-            <div style={dividerRow}>
-              <span style={dividerLine} />
-              <span style={dividerText}>OR PAY WITH CARD</span>
-              <span style={dividerLine} />
-            </div>
-          </section>
 
           {!tasselExpired && (
             <section style={{ marginTop: 24 }}>
@@ -796,25 +757,80 @@ export default function CheckoutPage() {
                 All transactions are secure and encrypted.
               </span>
             </div>
-            <div style={paymentBox}>
-              <label style={payRadioRow}>
-                <input type="radio" name="payMethod" checked={payMethod === 'card'} onChange={() => setPayMethod('card')} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, whiteSpace: 'nowrap' }}>Credit card</span>
-                <span style={{ marginLeft: 'auto' }}><CardBrandBadges /></span>
+            {/* Same layout as veil-ecommerce / Anese: every way to pay other
+                than typing a card stacked first — Square's Apple Pay / Google
+                Pay, Afterpay, Cash App Pay, then PayPal / Venmo — with one "or
+                pay by card" line, then the card form in its own rounded box.
+                Google Pay's container stays in the DOM (hidden once confirmed
+                unavailable) because Square's attach() needs it by id. */}
+            <div>
+              {appleAvailable !== false && (
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="apple-pay-button"
+                    aria-label="Apple Pay"
+                    disabled={submitting}
+                    onClick={() => handleWalletPay(appleMethodRef, 'Apple Pay')}
+                  />
+                </div>
+              )}
+              {SQUARE_ENABLED && (
+                <div style={{ marginTop: 10, display: googleAvailable === false ? 'none' : 'block' }}>
+                  <div id="google-pay-button" style={{ width: '100%', minHeight: 44 }} />
+                </div>
+              )}
+              <AfterpayButton total={grandTotal} getOrder={afterpayOrder} onError={setError} onReady={setAfterpayReady} />
+              <CashAppPayButton order={cashAppOrder} purchaseKey="si-purchase" onError={setError} onReady={setCashAppReady} />
+              <div style={{ marginTop: 10 }}>
+                <PayPalButton
+                  amount={grandTotal}
+                  items={cart}
+                  url={typeof window !== 'undefined' ? window.location.href : ''}
+                  disabled={submitting}
+                  onSuccess={handlePaypalSuccess}
+                  onError={handlePaypalError}
+                />
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <PayPalButton
+                  fundingSource="venmo"
+                  amount={grandTotal}
+                  items={cart}
+                  url={typeof window !== 'undefined' ? window.location.href : ''}
+                  disabled={submitting}
+                  onSuccess={handlePaypalSuccess}
+                  onError={handlePaypalError}
+                />
+              </div>
+              <p style={{ fontSize: 12, color: T.soft, textAlign: 'center', margin: '14px 0 0' }}>or pay by card</p>
+            </div>
+
+            <div style={{ ...paymentList, marginTop: 16 }}>
+              <label style={{ ...accordionRow, cursor: altMethods.length ? 'pointer' : 'default' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {altMethods.length > 0 && (
+                    <input type="radio" name="payMethod" checked={payMethod === 'card'} onChange={() => setPayMethod('card')} />
+                  )}
+                  <span style={{ fontWeight: 700, fontSize: 16, color: T.ink }}>Credit or Debit Card</span>
+                </span>
+                <CardBrandBadges />
               </label>
 
               {SQUARE_ENABLED && (
-                <div style={{ marginTop: 14, display: payMethod === 'card' ? 'block' : 'none' }}>
+                <div style={{ ...accordionBody, display: payMethod === 'card' ? 'block' : 'none' }}>
+                  {/* Square renders its own number/expiry/CVC/ZIP fields here. */}
                   <div id="square-card-container" style={{ minHeight: 48 }} />
                   {!squareReady && !squareError && (
                     <p style={{ fontSize: 12, color: T.soft, marginTop: 8 }}>Loading payment form…</p>
                   )}
                   {squareError && <p style={{ fontSize: 12, color: '#a13d2b', marginTop: 8 }}>{squareError}</p>}
+                  <p style={{ fontSize: 12, color: T.soft, margin: '10px 0 0' }}>Billing address: same as shipping address.</p>
                 </div>
               )}
 
               {!SQUARE_ENABLED && payMethod === 'card' && (
-                <div style={{ marginTop: 14 }}>
+                <div style={accordionBody}>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.soft, display: 'flex' }}>
                       <LockIcon />
@@ -890,20 +906,13 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <div style={dividerRow}>
-                <span style={dividerLine} />
-                <span style={dividerText}>OR CHOOSE ANOTHER WAY TO PAY</span>
-                <span style={dividerLine} />
-              </div>
-
-              <AfterpayButton total={grandTotal} getOrder={afterpayOrder} onError={setError} onReady={setAfterpayReady} />
-              <CashAppPayButton order={cashAppOrder} purchaseKey="si-purchase" onError={setError} onReady={setCashAppReady} />
-              {(afterpayReady || cashAppReady) && altMethods.length > 0 && <div style={{ height: 6 }} />}
 
               {altMethods.map((m) => (
-                <label key={m.id} style={payRadioRow}>
-                  <input type="radio" name="payMethod" checked={payMethod === m.id} onChange={() => setPayMethod(m.id)} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{m.label}</span>
+                <label key={m.id} style={{ ...accordionRow, borderTop: `1px solid ${T.line}`, borderBottom: 'none', cursor: 'pointer' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="radio" name="payMethod" checked={payMethod === m.id} onChange={() => setPayMethod(m.id)} />
+                    <span style={{ fontWeight: 700, fontSize: 16, color: T.ink }}>{m.label}</span>
+                  </span>
                 </label>
               ))}
             </div>
@@ -936,15 +945,12 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={submitting || (SQUARE_ENABLED && payMethod === 'card' && !squareReady)}
-            style={{
-              ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 20,
-              height: 58, fontSize: 13, opacity: submitting ? 0.6 : 1,
-            }}
+            style={{ ...bigButton, marginTop: 20, opacity: submitting ? 0.6 : 1 }}
           >
             {submitting
               ? 'Processing…'
               : payMethod === 'card'
-                ? `Place order — $${grandTotal.toFixed(2)}`
+                ? `Complete Order — $${grandTotal.toFixed(2)}`
                 : `Continue to ${getAltPaymentMethod(payMethod)?.label} — $${grandTotal.toFixed(2)}`}
           </button>
           <div style={secureNote}>
@@ -1078,10 +1084,6 @@ const summaryToggle = {
 const checkoutGrid = { display: 'grid', maxWidth: 1280, margin: '0 auto', columnGap: 40, rowGap: 20 };
 const formCol = { padding: '32px 10px', borderRight: `1px solid ${T.line}` };
 const summaryCol = { padding: '32px 40px', background: T.paper };
-const expressStack = { display: 'flex', flexDirection: 'column', gap: 10 };
-const dividerRow = { display: 'flex', alignItems: 'center', gap: 14, margin: '14px 0 0' };
-const dividerLine = { flex: 1, height: 1, background: T.line };
-const dividerText = { fontSize: 10, letterSpacing: '0.14em', color: T.soft, fontFamily: T.sans };
 const secureNote = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, fontSize: 12, color: T.soft };
 const sectionHead = { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, flexWrap: 'wrap', gap: 8 };
 const sectionTitle = { fontFamily: T.sans, fontWeight: 700, fontSize: 22, margin: 0 };
@@ -1090,10 +1092,15 @@ const input = {
   fontFamily: T.sans, fontSize: 14, fontWeight: 400, color: T.ink, outline: 'none', boxSizing: 'border-box', borderRadius: 4,
 };
 const checkboxLabel = { display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, fontSize: 13, color: T.soft };
-const paymentBox = { border: `1px solid ${T.line}`, background: T.paper, padding: 16 };
-const payRadioRow = {
-  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', cursor: 'pointer',
-  fontFamily: T.sans,
+const paymentList = { border: `1.5px solid ${T.ink}`, borderRadius: 14, background: T.white, overflow: 'hidden' };
+const accordionRow = {
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+  padding: '18px 18px', borderBottom: `1px solid ${T.line}`, background: T.white, margin: 0,
+};
+const accordionBody = { padding: '16px 18px 20px', background: T.white };
+const bigButton = {
+  ...S.btnFill, width: '100%', height: 60, borderRadius: 14, justifyContent: 'center',
+  fontSize: 15, letterSpacing: 'normal', textTransform: 'none', fontWeight: 700,
 };
 const tasselCard = { border: `1px solid ${T.line}`, background: T.paper, padding: 16 };
 const tasselImgWrap = {
