@@ -62,7 +62,7 @@ export default function ShopPage() {
       <CartDrawer {...c} onClose={() => c.setOpen(false)} />
 
       <style jsx>{`
-        .shop-grid { grid-template-columns: repeat(3, 1fr); }
+        .shop-grid { grid-template-columns: repeat(4, 1fr); }
         @media (max-width: 960px) {
           .shop-grid { grid-template-columns: repeat(2, 1fr); }
         }

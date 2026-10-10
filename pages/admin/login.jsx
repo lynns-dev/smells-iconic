@@ -32,7 +32,7 @@ export default function AdminLogin() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.paper }}>
       <Head>
-        <title>Smells Iconic Admin</title>
+        <title key="title">Smells Iconic Admin</title>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
         <meta name="theme-color" content={T.ink} />

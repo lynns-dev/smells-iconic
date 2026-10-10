@@ -369,7 +369,7 @@ export default function AdminDashboard() {
   return (
     <div style={{ minHeight: '100vh', background: T.paper, padding: '32px 24px 80px' }}>
       <Head>
-        <title>Smells Iconic Admin</title>
+        <title key="title">Smells Iconic Admin</title>
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192.svg" />
         <meta name="theme-color" content={T.ink} />

@@ -228,11 +228,11 @@ export default function HomePage() {
         .hero-text { padding: 0 40px 72px; }
         .hm-grid { grid-template-columns: 1fr 1fr; }
         .hm-cell + .hm-cell { border-left: 1px solid ${T.line}; }
-        .col-grid { grid-template-columns: repeat(2, 1fr); }
+        .col-grid { grid-template-columns: repeat(4, 1fr); }
         .new-scent-grid { grid-template-columns: 1fr 1fr; }
         .rev-grid { grid-template-columns: repeat(3, 1fr); }
         .rev-item:nth-child(n + 2) { border-left: 1px solid ${T.line}; }
-        .notes-grid { grid-template-columns: repeat(2, 1fr); }
+        .notes-grid { grid-template-columns: repeat(4, 1fr); }
         .notes-item:nth-child(n + 2) { border-left: 1px solid ${T.dline}; }
         .rit-grid { grid-template-columns: repeat(3, 1fr); }
 
@@ -240,6 +240,7 @@ export default function HomePage() {
           .hero-grid { grid-template-columns: 1fr; height: auto; min-height: 0; }
           .hero-img { order: -1; aspect-ratio: 1312 / 1199; }
           .hero-text { padding: 40px 24px 48px; }
+          .col-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 680px) {
@@ -280,7 +281,7 @@ const vtag = { fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase'
 const vbig = { fontFamily: T.display, fontWeight: 400, fontSize: 42, lineHeight: 1, marginBottom: 18 };
 const vlist = { listStyle: 'none', fontSize: 14, color: T.soft };
 const vli = { padding: '8px 0' };
-const colGrid = { display: 'grid', maxWidth: 820, margin: '50px auto 0', gap: 40 };
+const colGrid = { display: 'grid', margin: '50px auto 0', gap: 24 };
 const newScentGrid = { ...S.wrap, display: 'grid', gap: 60, alignItems: 'center' };
 const newScentImg = { aspectRatio: '4/5', overflow: 'hidden', border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.paper };
 const pcard = { textAlign: 'center' };
@@ -290,7 +291,7 @@ const pcardText = { padding: '20px 30px 40px' };
 const pnotes = { fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, margin: '8px 0 6px' };
 const revGrid = { display: 'grid', border: `1px solid ${T.line}`, marginTop: 48 };
 const rev = { padding: '34px 30px', textAlign: 'left' };
-const ncols = { display: 'grid', maxWidth: 820, margin: '48px auto 0', border: `1px solid ${T.dline}` };
+const ncols = { display: 'grid', margin: '48px auto 0', border: `1px solid ${T.dline}` };
 const ncol = { padding: '38px 14px' };
 const ritGrid = { display: 'grid', gap: 44, marginTop: 54 };
 const newsForm = { display: 'flex', maxWidth: 420, margin: '0 auto', borderBottom: `1px solid ${T.ink}` };
