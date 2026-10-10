@@ -65,7 +65,7 @@ export default function HomePage() {
           <div style={heroContent}>
             <span style={{ ...S.label, display: 'block', marginBottom: 26, color: 'rgba(251,245,241,0.85)' }}>Body mist · an archive</span>
             <h1 style={heroH1}>Smell like <span style={S.it}>the main character.</span></h1>
-            <p style={heroSub}>Body mists pulled from the cultural record — three characters, worn like a costume, remembered like a scent.</p>
+            <p style={heroSub}>Scents pulled from the cultural record — worn like a costume, remembered like a scent.</p>
             {siteReviews.count > 0 && (
               <div style={hrate}>
                 <span style={{ letterSpacing: '2px', color: T.white }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
@@ -88,7 +88,7 @@ export default function HomePage() {
       <section id="shop" style={band}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <p style={S.label}>The archive</p>
-          <h2 style={{ ...S.h2, marginTop: 12 }}>Three characters, <span style={S.it}>one closet.</span></h2>
+          <h2 style={{ ...S.h2, marginTop: 12 }}>Two scents, <span style={S.it}>one closet.</span></h2>
           <div className="col-grid" style={colGrid}>
             {featured.map((p) => (
               <div key={p.id} className="col-item" style={pcard}>
@@ -145,7 +145,7 @@ export default function HomePage() {
               <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC mist</div>
               <div style={{ ...vbig, color: T.white }}>$28</div>
               <ul style={vlist}>
-                {['3 characters to choose from', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, green, or clean — your era'].map((x, i) => (
+                {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, soft, a little too sweet'].map((x, i) => (
                   <li key={i} style={{ ...vli, color: 'rgba(251,245,241,0.78)', borderTop: i === 0 ? 'none' : `1px solid ${T.dline}` }}>{x}</li>
                 ))}
               </ul>
@@ -186,7 +186,7 @@ export default function HomePage() {
       <section id="notes" style={{ ...band, background: T.ink, color: T.white, textAlign: 'center' }}>
         <div style={S.wrap}>
           <p style={{ ...S.label, color: 'rgba(251,245,241,0.6)' }}>The formula</p>
-          <h2 style={{ ...S.h2, color: T.white, marginTop: 12 }}>Three moods, <span style={S.it}>one archive.</span></h2>
+          <h2 style={{ ...S.h2, color: T.white, marginTop: 12 }}>Two moods, <span style={S.it}>one archive.</span></h2>
           <div className="notes-grid" style={ncols}>
             {featured.map((p) => (
               <div key={p.id} className="notes-item" style={ncol}>
@@ -236,11 +236,11 @@ export default function HomePage() {
       <style jsx>{`
         .hm-grid { grid-template-columns: 1fr 1fr; }
         .hm-cell + .hm-cell { border-left: 1px solid ${T.line}; }
-        .col-grid { grid-template-columns: repeat(3, 1fr); }
+        .col-grid { grid-template-columns: repeat(2, 1fr); }
         .new-scent-grid { grid-template-columns: 1fr 1fr; }
         .rev-grid { grid-template-columns: repeat(3, 1fr); }
         .rev-item:nth-child(n + 2) { border-left: 1px solid ${T.line}; }
-        .notes-grid { grid-template-columns: repeat(3, 1fr); }
+        .notes-grid { grid-template-columns: repeat(2, 1fr); }
         .notes-item:nth-child(n + 2) { border-left: 1px solid ${T.dline}; }
         .rit-grid { grid-template-columns: repeat(3, 1fr); }
 
@@ -287,7 +287,7 @@ const vtag = { fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase'
 const vbig = { fontFamily: T.display, fontWeight: 400, fontSize: 42, lineHeight: 1, marginBottom: 18 };
 const vlist = { listStyle: 'none', fontSize: 14, color: T.soft };
 const vli = { padding: '8px 0' };
-const colGrid = { display: 'grid', marginTop: 50, gap: 40 };
+const colGrid = { display: 'grid', maxWidth: 820, margin: '50px auto 0', gap: 40 };
 const newScentGrid = { ...S.wrap, display: 'grid', gap: 60, alignItems: 'center' };
 const newScentImg = { aspectRatio: '4/5', overflow: 'hidden', border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.paper };
 const pcard = { textAlign: 'center' };
