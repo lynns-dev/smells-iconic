@@ -1,4 +1,5 @@
 import React from 'react';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { CartProvider, useCart } from '../lib/useCart';
 import { loadPixel, fbTrack } from '../lib/fbPixel';
@@ -90,6 +91,11 @@ export default function App({ Component, pageProps }) {
 
   return (
     <CartProvider>
+      {/* Default browser-tab title; pages with their own (product pages,
+          policies, admin) override it via the same key. */}
+      <Head>
+        <title key="title">Smells Iconic — Smell like the main character</title>
+      </Head>
       <Tracking />
       <div key={router.asPath} className="page-fade">
         <Component {...pageProps} />

@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import Header from '../../components/Header';
 import CartDrawer from '../../components/CartDrawer';
 import ProductVisual from '../../components/ProductVisual';
@@ -147,6 +148,9 @@ export default function ProductPage({ product }) {
 
   return (
     <div style={{ paddingBottom: 76 }}>
+      <Head>
+        <title key="title">{`${product.name} — Smells Iconic`}</title>
+      </Head>
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
 
       <section style={{ maxWidth: T.maxw, margin: '0 auto', padding: '22px 40px 0' }}>
