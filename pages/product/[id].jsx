@@ -241,15 +241,15 @@ export default function ProductPage({ product }) {
                 </AccordionRow>
               )}
               <AccordionRow title="How to use" open={openSection === 'how-to-use'} onToggle={() => toggleSection('how-to-use')}>
-                {HOW_TO_USE.map(([h, p], i) => (
-                  <div key={i} style={{ marginBottom: i < HOW_TO_USE.length - 1 ? 18 : 0 }}>
+                {(product.howToUse || HOW_TO_USE).map(([h, p], i) => (
+                  <div key={i} style={{ marginBottom: i < (product.howToUse || HOW_TO_USE).length - 1 ? 18 : 0 }}>
                     <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 17, marginBottom: 4 }}>{h}</div>
                     <p style={{ fontSize: 13, color: T.soft, margin: 0 }}>{p}</p>
                   </div>
                 ))}
               </AccordionRow>
               <AccordionRow title="Ingredients" open={openSection === 'ingredients'} onToggle={() => toggleSection('ingredients')}>
-                <p style={{ fontSize: 14, color: T.soft, margin: 0 }}>{INGREDIENTS}</p>
+                <p style={{ fontSize: 14, color: T.soft, margin: 0 }}>{product.ingredients || INGREDIENTS}</p>
               </AccordionRow>
             </div>
           </div>
@@ -294,7 +294,7 @@ export default function ProductPage({ product }) {
       <section style={{ ...narrowBand, background: T.paper, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}` }}>
         <div style={narrowWrap}>
           <p style={S.label}>Why you’ll love it</p>
-          {BENEFITS.map(([h, p], i) => (
+          {(product.benefits || BENEFITS).map(([h, p], i) => (
             <div key={i} style={benefitRow}>
               <span style={benefitNum}>{String(i + 1).padStart(2, '0')}</span>
               <div>
@@ -378,7 +378,7 @@ export default function ProductPage({ product }) {
           <p style={S.label}>Questions</p>
           <h2 style={{ ...S.h2, marginTop: 12, fontSize: 'clamp(26px,3vw,36px)' }}>Before you order.</h2>
           <div style={{ marginTop: 30 }}>
-            {FAQS.map(([q, a], i) => (
+            {(product.faqs || FAQS).map(([q, a], i) => (
               <AccordionRow key={i} title={q} open={openFaq === i} onToggle={() => toggleFaq(i)}>
                 <p style={{ fontSize: 14, color: T.soft, margin: 0 }}>{a}</p>
               </AccordionRow>
