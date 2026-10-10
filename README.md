@@ -1,10 +1,12 @@
-# Smells Iconic — E-commerce (Next.js + QuickBooks Payments + Stripe)
+# Smells Iconic — E-commerce (Next.js + Square + Afterpay)
 
 Blush-and-cream storefront for Smells Iconic body mists. Next.js 14
-(Pages Router) with a custom, Shopify-style single-page checkout that
-charges cards via QuickBooks Payments, with Cash App Pay/Klarna/Afterpay/
-Affirm as backup "or choose another way to pay" options via Stripe —
-customers only ever see each method's own name, never "Stripe".
+(Pages Router) with a custom, Shopify-style single-page checkout. Same
+payment setup as veil-ecommerce / Anese: cards, Apple Pay and Google Pay
+through Square (falls back to the QuickBooks card form until the Square
+keys are set), Afterpay and Cash App Pay through Afterpay directly, PayPal
+and Venmo, and Klarna/Affirm via Stripe — customers only ever see each
+method's own name, never "Stripe".
 
 Placeholder graphics stand in for real product photography — see
 "Notes before launch" below for what to swap in.
