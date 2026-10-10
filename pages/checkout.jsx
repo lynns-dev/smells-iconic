@@ -10,15 +10,12 @@ import {
   createApplePayButton, createGooglePayButton, tokenizeWalletWithContact,
 } from '../lib/squareClient';
 import { useCart } from '../lib/useCart';
-import { TASSEL_GIFT } from '../lib/products';
 import { tokenizeCard } from '../lib/qbPayments';
 import { fbTrack, generateEventId, refreshPixelIdentity } from '../lib/fbPixel';
 import { firstTimeThisSession, cartSignature } from '../lib/funnelTracking';
 import { getIdentity, rememberIdentity } from '../lib/identity';
 import { getStoredAttribution } from '../lib/attribution';
 import { getSessionId } from '../lib/session';
-import { ALT_PAYMENT_METHODS, getAltPaymentMethod } from '../lib/altPaymentMethods';
-import { getStripeClient } from '../lib/stripeClient';
 import { T, S } from '../lib/theme';
 
 // Cards, Apple Pay and Google Pay go through Square (lib/squareClient.js,
@@ -26,11 +23,6 @@ import { T, S } from '../lib/theme';
 // keys are set in Vercel the page keeps its QuickBooks card form, so card
 // checkout never goes dark during the switch.
 const SQUARE_ENABLED = Boolean(process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID && process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID);
-
-// Afterpay and Cash App Pay have their own direct integration
-// (lib/afterpay.js); once one of those is live, its Stripe-backed
-// duplicate is hidden from the "another way to pay" list.
-const DIRECT_ALT_IDS = { afterpay_clearpay: 'afterpay', cashapp: 'cashapp' };
 
 function addressComplete(a) {
   return Boolean(a?.address?.trim() && a?.city?.trim() && a?.state && a?.zip?.trim());
@@ -213,7 +205,7 @@ function AddressFields({ value, onChange, idPrefix }) {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, total, hydrated, clear, add, appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal } = useCart();
+  const { cart, total, hydrated, clear, appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal } = useCart();
 
   const [email, setEmail] = React.useState('');
   const [newsletter, setNewsletter] = React.useState(true);
@@ -221,7 +213,6 @@ export default function CheckoutPage() {
   const [billingSame, setBillingSame] = React.useState(true);
   const [billing, setBilling] = React.useState(emptyAddress);
   const [card, setCard] = React.useState({ number: '', expiry: '', cvc: '' });
-  const [payMethod, setPayMethod] = React.useState('card');
   const [cvcTipOpen, setCvcTipOpen] = React.useState(false);
   const cvcTipRef = React.useRef(null);
 
@@ -238,7 +229,6 @@ export default function CheckoutPage() {
   const [summaryOpen, setSummaryOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
-  const [tasselSeconds, setTasselSeconds] = React.useState(5 * 60);
 
   // Square card form — Square renders its own number/expiry/CVC/ZIP fields
   // into #square-card-container; the Card instance is kept for tokenize().
@@ -254,11 +244,6 @@ export default function CheckoutPage() {
   const [afterpayReady, setAfterpayReady] = React.useState(false);
   const [cashAppReady, setCashAppReady] = React.useState(false);
   const cashAppEventId = React.useMemo(() => generateEventId(), []);
-
-  React.useEffect(() => {
-    const t = setInterval(() => setTasselSeconds((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   React.useEffect(() => {
     if (appliedDiscount) setDiscountCode(appliedDiscount.code);
@@ -374,11 +359,6 @@ export default function CheckoutPage() {
 
   const cardBrand = React.useMemo(() => detectCardBrand(card.number.replace(/\D/g, '')), [card.number]);
 
-  const hasTassel = cart.some((i) => i.id === TASSEL_GIFT.id);
-  const tasselExpired = tasselSeconds <= 0;
-  const tasselMins = Math.floor(tasselSeconds / 60);
-  const tasselSecs = String(tasselSeconds % 60).padStart(2, '0');
-  const handleAddTassel = () => add({ ...TASSEL_GIFT, price: 0, originalPrice: TASSEL_GIFT.price }, 1);
 
   const shippingCost = total >= 50 || cart.length === 0 ? 0 : 5;
   const addressEntered = Boolean(shipping.address.trim() && shipping.city.trim() && shipping.state && shipping.zip.trim());
@@ -406,13 +386,6 @@ export default function CheckoutPage() {
     eventId: cashAppEventId, url: typeof window !== 'undefined' ? window.location.href : null,
     attribution: getStoredAttribution(), sessionId: getSessionId(),
   } : null;
-  const altMethods = ALT_PAYMENT_METHODS.filter((m) => {
-    const direct = DIRECT_ALT_IDS[m.id];
-    return !(direct === 'afterpay' && afterpayReady) && !(direct === 'cashapp' && cashAppReady);
-  });
-  React.useEffect(() => {
-    if (payMethod !== 'card' && !altMethods.some((m) => m.id === payMethod)) setPayMethod('card');
-  }, [payMethod, altMethods]);
 
   // Remember the shopper's email/phone for ad matching once they've typed
   // them, and re-init the Pixel so the rest of this visit's events carry
@@ -434,65 +407,6 @@ export default function CheckoutPage() {
     } else {
       setDiscountMessage('That code isn’t valid.');
     }
-  };
-
-  const handleAltPaySubmit = async () => {
-    const methodDef = getAltPaymentMethod(payMethod);
-    const purchaseEventId = generateEventId();
-    const billingAddress = billingSame ? shipping : billing;
-
-    const res = await fetch('/api/stripe-payment-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        method: payMethod,
-        amount: grandTotal,
-        items: cart,
-        email,
-        shipping,
-        eventId: purchaseEventId,
-        url: window.location.href,
-        attribution: getStoredAttribution(),
-        sessionId: getSessionId(),
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Could not start payment');
-
-    const stripe = await getStripeClient();
-    if (!stripe) throw new Error('That payment option isn’t available right now. Please try another.');
-
-    // Written before the redirect, not after — a redirect-based method may
-    // send the customer to an off-site authorization page and back, and
-    // sessionStorage survives that round trip within the same tab.
-    sessionStorage.setItem('si-purchase', JSON.stringify({
-      eventId: purchaseEventId,
-      amount: grandTotal,
-      contentIds: cart.map((i) => i.id),
-      contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
-    }));
-
-    const billingDetails = {
-      name: `${billingAddress.firstName} ${billingAddress.lastName}`.trim(),
-      email,
-      address: {
-        line1: billingAddress.address,
-        line2: billingAddress.apt || undefined,
-        city: billingAddress.city,
-        state: billingAddress.state,
-        postal_code: billingAddress.zip,
-        country: 'US',
-      },
-    };
-
-    const { error: confirmError } = await stripe[methodDef.confirmMethod](data.clientSecret, {
-      payment_method: { billing_details: billingDetails },
-      return_url: `${window.location.origin}/success`,
-    });
-
-    // Success navigates the browser away entirely, so reaching this line
-    // means the provider rejected it before ever leaving the page.
-    if (confirmError) throw new Error(confirmError.message || 'Payment failed. Please try again.');
   };
 
   // Shared by the Square card form and Apple Pay / Google Pay — every Square
@@ -563,11 +477,6 @@ export default function CheckoutPage() {
     setError('');
     setSubmitting(true);
     try {
-      if (payMethod !== 'card') {
-        await handleAltPaySubmit();
-        return;
-      }
-
       if (SQUARE_ENABLED) {
         if (!squareReady || !squareCardRef.current) {
           throw new Error('Payment form is still loading — please wait a moment and try again.');
@@ -669,40 +578,7 @@ export default function CheckoutPage() {
 
       <div className="checkout-grid" style={checkoutGrid}>
         <form onSubmit={handleSubmit} style={formCol}>
-
-          {!tasselExpired && (
-            <section style={{ marginTop: 24 }}>
-              <div style={tasselCard}>
-                <p style={{ ...S.label, marginBottom: 10 }}>Get a free {TASSEL_GIFT.name}</p>
-                <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <div style={tasselImgWrap}>
-                    <ProductVisual id={TASSEL_GIFT.id} images={TASSEL_GIFT.images} alt={TASSEL_GIFT.name} width={48} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: T.sans, fontSize: 15, color: T.ink }}>{TASSEL_GIFT.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 3 }}>
-                      <span style={{ fontSize: 13, color: T.soft, textDecoration: 'line-through' }}>
-                        ${TASSEL_GIFT.price.toFixed(2)}
-                      </span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>$0.00</span>
-                    </div>
-                  </div>
-                  {hasTassel ? (
-                    <span style={{ fontSize: 12, color: T.ink, whiteSpace: 'nowrap' }}>✓ Added</span>
-                  ) : (
-                    <button type="button" onClick={handleAddTassel} style={S.btnOutline}>Add to cart</button>
-                  )}
-                </div>
-                {!hasTassel && (
-                  <p style={tasselTimer}>
-                    Offer expires in {tasselMins}:{tasselSecs} — place your order before time runs out.
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
-
-          <section style={{ marginTop: 24 }}>
+          <section>
             <div style={sectionHead}>
               <h2 style={sectionTitle}>Contact</h2>
             </div>
@@ -807,18 +683,13 @@ export default function CheckoutPage() {
             </div>
 
             <div style={{ ...paymentList, marginTop: 16 }}>
-              <label style={{ ...accordionRow, cursor: altMethods.length ? 'pointer' : 'default' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {altMethods.length > 0 && (
-                    <input type="radio" name="payMethod" checked={payMethod === 'card'} onChange={() => setPayMethod('card')} />
-                  )}
-                  <span style={{ fontWeight: 700, fontSize: 16, color: T.ink }}>Credit or Debit Card</span>
-                </span>
+              <div style={accordionRow}>
+                <span style={{ fontWeight: 700, fontSize: 16, color: T.ink }}>Credit or Debit Card</span>
                 <CardBrandBadges />
-              </label>
+              </div>
 
               {SQUARE_ENABLED && (
-                <div style={{ ...accordionBody, display: payMethod === 'card' ? 'block' : 'none' }}>
+                <div style={accordionBody}>
                   {/* Square renders its own number/expiry/CVC/ZIP fields here. */}
                   <div id="square-card-container" style={{ minHeight: 48 }} />
                   {!squareReady && !squareError && (
@@ -829,7 +700,7 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {!SQUARE_ENABLED && payMethod === 'card' && (
+              {!SQUARE_ENABLED && (
                 <div style={accordionBody}>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.soft, display: 'flex' }}>
@@ -906,15 +777,6 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-
-              {altMethods.map((m) => (
-                <label key={m.id} style={{ ...accordionRow, borderTop: `1px solid ${T.line}`, borderBottom: 'none', cursor: 'pointer' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input type="radio" name="payMethod" checked={payMethod === m.id} onChange={() => setPayMethod(m.id)} />
-                    <span style={{ fontWeight: 700, fontSize: 16, color: T.ink }}>{m.label}</span>
-                  </span>
-                </label>
-              ))}
             </div>
           </section>
 
@@ -944,23 +806,19 @@ export default function CheckoutPage() {
 
           <button
             type="submit"
-            disabled={submitting || (SQUARE_ENABLED && payMethod === 'card' && !squareReady)}
+            disabled={submitting || (SQUARE_ENABLED && !squareReady)}
             style={{ ...bigButton, marginTop: 20, opacity: submitting ? 0.6 : 1 }}
           >
             {submitting
               ? 'Processing…'
-              : payMethod === 'card'
-                ? `Complete Order — $${grandTotal.toFixed(2)}`
-                : `Continue to ${getAltPaymentMethod(payMethod)?.label} — $${grandTotal.toFixed(2)}`}
+              : `Complete Order — $${grandTotal.toFixed(2)}`}
           </button>
           <div style={secureNote}>
             <LockIcon />
             <span>256-bit SSL encrypted &middot; your card details never touch our servers</span>
           </div>
           <p style={{ fontSize: 11, color: T.soft, textAlign: 'center', marginTop: 8 }}>
-            {payMethod === 'card'
-              ? `Payments securely processed by ${SQUARE_ENABLED ? 'Square' : 'QuickBooks Payments (Intuit)'}`
-              : `You’ll be redirected to complete payment with ${getAltPaymentMethod(payMethod)?.label}, then brought back here.`}
+            {`Payments securely processed by ${SQUARE_ENABLED ? 'Square' : 'QuickBooks Payments (Intuit)'}`}
           </p>
         </form>
 
@@ -1102,12 +960,6 @@ const bigButton = {
   ...S.btnFill, width: '100%', height: 60, borderRadius: 14, justifyContent: 'center',
   fontSize: 15, letterSpacing: 'normal', textTransform: 'none', fontWeight: 700,
 };
-const tasselCard = { border: `1px solid ${T.line}`, background: T.paper, padding: 16 };
-const tasselImgWrap = {
-  width: 48, height: 48, flexShrink: 0, overflow: 'hidden', background: T.white,
-  border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-};
-const tasselTimer = { fontSize: 11, color: '#a13d2b', marginTop: 10, marginBottom: 0 };
 const cvcTooltip = {
   position: 'absolute', bottom: 'calc(100% + 8px)', right: 0, width: 200,
   background: T.ink, color: T.white, fontSize: 11, lineHeight: 1.4,
