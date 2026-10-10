@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { CartProvider, useCart } from '../lib/useCart';
 import { loadPixel, fbTrack } from '../lib/fbPixel';
 import { loadClarity } from '../lib/clarity';
-import { captureAttribution } from '../lib/attribution';
+import { captureAttribution, fbcToSync, markFbcSynced } from '../lib/attribution';
 import { getSessionId } from '../lib/session';
 
 const HEARTBEAT_MS = 10000;
@@ -47,13 +47,17 @@ function Tracking() {
   }, [router.asPath, isAdmin]);
 
   React.useEffect(() => {
+    // The Meta click ID, once per visit, so the server can re-issue the _fbc
+    // cookie with a lifetime the browser will honor (lib/metaClickId.js).
+    // Runs after captureAttribution above, so a fresh ad click is included.
+    const fbc = isAdmin ? null : fbcToSync();
     fetch('/api/track/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'pageview' }),
+      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), ...(fbc ? { fbc } : {}) }),
       keepalive: true,
-    }).catch(() => {});
-  }, [router.asPath]);
+    }).then((r) => { if (fbc && r.ok) markFbcSynced(fbc); }).catch(() => {});
+  }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     const currentStage = () => {

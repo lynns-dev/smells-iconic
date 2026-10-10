@@ -6,7 +6,7 @@
 // City/country come from Vercel's edge network, which sets these headers
 // on every request automatically — no third-party geolocation API needed.
 
-import { isExcludedIp } from '../../../lib/ipFilter';
+import { isExcludedTraffic } from '../../../lib/ipFilter';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     ALLOWED_STAGES.includes(stage) &&
     KV_URL &&
     KV_TOKEN &&
-    !isExcludedIp(req)
+    !isExcludedTraffic(req)
   ) {
     try {
       // Vercel sets these headers at the edge for every request — no external

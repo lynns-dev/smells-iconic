@@ -4,7 +4,8 @@
 
 import { incrementEvent, logEvent } from '../../../lib/analyticsStore';
 import { sendCapiEvent, getRequestUserData } from '../../../lib/metaCapi';
-import { isExcludedIp } from '../../../lib/ipFilter';
+import { isExcludedTraffic } from '../../../lib/ipFilter';
+import { fbcSetCookieHeader } from '../../../lib/metaClickId';
 
 const ALLOWED = ['pageview', 'addtocart', 'checkout_start'];
 // Logged to the timestamped recent-events feed for the live-activity view.
@@ -23,8 +24,21 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
-  const { event, productName, eventId, contentId, contentIds, contents, value, url, sessionId } = req.body || {};
-  if (ALLOWED.includes(event) && !isExcludedIp(req)) {
+  const { event, productName, eventId, contentId, contentIds, contents, value, url, sessionId, email, phone, fbc } = req.body || {};
+
+  // Re-issue the Meta click ID cookie from the server. The browser sends its
+  // click ID on the first page view of a visit (pages/_app.jsx); setting the
+  // same value back in a response header is what lets it outlive Safari's
+  // 24-hour/7-day cap on cookies written by JavaScript, so it is still there
+  // when the shopper comes back to buy — see lib/metaClickId.js.
+  if (fbc) {
+    const cookie = fbcSetCookieHeader(fbc, {
+      hostname: req.headers.host,
+      secure: String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() !== 'http',
+    });
+    if (cookie) res.setHeader('Set-Cookie', cookie);
+  }
+  if (ALLOWED.includes(event) && !isExcludedTraffic(req)) {
     try {
       await incrementEvent(event, sessionId);
       if (LOGGED.includes(event)) {
@@ -40,11 +54,20 @@ export default async function handler(req, res) {
           eventName: capiEventName,
           eventId,
           eventSourceUrl: url,
-          userData: getRequestUserData(req),
+          // email/phone ride along whenever the shopper has already given
+          // them (lib/identity.js remembers them across the visit), so an
+          // AddToCart or InitiateCheckout carries the same identifiers
+          // Purchase does. They're hashed in getRequestUserData before sending.
+          userData: getRequestUserData(req, {
+            email,
+            phone,
+            externalId: sessionId || undefined,
+          }),
           customData: {
             currency: 'USD',
             value,
             content_ids: contentIds || (contentId ? [contentId] : undefined),
+            content_type: 'product',
             contents,
           },
         });

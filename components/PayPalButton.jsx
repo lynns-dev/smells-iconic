@@ -1,6 +1,8 @@
 import React from 'react';
 import { generateEventId } from '../lib/fbPixel';
 import { loadPaypalSdk } from '../lib/paypalSdk';
+import { getStoredAttribution } from '../lib/attribution';
+import { getSessionId } from '../lib/session';
 
 const FUNDING_LABELS = {
   paypal: 'PayPal',
@@ -70,6 +72,8 @@ export default function PayPalButton({ amount, items, url, disabled, onSuccess, 
                 eventId: stateRef.current.eventId,
                 url: stateRef.current.url,
                 paymentMethod: FUNDING_LABELS[fundingSource] || 'PayPal',
+                attribution: getStoredAttribution(),
+                sessionId: getSessionId(),
               }),
             });
             const result = await res.json();

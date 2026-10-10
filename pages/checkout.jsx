@@ -12,7 +12,9 @@ import {
 import { useCart } from '../lib/useCart';
 import { TASSEL_GIFT } from '../lib/products';
 import { tokenizeCard } from '../lib/qbPayments';
-import { fbTrack, generateEventId } from '../lib/fbPixel';
+import { fbTrack, generateEventId, refreshPixelIdentity } from '../lib/fbPixel';
+import { firstTimeThisSession, cartSignature } from '../lib/funnelTracking';
+import { getIdentity, rememberIdentity } from '../lib/identity';
 import { getStoredAttribution } from '../lib/attribution';
 import { getSessionId } from '../lib/session';
 import { ALT_PAYMENT_METHODS, getAltPaymentMethod } from '../lib/altPaymentMethods';
@@ -277,6 +279,10 @@ export default function CheckoutPage() {
 
   React.useEffect(() => {
     if (!hydrated || cart.length === 0) return;
+    // Once per distinct cart per browser session (lib/funnelTracking.js),
+    // not on every load — the saved cart made each refresh or return visit
+    // count as another checkout in Meta.
+    if (!firstTimeThisSession(`checkout_start:cart:${cartSignature(cart)}`)) return;
     const eventId = generateEventId();
     fbTrack('InitiateCheckout', {
       content_ids: cart.map((i) => i.id),
@@ -296,6 +302,7 @@ export default function CheckoutPage() {
         contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
         url: window.location.href,
         sessionId: getSessionId(),
+        ...getIdentity(),
       }),
       keepalive: true,
     }).catch(() => {});
@@ -391,13 +398,13 @@ export default function CheckoutPage() {
     }
     return {
       amount: grandTotal, items: cart, email, shipping,
-      eventId: generateEventId(), url: window.location.href, attribution: getStoredAttribution(),
+      eventId: generateEventId(), url: window.location.href, attribution: getStoredAttribution(), sessionId: getSessionId(),
     };
   };
   const cashAppOrder = email.trim() && addressEntered ? {
     amount: grandTotal, items: cart, email, shipping,
     eventId: cashAppEventId, url: typeof window !== 'undefined' ? window.location.href : null,
-    attribution: getStoredAttribution(),
+    attribution: getStoredAttribution(), sessionId: getSessionId(),
   } : null;
   const altMethods = ALT_PAYMENT_METHODS.filter((m) => {
     const direct = DIRECT_ALT_IDS[m.id];
@@ -406,6 +413,15 @@ export default function CheckoutPage() {
   React.useEffect(() => {
     if (payMethod !== 'card' && !altMethods.some((m) => m.id === payMethod)) setPayMethod('card');
   }, [payMethod, altMethods]);
+
+  // Remember the shopper's email/phone for ad matching once they've typed
+  // them, and re-init the Pixel so the rest of this visit's events carry
+  // them (lib/identity.js, lib/fbPixel.js).
+  const handleIdentityBlur = () => {
+    if (!email.trim() && !shipping.phone) return;
+    rememberIdentity({ email, phone: shipping.phone });
+    refreshPixelIdentity(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+  };
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) return;
@@ -437,6 +453,7 @@ export default function CheckoutPage() {
         eventId: purchaseEventId,
         url: window.location.href,
         attribution: getStoredAttribution(),
+        sessionId: getSessionId(),
       }),
     });
     const data = await res.json();
@@ -484,6 +501,7 @@ export default function CheckoutPage() {
     const { cart, grandTotal } = latestRef.current;
     const orderEmail = override.email ?? latestRef.current.email;
     const orderShipping = override.shipping ?? latestRef.current.shipping;
+    rememberIdentity({ email: orderEmail, phone: orderShipping?.phone });
     const purchaseEventId = generateEventId();
     const res = await fetch('/api/square-checkout', {
       method: 'POST',
@@ -498,6 +516,7 @@ export default function CheckoutPage() {
         url: window.location.href,
         paymentMethod: paymentMethodLabel,
         attribution: getStoredAttribution(),
+        sessionId: getSessionId(),
       }),
     });
     const data = await res.json();
@@ -505,6 +524,7 @@ export default function CheckoutPage() {
 
     sessionStorage.setItem('si-purchase', JSON.stringify({
       eventId: purchaseEventId,
+      orderId: data.id,
       amount: grandTotal,
       contentIds: cart.map((i) => i.id),
       contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
@@ -590,6 +610,7 @@ export default function CheckoutPage() {
           url: window.location.href,
           paymentMethod: CARD_BRANDS.find((b) => b.id === cardBrand)?.label || 'Card',
           attribution: getStoredAttribution(),
+          sessionId: getSessionId(),
         }),
       });
       const data = await res.json();
@@ -597,6 +618,7 @@ export default function CheckoutPage() {
 
       sessionStorage.setItem('si-purchase', JSON.stringify({
         eventId: purchaseEventId,
+        orderId: data.id,
         amount: grandTotal,
         contentIds: cart.map((i) => i.id),
         contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
@@ -614,6 +636,7 @@ export default function CheckoutPage() {
   const handlePaypalSuccess = async (result) => {
     sessionStorage.setItem('si-purchase', JSON.stringify({
       eventId: result.eventId,
+      orderId: result.id,
       amount: result.amount,
       contentIds: cart.map((i) => i.id),
       contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
@@ -727,6 +750,7 @@ export default function CheckoutPage() {
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={handleIdentityBlur}
               style={input}
               autoComplete="email"
               required
@@ -744,7 +768,7 @@ export default function CheckoutPage() {
             <select value="United States" readOnly style={{ ...input, marginBottom: 12, color: T.soft }}>
               <option>United States</option>
             </select>
-            <AddressFields value={shipping} onChange={setShipping} idPrefix="ship" />
+            <div onBlur={handleIdentityBlur}><AddressFields value={shipping} onChange={setShipping} idPrefix="ship" /></div>
           </section>
 
           <section style={{ marginTop: 24 }}>

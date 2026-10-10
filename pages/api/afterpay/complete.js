@@ -50,6 +50,7 @@ export default async function handler(req, res) {
       shipping: normalizeShipping(pending.shipping),
       processor: 'afterpay',
       captureId: orderToken,
+      sessionId: pending.sessionId,
     });
     await savePending(ref, { ...pending, resolved: true, orderId });
     return res.status(200).json(summary(orderId));
