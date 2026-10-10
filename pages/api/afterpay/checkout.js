@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   if (!afterpayConfig().enabled) return res.status(404).json({ error: 'Afterpay is not available.' });
 
   try {
-    const { amount, items, email, shipping, eventId, url, attribution, cashAppPay } = req.body || {};
+    const { amount, items, email, shipping, eventId, url, attribution, sessionId, cashAppPay } = req.body || {};
     if (!amount || Number(amount) <= 0) return res.status(400).json({ error: 'Invalid amount' });
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items in cart' });
     if (!email) return res.status(400).json({ error: 'Enter your email before paying with Afterpay.' });
@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     const pending = {
       amount: Number(amount), items, email, shipping: shipping || null,
       eventId: eventId || null, url: url || null, attribution: attribution || null,
+      sessionId: sessionId || null,
       cashAppPay: Boolean(cashAppPay),
       createdAt: new Date().toISOString(),
     };

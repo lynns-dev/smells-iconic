@@ -7,6 +7,7 @@
 // the authorization step on the provider's own site).
 
 import { getStripe } from '../../lib/stripeServer';
+import { getBrowserContext } from '../../lib/metaCapi';
 import { getAltPaymentMethod } from '../../lib/altPaymentMethods';
 
 // Stripe metadata values are capped at 500 chars — trim to id+quantity if
@@ -24,7 +25,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { method, amount, items, email, shipping, eventId, url, attribution } = req.body || {};
+    const { method, amount, items, email, shipping, eventId, url, attribution, sessionId } = req.body || {};
+    const browser = getBrowserContext(req);
 
     const methodDef = getAltPaymentMethod(method);
     if (!methodDef) return res.status(400).json({ error: 'Unsupported payment method' });
@@ -56,6 +58,14 @@ export default async function handler(req, res) {
         eventId: eventId || '',
         url: url || '',
         attribution: attribution ? JSON.stringify(attribution).slice(0, 500) : '',
+        // The webhook that records this order is Stripe's request, not the
+        // shopper's — their match data for Meta is saved here instead.
+        email: (email || '').slice(0, 500),
+        sessionId: (sessionId || '').slice(0, 100),
+        clientIp: browser.clientIp || '',
+        userAgent: (browser.userAgent || '').slice(0, 500),
+        fbp: (browser.fbp || '').slice(0, 500),
+        fbc: (browser.fbc || '').slice(0, 500),
       },
     });
 

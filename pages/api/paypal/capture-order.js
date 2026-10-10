@@ -29,7 +29,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { orderId, items, eventId, url, attribution, paymentMethod } = req.body || {};
+    const { orderId, items, eventId, url, attribution, paymentMethod, sessionId } = req.body || {};
     if (!orderId) return res.status(400).json({ error: 'Missing PayPal order id' });
     if (!items || items.length === 0) return res.status(400).json({ error: 'No items in cart' });
 
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     const email = data.payer?.email_address || '';
     const shipping = addressFromCapture(data);
 
-    await fulfillOrder({ id: data.id, amount, items, eventId, url, req, paymentMethod: paymentMethod || 'PayPal', attribution });
+    await fulfillOrder({ id: data.id, amount, items, eventId, url, req, paymentMethod: paymentMethod || 'PayPal', attribution, email, shipping, processor: 'paypal', sessionId });
 
     return res.status(200).json({ id: data.id, status: capture.status, amount, email, shipping });
   } catch (err) {

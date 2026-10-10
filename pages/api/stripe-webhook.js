@@ -71,6 +71,24 @@ export default async function handler(req, res) {
         req,
         paymentMethod: PAYMENT_METHOD_LABELS[methodType] || 'Alternative payment',
         attribution,
+        email: intent.receipt_email || intent.metadata?.email || '',
+        shipping: intent.shipping?.address ? {
+          name: intent.shipping.name || '',
+          address: intent.shipping.address.line1 || '',
+          apt: intent.shipping.address.line2 || '',
+          city: intent.shipping.address.city || '',
+          state: intent.shipping.address.state || '',
+          zip: intent.shipping.address.postal_code || '',
+          phone: intent.shipping.phone || '',
+        } : null,
+        processor: 'stripe',
+        sessionId: intent.metadata?.sessionId || undefined,
+        browser: {
+          clientIp: intent.metadata?.clientIp || null,
+          userAgent: intent.metadata?.userAgent || null,
+          fbp: intent.metadata?.fbp || null,
+          fbc: intent.metadata?.fbc || null,
+        },
       });
     } catch (err) {
       console.error('Stripe webhook fulfillment error:', err);

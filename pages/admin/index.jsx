@@ -108,6 +108,29 @@ export default function AdminDashboard() {
   const [hoveredCountry, setHoveredCountry] = React.useState(null);
   const [orders, setOrders] = React.useState([]);
   const [ordersLoading, setOrdersLoading] = React.useState(true);
+  const [metaBusy, setMetaBusy] = React.useState({});
+  const [metaError, setMetaError] = React.useState({});
+
+  // Per-order "Send to Meta" (pages/api/admin/order-meta.js). New orders are
+  // sent automatically at checkout and retried by the Meta resend cron.
+  const handleSendToMeta = async (order) => {
+    setMetaBusy((prev) => ({ ...prev, [order.id]: true }));
+    setMetaError((prev) => ({ ...prev, [order.id]: '' }));
+    try {
+      const res = await fetch('/api/admin/order-meta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+      const data = await res.json();
+      if (data.order) setOrders((prev) => prev.map((o) => (o.id === order.id ? data.order : o)));
+      if (!res.ok) throw new Error(data.error || 'Meta did not accept it.');
+    } catch (err) {
+      setMetaError((prev) => ({ ...prev, [order.id]: err.message }));
+    } finally {
+      setMetaBusy((prev) => ({ ...prev, [order.id]: false }));
+    }
+  };
 
   React.useEffect(() => {
     fetch('/api/admin/orders')
@@ -551,6 +574,8 @@ export default function AdminDashboard() {
           )}
         </Section>
 
+        {dashboard?.capi && <CapiStatus capi={dashboard.capi} />}
+
         {/* RECENT ORDERS */}
         <Section title={`Recent orders (${orders.length})`}>
           {ordersLoading ? (
@@ -565,6 +590,7 @@ export default function AdminDashboard() {
                 <span style={{ flex: '0 0 90px' }}>Amount</span>
                 <span style={{ flex: '0 0 100px' }}>Payment</span>
                 <span style={{ flex: '0 0 160px' }}>Source</span>
+                <span style={{ flex: '0 0 120px' }}>Meta</span>
               </div>
               {orders.map((o) => {
                 const { source, campaign } = attributionSource(o);
@@ -580,6 +606,23 @@ export default function AdminDashboard() {
                     <span style={{ flex: '0 0 160px' }}>
                       {source}
                       {campaign && <span style={{ color: T.soft }}> · {campaign}</span>}
+                    </span>
+                    <span style={{ flex: '0 0 120px' }}>
+                      {o.meta?.sent ? (
+                        <span style={{ fontWeight: 700 }}>Sent</span>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={Boolean(metaBusy[o.id])}
+                          onClick={() => handleSendToMeta(o)}
+                          style={{ ...S.btnOutline, height: 30, padding: '0 10px', fontSize: 11, opacity: metaBusy[o.id] ? 0.5 : 1 }}
+                        >
+                          {metaBusy[o.id] ? 'Sending…' : 'Send to Meta'}
+                        </button>
+                      )}
+                      {!o.meta?.sent && (metaError[o.id] || o.meta?.lastError) && (
+                        <div style={{ fontSize: 11, color: '#a13d2b', marginTop: 4 }}>{metaError[o.id] || o.meta.lastError}</div>
+                      )}
                     </span>
                   </div>
                 );
@@ -771,6 +814,44 @@ function FunnelStep({ label, value, rate }) {
       <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
       {rate && <div style={{ fontSize: 12, color: T.ink, marginTop: 2 }}>{rate}</div>}
     </div>
+  );
+}
+
+function sinceIso(iso) {
+  if (!iso) return null;
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs} hr ago`;
+  return `${Math.round(hrs / 24)} days ago`;
+}
+
+// Whether Meta is actually receiving server-side events (lib/metaCapi.js).
+function CapiStatus({ capi }) {
+  const okAt = capi.lastOk?.at ? new Date(capi.lastOk.at).getTime() : 0;
+  const errAt = capi.lastError?.at ? new Date(capi.lastError.at).getTime() : 0;
+  const failing = !capi.configured || errAt > okAt;
+  const color = failing ? '#a13d2b' : '#1a7a3c';
+  return (
+    <Section title="Meta server events (Conversions API)">
+      <p style={{ fontSize: 14, margin: '0 0 6px', color, fontWeight: 600 }}>
+        {!capi.configured
+          ? 'Not configured — set META_CAPI_ACCESS_TOKEN and NEXT_PUBLIC_META_PIXEL_ID in Vercel.'
+          : failing
+            ? 'Meta rejected the most recent event.'
+            : capi.lastOk
+              ? 'Meta is receiving server events.'
+              : 'No server events sent yet since this check was added.'}
+      </p>
+      <div style={{ fontSize: 13, color: T.soft, lineHeight: 1.7 }}>
+        {capi.lastOk && <div>Last accepted: {capi.lastOk.eventName} · {sinceIso(capi.lastOk.at)}</div>}
+        {capi.lastError && (
+          <div>Last error: {capi.lastError.eventName || 'event'} · {sinceIso(capi.lastError.at)} — {capi.lastError.error}</div>
+        )}
+        <div>API version {capi.graphVersion}{capi.testMode ? ' · test mode on (META_CAPI_TEST_EVENT_CODE is set — events only show in Test Events)' : ''}</div>
+      </div>
+    </Section>
   );
 }
 
