@@ -25,20 +25,12 @@ export default function HomePage() {
     return { all, count, average, recommendPct };
   }, [reviewsByProduct]);
   const [bannerIndex, setBannerIndex] = React.useState(0);
-  const [scrolled, setScrolled] = React.useState(false);
 
   React.useEffect(() => {
     const id = setInterval(() => {
       setBannerIndex((i) => (i + 1) % BANNER_MESSAGES.length);
     }, 3500);
     return () => clearInterval(id);
-  }, []);
-
-  React.useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 80);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   return (
@@ -57,18 +49,18 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+      <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
       {/* HERO */}
       <section style={heroWrap}>
-        <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} overlay scrolled={scrolled} />
         <div className="hero-grid" style={heroBg}>
           <div className="hero-text" style={heroContent}>
             <div>
-              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: 'rgba(251,245,241,0.85)' }}>Body mist · an archive</span>
+              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · an archive</span>
               <h1 style={heroH1}>Smell like <span style={S.it}>the main character.</span></h1>
               <p style={heroSub}>Scents pulled from the cultural record — worn like a costume, remembered like a scent.</p>
               {siteReviews.count > 0 && (
                 <div style={hrate}>
-                  <span style={{ letterSpacing: '2px', color: T.white }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
+                  <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
                   {' '}{siteReviews.average.toFixed(1)} · {siteReviews.count} review{siteReviews.count === 1 ? '' : 's'}
                 </div>
               )}
@@ -78,9 +70,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div className="hero-img" style={heroImg} role="img" aria-label="Smells Iconic Fragrance Body Powder">
-            <div style={heroScrim} />
-          </div>
+          <div className="hero-img" style={heroImg} role="img" aria-label="Smells Iconic Fragrance Body Powder" />
         </div>
       </section>
 
@@ -234,7 +224,7 @@ export default function HomePage() {
       <CartDrawer {...c} onClose={() => c.setOpen(false)} />
 
       <style jsx>{`
-        .hero-grid { grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); height: 88vh; min-height: 560px; }
+        .hero-grid { grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); height: 82vh; min-height: 560px; }
         .hero-text { padding: 0 40px 72px; }
         .hm-grid { grid-template-columns: 1fr 1fr; }
         .hm-cell + .hm-cell { border-left: 1px solid ${T.line}; }
@@ -272,24 +262,18 @@ export default function HomePage() {
 
 const announce = { textAlign: 'center', fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: T.white, background: T.ink, padding: '14px 20px', borderBottom: `1px solid ${T.dline}`, overflow: 'hidden' };
 const heroWrap = { position: 'relative' };
-// Split hero: copy on an ink panel, image beside it (stacked above it on small screens).
+// Split hero: copy on a white panel, image beside it (stacked above it on small screens).
 // The image carries its own product label, so text is never laid over it.
-const heroBg = { position: 'relative', display: 'grid', background: T.ink };
+const heroBg = { position: 'relative', display: 'grid', background: T.white, borderBottom: `1px solid ${T.line}` };
 const heroImg = {
-  position: 'relative',
   backgroundImage: 'url(/images/si-body-powder-hero.jpg)', backgroundSize: 'cover', backgroundPosition: 'center 40%',
 };
-// Darkens only the top strip of the image so the transparent header stays legible.
-const heroScrim = {
-  position: 'absolute', top: 0, left: 0, right: 0, height: 130,
-  background: 'linear-gradient(180deg, rgba(21,17,13,0.5), rgba(21,17,13,0))',
-};
-const heroContent = { display: 'flex', alignItems: 'flex-end', color: T.white };
-const heroH1 = { fontFamily: T.display, fontWeight: 400, fontSize: 'clamp(34px,3.6vw,60px)', lineHeight: 1.05, marginBottom: 22, color: T.white, maxWidth: '17ch' };
-const heroSub = { fontSize: 16, color: 'rgba(251,245,241,0.85)', maxWidth: '38ch', marginBottom: 26 };
-const hrate = { display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, color: 'rgba(251,245,241,0.82)', marginBottom: 30 };
-const heroBtn = { ...S.btnFill, background: T.white, color: T.ink };
-const heroLink = { ...S.link, color: T.white, borderBottom: '1px solid rgba(251,245,241,0.5)' };
+const heroContent = { display: 'flex', alignItems: 'flex-end', color: T.ink };
+const heroH1 = { fontFamily: T.display, fontWeight: 400, fontSize: 'clamp(34px,3.6vw,60px)', lineHeight: 1.05, marginBottom: 22, color: T.ink, maxWidth: '17ch' };
+const heroSub = { fontSize: 16, color: T.ink, maxWidth: '38ch', marginBottom: 26 };
+const hrate = { display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, color: T.ink, marginBottom: 30 };
+const heroBtn = S.btnFill;
+const heroLink = S.link;
 const band = { padding: '64px 0' };
 const vcell = { padding: '46px 44px' };
 const vtag = { fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase', color: T.soft, marginBottom: 18 };
