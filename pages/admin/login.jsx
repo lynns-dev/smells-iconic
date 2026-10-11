@@ -2,6 +2,7 @@ import React from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { T, S } from '../../lib/theme';
+import AdminFonts from '../../components/AdminFonts';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -41,8 +42,9 @@ export default function AdminLogin() {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Smells Iconic Admin" />
       </Head>
+      <AdminFonts />
       <form onSubmit={handleSubmit} style={{ width: 320, padding: 40, background: T.white, border: `1px solid ${T.line}` }}>
-        <span style={{ fontFamily: T.display, fontWeight: 400, fontSize: 22, letterSpacing: '0.3em', display: 'block', marginBottom: 24, textAlign: 'center' }}>SMELLS — ICONIC</span>
+        <span className="admin-serif" style={{ fontWeight: 500, fontSize: 26, display: 'block', marginBottom: 24, textAlign: 'center' }}>Smells Iconic</span>
         <p style={{ ...S.label, marginBottom: 16, textAlign: 'center' }}>Admin</p>
         <input
           type="password"

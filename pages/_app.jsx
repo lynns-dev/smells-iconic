@@ -6,6 +6,7 @@ import { loadPixel, fbTrack } from '../lib/fbPixel';
 import { loadClarity } from '../lib/clarity';
 import { captureAttribution, fbcToSync, markFbcSynced } from '../lib/attribution';
 import { getSessionId } from '../lib/session';
+import { firstTimeThisSession } from '../lib/funnelTracking';
 
 const HEARTBEAT_MS = 10000;
 const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
@@ -52,10 +53,17 @@ function Tracking() {
     // cookie with a lifetime the browser will honor (lib/metaClickId.js).
     // Runs after captureAttribution above, so a fresh ad click is included.
     const fbc = isAdmin ? null : fbcToSync();
+    // Once per visit: the landing page with every URL parameter and the
+    // referrer, for admin's Visitors tab.
+    const visit = !isAdmin && firstTimeThisSession('visit') ? {
+      landing: window.location.pathname,
+      params: Object.fromEntries(new URLSearchParams(window.location.search)),
+      referrer: document.referrer || null,
+    } : null;
     fetch('/api/track/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), ...(fbc ? { fbc } : {}) }),
+      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), ...(fbc ? { fbc } : {}), ...(visit ? { visit } : {}) }),
       keepalive: true,
     }).then((r) => { if (fbc && r.ok) markFbcSynced(fbc); }).catch(() => {});
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps

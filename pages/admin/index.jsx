@@ -5,6 +5,7 @@ import { PRODUCTS } from '../../lib/products';
 import { parseCsv } from '../../lib/csv';
 import WorldMap from '../../components/WorldMap';
 import { T, S } from '../../lib/theme';
+import AdminFonts from '../../components/AdminFonts';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -108,6 +109,7 @@ export default function AdminDashboard() {
   const [hoveredCountry, setHoveredCountry] = React.useState(null);
   const [orders, setOrders] = React.useState([]);
   const [ordersLoading, setOrdersLoading] = React.useState(true);
+  const [tab, setTab] = React.useState('dashboard'); // dashboard | visitors
   const [metaBusy, setMetaBusy] = React.useState({});
   const [metaError, setMetaError] = React.useState({});
 
@@ -231,7 +233,12 @@ export default function AdminDashboard() {
   }, [loadDashboard, funnelRange]);
 
   React.useEffect(() => {
-    const poll = () => fetch('/api/admin/live').then((r) => r.json()).then(setLive).catch(() => {});
+    // Keep the last good data if a poll fails, rather than replacing it with
+    // the error body (which used to blank the whole admin page).
+    const poll = () => fetch('/api/admin/live')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data && data.byCountry && data.byStage) setLive(data); })
+      .catch(() => {});
     poll();
     const interval = setInterval(poll, LIVE_POLL_MS);
     return () => clearInterval(interval);
@@ -378,12 +385,23 @@ export default function AdminDashboard() {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Smells Iconic Admin" />
       </Head>
+      <AdminFonts />
 
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <span style={{ fontFamily: T.display, fontWeight: 400, fontSize: 22, letterSpacing: '0.2em' }}>Smells Iconic admin</span>
+          <span className="admin-serif" style={{ fontWeight: 500, fontSize: 26 }}>Smells Iconic admin</span>
           <button onClick={handleLogout} style={S.btnOutline}>Sign out</button>
         </div>
+
+        <div style={tabBar}>
+          {[['dashboard', 'Dashboard'], ['visitors', 'Visitors']].map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setTab(key)} style={tab === key ? tabActive : tabButton}>{label}</button>
+          ))}
+        </div>
+
+        {tab === 'visitors' && <VisitorsTab />}
+
+        {tab === 'dashboard' && (<>
 
         {/* NOTIFICATIONS */}
         <Section title="Order notifications">
@@ -423,7 +441,7 @@ export default function AdminDashboard() {
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
                 {Object.entries(STAGE_LABELS).map(([key, label]) => (
                   <div key={key} style={{ textAlign: 'center' }}>
-                    <div style={{ fontFamily: T.display, fontSize: 32 }}>{live.byStage[key] || 0}</div>
+                    <div className="admin-serif" style={{ fontSize: 32 }}>{live.byStage[key] || 0}</div>
                     <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
                   </div>
                 ))}
@@ -784,6 +802,7 @@ export default function AdminDashboard() {
           </form>
           {discountFormMessage && <p style={{ fontSize: 12, color: T.ink, marginTop: 12 }}>{discountFormMessage}</p>}
         </Section>
+        </>)}
       </div>
 
       <style jsx>{`
@@ -801,7 +820,7 @@ export default function AdminDashboard() {
 function StatCard({ label, value, highlight }) {
   return (
     <div style={{ ...statCard, ...(highlight ? { borderColor: T.ink } : {}) }}>
-      <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 34 }}>{value}</div>
+      <div className="admin-serif" style={{ fontWeight: 400, fontSize: 34 }}>{value}</div>
       <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, marginTop: 4 }}>{label}</div>
     </div>
   );
@@ -810,10 +829,110 @@ function StatCard({ label, value, highlight }) {
 function FunnelStep({ label, value, rate }) {
   return (
     <div>
-      <div style={{ fontFamily: T.display, fontSize: 28 }}>{value ?? 0}</div>
+      <div className="admin-serif" style={{ fontSize: 28 }}>{value ?? 0}</div>
       <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
       {rate && <div style={{ fontSize: 12, color: T.ink, marginTop: 2 }}>{rate}</div>}
     </div>
+  );
+}
+
+// Visitors tab: who came to the site, from where, and with which URL
+// parameters (utm_*, fbclid, gclid, ad names…) on their first page.
+function VisitorsTab() {
+  const [visitors, setVisitors] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const [query, setQuery] = React.useState('');
+  const [onlyTagged, setOnlyTagged] = React.useState(false);
+
+  const load = React.useCallback(() => {
+    setError('');
+    fetch('/api/admin/visitors')
+      .then((r) => r.json().then((d) => (r.ok ? d : Promise.reject(new Error(d.error || 'Could not load visitors.')))))
+      .then((d) => setVisitors(d.visitors || []))
+      .catch((err) => setError(err.message));
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  const rows = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (visitors || []).filter((v) => {
+      const params = v.params || {};
+      if (onlyTagged && Object.keys(params).length === 0) return false;
+      if (!q) return true;
+      const hay = [v.source, v.landing, v.referrer, v.city, v.country, v.device, ...Object.entries(params).map(([k, val]) => `${k}=${val}`)]
+        .filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [visitors, query, onlyTagged]);
+
+  const topSources = React.useMemo(() => {
+    const counts = new Map();
+    for (const v of rows) counts.set(v.source || 'Direct', (counts.get(v.source || 'Direct') || 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  }, [rows]);
+
+  return (
+    <>
+      <Section title="Visitors by source" action={<button type="button" onClick={load} style={S.btnOutline}>Refresh</button>}>
+        {visitors === null && !error && <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>}
+        {error && <p style={{ color: '#a13d2b', fontSize: 14 }}>{error}</p>}
+        {visitors && topSources.length === 0 && <p style={{ color: T.soft, fontSize: 14 }}>No visitors recorded yet. New visits show up here from now on.</p>}
+        {topSources.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {topSources.map(([source, count]) => (
+              <button key={source} type="button" onClick={() => setQuery(source === query ? '' : source)} style={{ ...chip, cursor: 'pointer', background: query === source ? T.ink : T.white, color: query === source ? T.white : T.ink }}>
+                {source} · {count}
+              </button>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section title={`Recent visitors (${rows.length}${visitors && rows.length !== visitors.length ? ` of ${visitors.length}` : ''})`}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+          <input
+            placeholder="Search source, page, city, utm_campaign=…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ flex: 1, minWidth: 220, height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14 }}
+          />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.soft }}>
+            <input type="checkbox" checked={onlyTagged} onChange={(e) => setOnlyTagged(e.target.checked)} />
+            Only visits with URL parameters
+          </label>
+        </div>
+        <div style={{ maxHeight: 640, overflowY: 'auto' }}>
+          {rows.map((v) => {
+            const params = Object.entries(v.params || {});
+            const place = [v.city, v.region, v.country].filter(Boolean).join(', ');
+            return (
+              <div key={`${v.sessionId}-${v.ts}`} style={visitorRow}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600 }}>{v.source || 'Direct'}</span>
+                  <span style={{ color: T.soft, fontSize: 13 }}>
+                    {new Date(v.ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    {place && ` · ${place}`}{v.device && ` · ${v.device}`}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  <span style={{ color: T.soft }}>Landed on </span>{v.landing || '/'}
+                  {v.referrer && <span style={{ color: T.soft }}> · from <span title={v.referrer}>{v.referrer.length > 70 ? `${v.referrer.slice(0, 70)}…` : v.referrer}</span></span>}
+                </div>
+                {params.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {params.map(([k, val]) => (
+                      <span key={k} style={chip} title={`${k}=${val}`}>
+                        <span style={{ color: T.soft }}>{k}</span>=<span>{val.length > 60 ? `${val.slice(0, 60)}…` : val}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    </>
   );
 }
 
@@ -859,7 +978,7 @@ function Section({ title, action, children }) {
   return (
     <div style={{ background: T.white, border: `1px solid ${T.line}`, padding: 24, marginBottom: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ ...S.label, margin: 0 }}>{title}</p>
+        <p className="admin-serif" style={{ margin: 0, fontSize: 19, fontWeight: 500, color: T.ink }}>{title}</p>
         {action}
       </div>
       {children}
@@ -867,6 +986,11 @@ function Section({ title, action, children }) {
   );
 }
 
+const tabBar = { display: 'flex', gap: 8, marginBottom: 24, borderBottom: `1px solid ${T.line}` };
+const tabButton = { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 14px', fontSize: 15, color: T.soft, cursor: 'pointer', marginBottom: -1 };
+const tabActive = { ...tabButton, color: T.ink, fontWeight: 600, borderBottom: `2px solid ${T.ink}` };
+const visitorRow = { padding: '14px 0', borderTop: `1px solid ${T.line}`, fontSize: 14 };
+const chip = { display: 'inline-block', border: `1px solid ${T.line}`, background: T.white, padding: '3px 8px', fontSize: 12, borderRadius: 999, wordBreak: 'break-all' };
 const statGrid = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 };
 const statCard = { background: T.white, border: `1px solid ${T.line}`, padding: '24px 20px', textAlign: 'center' };
 const funnelGrid = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 };
