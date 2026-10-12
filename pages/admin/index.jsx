@@ -584,10 +584,10 @@ export default function AdminDashboard() {
         >
           {dashboard && (
             <div className="funnel-grid" style={funnelGrid}>
-              <FunnelStep label="Page views" value={dashboard.funnel.pageviews} />
-              <FunnelStep label="Added to cart" value={dashboard.funnel.addToCart} rate={`${dashboard.funnel.addToCartRate}% of views`} />
+              <FunnelStep label="Visitors" value={dashboard.funnel.pageviews} />
+              <FunnelStep label="Added to cart" value={dashboard.funnel.addToCart} rate={`${dashboard.funnel.addToCartRate}% of visitors`} />
               <FunnelStep label="Started checkout" value={dashboard.funnel.checkoutStarts} rate={`${dashboard.funnel.checkoutRate}% of adds`} />
-              <FunnelStep label="Purchased" value={dashboard.funnel.purchases} rate={`${dashboard.funnel.conversionRate}% of views`} />
+              <FunnelStep label="Purchased" value={dashboard.funnel.purchases} rate={`${dashboard.funnel.conversionRate}% of visitors`} />
             </div>
           )}
         </Section>

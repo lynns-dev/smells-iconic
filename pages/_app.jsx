@@ -5,7 +5,7 @@ import { CartProvider, useCart } from '../lib/useCart';
 import { loadPixel, fbTrack } from '../lib/fbPixel';
 import { loadClarity } from '../lib/clarity';
 import { captureAttribution, fbcToSync, markFbcSynced } from '../lib/attribution';
-import { getSessionId } from '../lib/session';
+import { getSessionId, getVisitorId } from '../lib/session';
 import { firstTimeThisSession } from '../lib/funnelTracking';
 
 const HEARTBEAT_MS = 10000;
@@ -50,6 +50,8 @@ function Tracking() {
   }, [router.asPath, isAdmin]);
 
   React.useEffect(() => {
+    // Admin pages aren't store visits — they'd count the owner as traffic.
+    if (isAdmin) return;
     // The Meta click ID, once per visit, so the server can re-issue the _fbc
     // cookie with a lifetime the browser will honor (lib/metaClickId.js).
     // Runs after captureAttribution above, so a fresh ad click is included.
@@ -64,7 +66,7 @@ function Tracking() {
     fetch('/api/track/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), ...(fbc ? { fbc } : {}), ...(visit ? { visit } : {}) }),
+      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), visitorId: getVisitorId(), ...(fbc ? { fbc } : {}), ...(visit ? { visit } : {}) }),
       keepalive: true,
     }).then((r) => { if (fbc && r.ok) markFbcSynced(fbc); }).catch(() => {});
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -82,6 +84,9 @@ function Tracking() {
     // sent only when one of those changes.
     const touch = () => {
       const t = journeyRef.current;
+      // The first ping on a new page can run before the scroll tracker below
+      // has noted the page, so read the path directly.
+      if (t.path !== window.location.pathname) { t.path = window.location.pathname; t.scrollPct = 0; }
       const sig = `${t.path}|${t.scrollPct}|${t.field}`;
       if (sig === t.sentSig) return undefined;
       t.sentSig = sig;
@@ -89,11 +94,12 @@ function Tracking() {
     };
 
     const sendHeartbeat = () => {
-      if (!sessionIdRef.current) return;
+      // An open admin tab isn't a live shopper.
+      if (!sessionIdRef.current || router.pathname.startsWith('/admin')) return;
       fetch('/api/track/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionIdRef.current, stage: currentStage(), touch: touch() }),
+        body: JSON.stringify({ sessionId: sessionIdRef.current, visitorId: getVisitorId(), stage: currentStage(), touch: touch() }),
         keepalive: true,
       }).catch(() => {});
     };

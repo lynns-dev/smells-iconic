@@ -2,7 +2,7 @@
 // would surface to the visitor — a lost analytics ping shouldn't affect
 // their experience.
 
-import { incrementEvent, logEvent, logVisitor, updateJourney } from '../../../lib/analyticsStore';
+import { incrementEvent, logEvent, logVisitor, updateJourney, linkSessionToVisitor } from '../../../lib/analyticsStore';
 import { sendCapiEvent, getRequestUserData } from '../../../lib/metaCapi';
 import { isExcludedTraffic } from '../../../lib/ipFilter';
 import { fbcSetCookieHeader } from '../../../lib/metaClickId';
@@ -108,20 +108,24 @@ export default async function handler(req, res) {
     });
     if (cookie) res.setHeader('Set-Cookie', cookie);
   }
+  // The person: the device's visitor id (kept across tabs and return
+  // visits) when the browser sends one, otherwise the tab's session id.
+  const personId = typeof visitorId === 'string' && /^[\w.-]{4,80}$/.test(visitorId) ? visitorId : sessionId;
   if (ALLOWED.includes(event) && !isExcludedTraffic(req)) {
     try {
       // Funnel counts are once per person per day: the device's visitor id
       // (kept across tabs and return visits) when the browser sends one,
       // otherwise the tab's session id.
-      const dedupeId = typeof visitorId === 'string' && /^[\w.-]{4,80}$/.test(visitorId) ? visitorId : sessionId;
+      const dedupeId = personId;
       await incrementEvent(event, dedupeId);
       // First page of a visit: record where the visitor came from for
       // admin's Visitors tab (lib/analyticsStore.js logVisitor).
+      if (event === 'pageview' && sessionId && personId !== sessionId) await linkSessionToVisitor(sessionId, personId);
       if (event === 'pageview' && sessionId && visit && typeof visit === 'object') {
-        await logVisitor(describeVisit(req, sessionId, visit));
+        await logVisitor({ ...describeVisit(req, sessionId, visit), visitorId: personId !== sessionId ? personId : null });
       }
-      if (sessionId && event === 'addtocart') await updateJourney(sessionId, { cartAdd: clip(productName, 80) || 'item' });
-      if (sessionId && event === 'checkout_start') await updateJourney(sessionId, { checkout: true });
+      if (personId && event === 'addtocart') await updateJourney(personId, { cartAdd: clip(productName, 80) || 'item' });
+      if (personId && event === 'checkout_start') await updateJourney(personId, { checkout: true });
       if (LOGGED.includes(event)) {
         await logEvent(event, {
           ...(productName ? { productName } : {}),
