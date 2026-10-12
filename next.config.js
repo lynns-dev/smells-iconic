@@ -25,6 +25,16 @@ const KV_REST_API_TOKEN = fromEnv('KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN
 const nextConfig = {
   reactStrictMode: true,
   env: { KV_REST_API_URL, KV_REST_API_TOKEN },
+  // Apple Pay domain verification file, served by a function (see
+  // pages/api/apple-pay-domain-verification.js for why).
+  async rewrites() {
+    return [
+      {
+        source: '/.well-known/apple-developer-merchantid-domain-association',
+        destination: '/api/apple-pay-domain-verification',
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
