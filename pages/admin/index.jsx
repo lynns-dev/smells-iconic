@@ -1014,6 +1014,19 @@ function sinceIso(iso) {
 
 // Whether Meta is actually receiving server-side events (lib/metaCapi.js).
 function CapiStatus({ capi }) {
+  const [check, setCheck] = React.useState(null);
+  const [checking, setChecking] = React.useState(false);
+  const runCheck = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch('/api/admin/meta-check', { method: 'POST' });
+      setCheck(await res.json());
+    } catch (err) {
+      setCheck({ verdict: `Could not run the check: ${err.message}` });
+    } finally {
+      setChecking(false);
+    }
+  };
   const okAt = capi.lastOk?.at ? new Date(capi.lastOk.at).getTime() : 0;
   const errAt = capi.lastError?.at ? new Date(capi.lastError.at).getTime() : 0;
   const failing = !capi.configured || errAt > okAt;
@@ -1036,6 +1049,18 @@ function CapiStatus({ capi }) {
         )}
         <div>API version {capi.graphVersion}{capi.testMode ? ' · test mode on (META_CAPI_TEST_EVENT_CODE is set — events only show in Test Events)' : ''}</div>
       </div>
+      <button type="button" onClick={runCheck} disabled={checking} style={{ ...S.btnOutline, marginTop: 14, opacity: checking ? 0.6 : 1 }}>
+        {checking ? 'Checking…' : 'Check Meta connection'}
+      </button>
+      {check && (
+        <div style={{ marginTop: 14, fontSize: 13, lineHeight: 1.7, borderTop: `1px solid ${T.line}`, paddingTop: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: check.pixel && !check.pixel.error && !check.tokenOwner?.error ? '#1a7a3c' : '#a13d2b', marginBottom: 6 }}>{check.verdict}</div>
+          {check.pixelId && <div>Pixel id in use: {check.pixelId}{check.pixelIdHadExtraCharacters ? ' (had extra spaces/quotes — now ignored)' : ''}</div>}
+          {check.tokenPreview && <div>Access token: {check.tokenPreview}{check.tokenHadExtraCharacters ? ' (had extra spaces/quotes — now ignored)' : ''}</div>}
+          {check.tokenOwner && <div>Token belongs to: {check.tokenOwner.error ? `— (${check.tokenOwner.error})` : `${check.tokenOwner.name || ''} (${check.tokenOwner.id})`}</div>}
+          {check.pixel && <div>Pixel as Meta sees it: {check.pixel.error ? `not reachable — ${check.pixel.error}` : `${check.pixel.name || ''} (${check.pixel.id})${check.pixel.lastFired ? ` · last fired ${new Date(check.pixel.lastFired).toLocaleString()}` : ''}`}</div>}
+        </div>
+      )}
     </Section>
   );
 }
