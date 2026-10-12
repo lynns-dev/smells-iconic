@@ -658,7 +658,17 @@ export default function CheckoutPage() {
                 </div>
               )}
               <AfterpayButton total={grandTotal} getOrder={afterpayOrder} onError={setError} onReady={setAfterpayReady} />
-              <CashAppPayButton order={cashAppOrder} purchaseKey="si-purchase" onError={setError} onReady={setCashAppReady} />
+              <CashAppPayButton
+                order={cashAppOrder}
+                purchaseKey="si-purchase"
+                onError={setError}
+                onReady={setCashAppReady}
+                onNeedDetails={() => {
+                  const el = document.querySelector('input[type=email]');
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  setTimeout(() => el?.focus(), 400);
+                }}
+              />
               <div style={{ marginTop: 10 }}>
                 <PayPalButton
                   amount={grandTotal}

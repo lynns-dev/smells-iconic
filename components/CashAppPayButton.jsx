@@ -15,11 +15,25 @@ import { loadAfterpayConfig, loadAfterpayScript, finishAfterpayOrder } from '../
 
 const CONTAINER_ID = 'cash-app-pay';
 
-export default function CashAppPayButton({ order, purchaseKey, onError, onReady }) {
+export default function CashAppPayButton({ order, purchaseKey, onError, onReady, onNeedDetails }) {
   const router = useRouter();
   const { clear } = useCart();
   const [ready, setReady] = React.useState(false);
   const [finishing, setFinishing] = React.useState(false);
+  // Shown from the start (like Apple Pay / Afterpay) once Afterpay says it's
+  // on, so shoppers can see Cash App is an option before filling the form;
+  // Afterpay's real button replaces it once the email and address are in.
+  // Dropped for good if Afterpay can't create a Cash App Pay checkout (Cash
+  // App Pay not enabled on the account), so it never offers a dead option.
+  const [available, setAvailable] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  const [hint, setHint] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    loadAfterpayConfig().then((c) => { if (!cancelled) setAvailable(Boolean(c.enabled && c.script)); });
+    return () => { cancelled = true; };
+  }, []);
   const signature = order ? JSON.stringify([order.amount, order.email, order.shipping, order.items?.map((i) => [i.id, i.quantity])]) : '';
   const orderRef = React.useRef(order);
   orderRef.current = order;
@@ -68,7 +82,7 @@ export default function CashAppPayButton({ order, purchaseKey, onError, onReady 
       } catch (err) {
         // Not configured / not enabled for this account: just stay hidden.
         console.warn('Cash App Pay unavailable:', err.message);
-        if (!cancelled) setReady(false);
+        if (!cancelled) { setReady(false); setFailed(true); }
       }
     }, 600);
     return () => { cancelled = true; clearTimeout(timer); };
@@ -79,8 +93,32 @@ export default function CashAppPayButton({ order, purchaseKey, onError, onReady 
     try { window.AfterPay?.restartCashAppPay?.(); } catch { /* best-effort */ }
   }, []);
 
+  const showPlaceholder = available && !failed && !ready && !finishing;
   return (
-    <div style={{ marginTop: ready ? 10 : 0 }}>
+    <div style={{ marginTop: ready || showPlaceholder ? 10 : 0 }}>
+      {showPlaceholder && (
+        <button
+          type="button"
+          aria-label="Pay with Cash App Pay"
+          onClick={() => {
+            if (!order) {
+              setHint(true);
+              onNeedDetails?.();
+            }
+          }}
+          style={{
+            width: '100%', height: 48, border: 'none', borderRadius: 6, cursor: 'pointer',
+            background: '#00D64F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
+          }}
+        >
+          <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, background: '#fff', color: '#00D64F', fontSize: 15, fontWeight: 800 }}>$</span>
+          {order ? 'Loading Cash App Pay…' : 'Cash App Pay'}
+        </button>
+      )}
+      {showPlaceholder && hint && !order && (
+        <p style={{ fontSize: 12, textAlign: 'center', margin: '6px 0 0', color: '#a13d2b' }}>Enter your email and delivery address, then tap Cash App Pay again.</p>
+      )}
       <div id={CONTAINER_ID} style={{ display: ready && !finishing ? 'block' : 'none' }} />
       {finishing && <p style={{ fontSize: 13, textAlign: 'center', margin: '8px 0 0' }}>Confirming your Cash App payment…</p>}
     </div>
