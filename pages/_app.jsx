@@ -18,6 +18,7 @@ function Tracking() {
   const router = useRouter();
   const cart = useCart();
   const sessionIdRef = React.useRef(null);
+  const journeyRef = React.useRef({ path: null, scrollPct: 0, field: null, sentSig: null });
   const isAdmin = router.pathname.startsWith('/admin');
 
   React.useEffect(() => {
@@ -76,20 +77,72 @@ function Tracking() {
       return 'browsing';
     };
 
+    // For admin's Visitors tab: the page they're on, how far down it they've
+    // scrolled (deepest point), and the last form field they typed into —
+    // sent only when one of those changes.
+    const touch = () => {
+      const t = journeyRef.current;
+      const sig = `${t.path}|${t.scrollPct}|${t.field}`;
+      if (sig === t.sentSig) return undefined;
+      t.sentSig = sig;
+      return { path: t.path, scrollPct: t.scrollPct, field: t.field };
+    };
+
     const sendHeartbeat = () => {
       if (!sessionIdRef.current) return;
       fetch('/api/track/heartbeat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sessionIdRef.current, stage: currentStage() }),
+        body: JSON.stringify({ sessionId: sessionIdRef.current, stage: currentStage(), touch: touch() }),
         keepalive: true,
       }).catch(() => {});
     };
 
     sendHeartbeat();
     const interval = setInterval(sendHeartbeat, HEARTBEAT_MS);
-    return () => clearInterval(interval);
-  }, [router.pathname, cart.open]);
+    // Leaving or switching away: send what they last did straight away.
+    const onHide = () => { if (document.visibilityState === 'hidden') sendHeartbeat(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, [router.pathname, cart.open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deepest scroll on the current page, and the last field typed into.
+  React.useEffect(() => {
+    if (isAdmin) return undefined;
+    const t = journeyRef.current;
+    t.path = window.location.pathname;
+    t.scrollPct = 0;
+    const onScroll = () => {
+      const doc = document.documentElement;
+      const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+      const pct = doc.scrollHeight <= window.innerHeight ? 100 : Math.round((window.scrollY / max) * 100);
+      if (pct > t.scrollPct) t.scrollPct = Math.min(100, pct);
+    };
+    const fieldLabel = (el) => {
+      if (!el) return null;
+      if (el.tagName === 'IFRAME') return el.closest('#square-card-container') ? 'Card details' : null;
+      if (!['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.type === 'checkbox' || el.type === 'radio') return null;
+      return el.getAttribute('aria-label') || el.placeholder || (el.tagName === 'SELECT' ? el.options?.[0]?.text : null) || el.name || null;
+    };
+    const onField = (e) => { const label = fieldLabel(e.target); if (label) t.field = label; };
+    // Focus moving into the card form's iframe only shows up as the window
+    // losing focus with the iframe as the active element.
+    const onBlur = () => setTimeout(() => { const label = fieldLabel(document.activeElement); if (label) t.field = label; }, 0);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('focusin', onField);
+    document.addEventListener('input', onField);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('focusin', onField);
+      document.removeEventListener('input', onField);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [router.asPath, isAdmin]);
 
   return null;
 }

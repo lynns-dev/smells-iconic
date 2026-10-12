@@ -389,7 +389,7 @@ export default function AdminDashboard() {
 
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <span className="admin-serif" style={{ fontWeight: 500, fontSize: 26 }}>Smells Iconic admin</span>
+          <span style={{ fontWeight: 500, fontSize: 26 }}>Smells Iconic admin</span>
           <button onClick={handleLogout} style={S.btnOutline}>Sign out</button>
         </div>
 
@@ -441,7 +441,7 @@ export default function AdminDashboard() {
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
                 {Object.entries(STAGE_LABELS).map(([key, label]) => (
                   <div key={key} style={{ textAlign: 'center' }}>
-                    <div className="admin-serif" style={{ fontSize: 32 }}>{live.byStage[key] || 0}</div>
+                    <div style={{ fontSize: 32 }}>{live.byStage[key] || 0}</div>
                     <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
                   </div>
                 ))}
@@ -820,7 +820,7 @@ export default function AdminDashboard() {
 function StatCard({ label, value, highlight }) {
   return (
     <div style={{ ...statCard, ...(highlight ? { borderColor: T.ink } : {}) }}>
-      <div className="admin-serif" style={{ fontWeight: 400, fontSize: 34 }}>{value}</div>
+      <div style={{ fontWeight: 400, fontSize: 34 }}>{value}</div>
       <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, marginTop: 4 }}>{label}</div>
     </div>
   );
@@ -829,12 +829,47 @@ function StatCard({ label, value, highlight }) {
 function FunnelStep({ label, value, rate }) {
   return (
     <div>
-      <div className="admin-serif" style={{ fontSize: 28 }}>{value ?? 0}</div>
+      <div style={{ fontSize: 28 }}>{value ?? 0}</div>
       <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
       {rate && <div style={{ fontSize: 12, color: T.ink, marginTop: 2 }}>{rate}</div>}
     </div>
   );
 }
+
+// Which checkout step a form field belongs to, by its label.
+function checkoutStepFor(label) {
+  const l = String(label || '').toLowerCase();
+  if (!l) return null;
+  if (l.includes('email')) return 'Contact';
+  if (/card|expir|security|cvc|cvv/.test(l)) return 'Payment';
+  if (l.includes('discount')) return 'Discount code';
+  if (/name|address|apartment|city|state|zip|phone|country/.test(l)) return 'Delivery';
+  return null;
+}
+
+// One-line outcome for a visitor: bought, where they left checkout, added
+// to cart only, or just browsed — with "still here" for recent activity.
+function visitorStatus(j) {
+  if (!j) return { kind: 'browse', text: 'Browsed only' };
+  if (j.purchased) return { kind: 'purchase', text: `Purchased${j.purchased.amount ? ` · $${Number(j.purchased.amount).toFixed(2)}` : ''}` };
+  const active = j.lastSeen && Date.now() - j.lastSeen < 2 * 60 * 1000;
+  if (j.checkoutAt) {
+    const field = j.lastField && (j.lastField.path === '/checkout' || checkoutStepFor(j.lastField.label)) ? j.lastField.label : null;
+    const step = checkoutStepFor(field);
+    if (active) return { kind: 'checkout', text: `At checkout now${field ? ` · typing in “${field}”` : ''}` };
+    return {
+      kind: 'checkout',
+      text: field
+        ? `Abandoned checkout at ${step || 'checkout'} — last typed in “${field}”`
+        : 'Abandoned checkout before typing anything',
+    };
+  }
+  if (j.cart?.length) return { kind: 'cart', text: `${active ? 'Has items in cart' : 'Abandoned cart'} — added ${j.cart.join(', ')}` };
+  return { kind: 'browse', text: active ? 'Browsing now' : 'Browsed only' };
+}
+
+const STATUS_COLORS = { purchase: '#1a7a3c', checkout: '#a13d2b', cart: '#9a6a12', browse: T.soft };
+const STATUS_FILTERS = [['all', 'All'], ['cart', 'Added to cart'], ['checkout', 'Reached checkout'], ['purchase', 'Purchased']];
 
 // Visitors tab: who came to the site, from where, and with which URL
 // parameters (utm_*, fbclid, gclid, ad names…) on their first page.
@@ -843,6 +878,7 @@ function VisitorsTab() {
   const [error, setError] = React.useState('');
   const [query, setQuery] = React.useState('');
   const [onlyTagged, setOnlyTagged] = React.useState(false);
+  const [statusFilter, setStatusFilter] = React.useState('all');
 
   const load = React.useCallback(() => {
     setError('');
@@ -858,12 +894,26 @@ function VisitorsTab() {
     return (visitors || []).filter((v) => {
       const params = v.params || {};
       if (onlyTagged && Object.keys(params).length === 0) return false;
+      const j = v.journey;
+      if (statusFilter === 'purchase' && !j?.purchased) return false;
+      if (statusFilter === 'checkout' && !j?.checkoutAt) return false;
+      if (statusFilter === 'cart' && !j?.cart?.length) return false;
       if (!q) return true;
       const hay = [v.source, v.landing, v.referrer, v.city, v.country, v.device, ...Object.entries(params).map(([k, val]) => `${k}=${val}`)]
         .filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
-  }, [visitors, query, onlyTagged]);
+  }, [visitors, query, onlyTagged, statusFilter]);
+
+  const statusCounts = React.useMemo(() => {
+    const list = visitors || [];
+    return {
+      all: list.length,
+      cart: list.filter((v) => v.journey?.cart?.length).length,
+      checkout: list.filter((v) => v.journey?.checkoutAt).length,
+      purchase: list.filter((v) => v.journey?.purchased).length,
+    };
+  }, [visitors]);
 
   const topSources = React.useMemo(() => {
     const counts = new Map();
@@ -889,6 +939,13 @@ function VisitorsTab() {
       </Section>
 
       <Section title={`Recent visitors (${rows.length}${visitors && rows.length !== visitors.length ? ` of ${visitors.length}` : ''})`}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {STATUS_FILTERS.map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : T.white, color: statusFilter === key ? T.white : T.ink }}>
+              {label} · {statusCounts[key]}
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
           <input
             placeholder="Search source, page, city, utm_campaign=…"
@@ -905,6 +962,9 @@ function VisitorsTab() {
           {rows.map((v) => {
             const params = Object.entries(v.params || {});
             const place = [v.city, v.region, v.country].filter(Boolean).join(', ');
+            const j = v.journey;
+            const status = visitorStatus(j);
+            const scrolls = Object.entries(j?.scroll || {});
             return (
               <div key={`${v.sessionId}-${v.ts}`} style={visitorRow}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -918,6 +978,12 @@ function VisitorsTab() {
                   <span style={{ color: T.soft }}>Landed on </span>{v.landing || '/'}
                   {v.referrer && <span style={{ color: T.soft }}> · from <span title={v.referrer}>{v.referrer.length > 70 ? `${v.referrer.slice(0, 70)}…` : v.referrer}</span></span>}
                 </div>
+                <div style={{ fontSize: 14, marginTop: 6, fontWeight: 600, color: STATUS_COLORS[status.kind] }}>{status.text}</div>
+                {scrolls.length > 0 && (
+                  <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>
+                    Scrolled {scrolls.map(([path, pct]) => `${path} ${pct}%`).join(' · ')}
+                  </div>
+                )}
                 {params.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                     {params.map(([k, val]) => (
@@ -978,7 +1044,7 @@ function Section({ title, action, children }) {
   return (
     <div style={{ background: T.white, border: `1px solid ${T.line}`, padding: 24, marginBottom: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
-        <p className="admin-serif" style={{ margin: 0, fontSize: 19, fontWeight: 500, color: T.ink }}>{title}</p>
+        <p style={{ margin: 0, fontSize: 19, fontWeight: 500, color: T.ink }}>{title}</p>
         {action}
       </div>
       {children}

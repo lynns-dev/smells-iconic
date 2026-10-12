@@ -44,7 +44,7 @@ export default function AdminLogin() {
       </Head>
       <AdminFonts />
       <form onSubmit={handleSubmit} style={{ width: 320, padding: 40, background: T.white, border: `1px solid ${T.line}` }}>
-        <span className="admin-serif" style={{ fontWeight: 500, fontSize: 26, display: 'block', marginBottom: 24, textAlign: 'center' }}>Smells Iconic</span>
+        <span style={{ fontWeight: 500, fontSize: 26, display: 'block', marginBottom: 24, textAlign: 'center' }}>Smells Iconic</span>
         <p style={{ ...S.label, marginBottom: 16, textAlign: 'center' }}>Admin</p>
         <input
           type="password"
