@@ -9,7 +9,7 @@ import { getSessionId, getVisitorId } from '../lib/session';
 import { firstTimeThisSession } from '../lib/funnelTracking';
 
 const HEARTBEAT_MS = 10000;
-const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+const PIXEL_ID = String(process.env.NEXT_PUBLIC_META_PIXEL_ID || '').replace(/^[\s'"]+|[\s'"]+$/g, '');
 const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
 // Fire-and-forget analytics pings live here (inside CartProvider, so it can
