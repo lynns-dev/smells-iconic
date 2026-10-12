@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     const visitors = await getRecentVisitors(Math.min(Number(req.query.limit) || 300, 1000));
     // What each one did (cart, checkout, purchase, scroll, last field) —
     // lib/analyticsStore.js updateJourney.
-    const journeys = await getJourneys(visitors.map((v) => v.sessionId));
-    return res.status(200).json({ visitors: visitors.map((v) => ({ ...v, journey: journeys[v.sessionId] || null })) });
+    const journeys = await getJourneys(visitors.map((v) => v.visitorId || v.sessionId));
+    return res.status(200).json({ visitors: visitors.map((v) => ({ ...v, journey: journeys[v.visitorId || v.sessionId] || null })) });
   } catch (err) {
     console.error('Visitors fetch failed:', err);
     return res.status(500).json({ error: err.message });

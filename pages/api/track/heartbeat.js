@@ -26,7 +26,10 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
-  const { sessionId, stage, touch } = req.body || {};
+  const { sessionId, stage, touch, visitorId } = req.body || {};
+  // Live count and journey are per person (device visitor id), so two open
+  // tabs are one visitor; the tab session id is the fallback.
+  const personId = typeof visitorId === 'string' && /^[\w.-]{4,80}$/.test(visitorId) ? visitorId : sessionId;
   if (
     typeof sessionId === 'string' &&
     sessionId.length > 0 &&
@@ -46,7 +49,7 @@ export default async function handler(req, res) {
         city: city ? decodeURIComponent(city) : null,
         country,
       });
-      await fetch(`${KV_URL}/set/visitor:${sessionId}?EX=${TTL_SECONDS}`, {
+      await fetch(`${KV_URL}/set/visitor:${encodeURIComponent(personId)}?EX=${TTL_SECONDS}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${KV_TOKEN}` },
         body: value,
@@ -57,7 +60,7 @@ export default async function handler(req, res) {
         const path = clip(touch.path, 200);
         if (path && !path.startsWith('/admin')) {
           const pct = Number(touch.scrollPct);
-          await updateJourney(sessionId, {
+          await updateJourney(personId, {
             path,
             stage,
             scrollPct: Number.isFinite(pct) ? Math.min(100, Math.max(0, Math.round(pct))) : undefined,
