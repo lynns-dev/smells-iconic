@@ -94,7 +94,7 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
-  const { event, productName, eventId, contentId, contentIds, contents, value, url, sessionId, email, phone, fbc, visit } = req.body || {};
+  const { event, productName, eventId, contentId, contentIds, contents, value, url, sessionId, email, phone, fbc, visit, visitorId } = req.body || {};
 
   // Re-issue the Meta click ID cookie from the server. The browser sends its
   // click ID on the first page view of a visit (pages/_app.jsx); setting the
@@ -110,7 +110,11 @@ export default async function handler(req, res) {
   }
   if (ALLOWED.includes(event) && !isExcludedTraffic(req)) {
     try {
-      await incrementEvent(event, sessionId);
+      // Funnel counts are once per person per day: the device's visitor id
+      // (kept across tabs and return visits) when the browser sends one,
+      // otherwise the tab's session id.
+      const dedupeId = typeof visitorId === 'string' && /^[\w.-]{4,80}$/.test(visitorId) ? visitorId : sessionId;
+      await incrementEvent(event, dedupeId);
       // First page of a visit: record where the visitor came from for
       // admin's Visitors tab (lib/analyticsStore.js logVisitor).
       if (event === 'pageview' && sessionId && visit && typeof visit === 'object') {
