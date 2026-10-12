@@ -12,10 +12,10 @@ import {
 import { useCart } from '../lib/useCart';
 import { tokenizeCard } from '../lib/qbPayments';
 import { fbTrack, generateEventId, refreshPixelIdentity } from '../lib/fbPixel';
-import { firstTimeThisSession, cartSignature } from '../lib/funnelTracking';
+import { firstTimeToday, cartSignature } from '../lib/funnelTracking';
 import { getIdentity, rememberIdentity } from '../lib/identity';
 import { getStoredAttribution } from '../lib/attribution';
-import { getSessionId } from '../lib/session';
+import { getSessionId, getVisitorId } from '../lib/session';
 import { T, S } from '../lib/theme';
 
 // Cards, Apple Pay and Google Pay go through Square (lib/squareClient.js,
@@ -264,10 +264,10 @@ export default function CheckoutPage() {
 
   React.useEffect(() => {
     if (!hydrated || cart.length === 0) return;
-    // Once per distinct cart per browser session (lib/funnelTracking.js),
-    // not on every load — the saved cart made each refresh or return visit
-    // count as another checkout in Meta.
-    if (!firstTimeThisSession(`checkout_start:cart:${cartSignature(cart)}`)) return;
+    // Once per distinct cart per device per day (lib/funnelTracking.js), not
+    // per tab — the cart is saved across visits, so a shopper reopening the
+    // site in a new tab and going back to checkout was counted again.
+    if (!firstTimeToday(`checkout_start:cart:${cartSignature(cart)}`)) return;
     const eventId = generateEventId();
     fbTrack('InitiateCheckout', {
       content_ids: cart.map((i) => i.id),
@@ -287,6 +287,7 @@ export default function CheckoutPage() {
         contents: cart.map((i) => ({ id: i.id, quantity: i.quantity })),
         url: window.location.href,
         sessionId: getSessionId(),
+        visitorId: getVisitorId(),
         ...getIdentity(),
       }),
       keepalive: true,
