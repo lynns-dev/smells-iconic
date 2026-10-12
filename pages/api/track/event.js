@@ -2,7 +2,7 @@
 // would surface to the visitor — a lost analytics ping shouldn't affect
 // their experience.
 
-import { incrementEvent, logEvent, logVisitor } from '../../../lib/analyticsStore';
+import { incrementEvent, logEvent, logVisitor, updateJourney } from '../../../lib/analyticsStore';
 import { sendCapiEvent, getRequestUserData } from '../../../lib/metaCapi';
 import { isExcludedTraffic } from '../../../lib/ipFilter';
 import { fbcSetCookieHeader } from '../../../lib/metaClickId';
@@ -120,6 +120,8 @@ export default async function handler(req, res) {
       if (event === 'pageview' && sessionId && visit && typeof visit === 'object') {
         await logVisitor(describeVisit(req, sessionId, visit));
       }
+      if (sessionId && event === 'addtocart') await updateJourney(sessionId, { cartAdd: clip(productName, 80) || 'item' });
+      if (sessionId && event === 'checkout_start') await updateJourney(sessionId, { checkout: true });
       if (LOGGED.includes(event)) {
         await logEvent(event, {
           ...(productName ? { productName } : {}),

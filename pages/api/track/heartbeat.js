@@ -7,11 +7,18 @@
 // on every request automatically — no third-party geolocation API needed.
 
 import { isExcludedTraffic } from '../../../lib/ipFilter';
+import { updateJourney } from '../../../lib/analyticsStore';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const TTL_SECONDS = 25;
 const ALLOWED_STAGES = ['browsing', 'cart_open', 'checkout', 'purchased'];
+
+function clip(value, maxLength) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : null;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,7 +26,7 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
-  const { sessionId, stage } = req.body || {};
+  const { sessionId, stage, touch } = req.body || {};
   if (
     typeof sessionId === 'string' &&
     sessionId.length > 0 &&
@@ -44,6 +51,20 @@ export default async function handler(req, res) {
         headers: { Authorization: `Bearer ${KV_TOKEN}` },
         body: value,
       });
+      // The browser only includes `touch` when the page, scroll depth or
+      // last-typed field changed, so this extra write is rare.
+      if (touch && typeof touch === 'object') {
+        const path = clip(touch.path, 200);
+        if (path && !path.startsWith('/admin')) {
+          const pct = Number(touch.scrollPct);
+          await updateJourney(sessionId, {
+            path,
+            stage,
+            scrollPct: Number.isFinite(pct) ? Math.min(100, Math.max(0, Math.round(pct))) : undefined,
+            field: clip(touch.field, 60),
+          });
+        }
+      }
     } catch (err) {
       console.error('Heartbeat failed:', err);
     }
