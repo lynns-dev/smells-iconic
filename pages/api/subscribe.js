@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   if (isExcludedTraffic(req)) return res.status(200).json({ ok: true });
   try {
     const saved = await upsertSubscriber({
-      email, phone, name, consent: consent === true, source: source === 'newsletter' ? 'newsletter' : 'checkout', cart, address,
+      email, phone, name, consent: consent === true, source: ['newsletter', 'cart'].includes(source) ? source : 'checkout', cart, address,
     });
     return res.status(200).json({ ok: Boolean(saved) });
   } catch (err) {
