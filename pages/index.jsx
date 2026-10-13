@@ -14,6 +14,27 @@ const BANNER_MESSAGES = ['Free shipping $40+', '15% off with code ICONIC15'];
 
 export default function HomePage() {
   const c = useCart();
+  // Newsletter signup → the store's contact list (admin → Subscribers).
+  const [newsEmail, setNewsEmail] = React.useState('');
+  const [newsBusy, setNewsBusy] = React.useState(false);
+  const [newsDone, setNewsDone] = React.useState(false);
+  const handleNewsletter = async (e) => {
+    e.preventDefault();
+    if (!newsEmail.trim()) return;
+    setNewsBusy(true);
+    try {
+      await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsEmail, consent: true, source: 'newsletter' }),
+      });
+    } catch {
+      // still thank them; nothing they can do differently
+    }
+    setNewsBusy(false);
+    setNewsDone(true);
+  };
+
   const featured = getFeaturedProducts();
   const babygirl = getProductById('babygirl');
   const reviewsByProduct = useAllReviews();
@@ -212,10 +233,14 @@ export default function HomePage() {
         <p style={S.label}>The list</p>
         <h2 style={{ ...S.h2, marginTop: 12 }}>Get access <span style={S.it}>before it drops.</span></h2>
         <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>New characters, restocks, and 15% off your first mist.</p>
-        <form style={newsForm} onSubmit={(e) => e.preventDefault()}>
-          <input type="email" placeholder="Email address" aria-label="email" style={newsInput} />
-          <button type="submit" style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: T.sans }}>Subscribe</button>
-        </form>
+        {newsDone ? (
+          <p style={{ fontSize: 15, color: T.ink }}>You're on the list — use code <strong>ICONIC15</strong> for 15% off.</p>
+        ) : (
+          <form style={newsForm} onSubmit={handleNewsletter}>
+            <input type="email" required placeholder="Email address" aria-label="email" style={newsInput} value={newsEmail} onChange={(e) => setNewsEmail(e.target.value)} />
+            <button type="submit" disabled={newsBusy} style={{ background: 'none', border: 'none', fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: T.sans, opacity: newsBusy ? 0.5 : 1 }}>Subscribe</button>
+          </form>
+        )}
       </section>
 
       <Marquee />

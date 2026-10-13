@@ -107,40 +107,17 @@ export default function AdminDashboard() {
   const [notifStatus, setNotifStatus] = React.useState('unsupported'); // unsupported | denied | off | on | busy
   const [notifMessage, setNotifMessage] = React.useState('');
   const [hoveredCountry, setHoveredCountry] = React.useState(null);
-  const [orders, setOrders] = React.useState([]);
-  const [ordersLoading, setOrdersLoading] = React.useState(true);
-  const [tab, setTab] = React.useState('dashboard'); // dashboard | visitors
-  const [metaBusy, setMetaBusy] = React.useState({});
-  const [metaError, setMetaError] = React.useState({});
-
-  // Per-order "Send to Meta" (pages/api/admin/order-meta.js). New orders are
-  // sent automatically at checkout and retried by the Meta resend cron.
-  const handleSendToMeta = async (order) => {
-    setMetaBusy((prev) => ({ ...prev, [order.id]: true }));
-    setMetaError((prev) => ({ ...prev, [order.id]: '' }));
-    try {
-      const res = await fetch('/api/admin/order-meta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
-      });
-      const data = await res.json();
-      if (data.order) setOrders((prev) => prev.map((o) => (o.id === order.id ? data.order : o)));
-      if (!res.ok) throw new Error(data.error || 'Meta did not accept it.');
-    } catch (err) {
-      setMetaError((prev) => ({ ...prev, [order.id]: err.message }));
-    } finally {
-      setMetaBusy((prev) => ({ ...prev, [order.id]: false }));
-    }
-  };
-
+  const [tab, setTab] = React.useState('dashboard');
+  // The chosen section rides in the URL (#orders) so a refresh keeps it.
   React.useEffect(() => {
-    fetch('/api/admin/orders')
-      .then((r) => r.json())
-      .then((data) => setOrders(data.orders || []))
-      .catch(() => {})
-      .finally(() => setOrdersLoading(false));
+    const fromHash = window.location.hash.replace('#', '');
+    if (ADMIN_TABS.some(([k]) => k === fromHash)) setTab(fromHash);
   }, []);
+  const selectTab = (key) => {
+    setTab(key);
+    window.history.replaceState(null, '', `#${key}`);
+    window.scrollTo(0, 0);
+  };
 
   const mapCounts = React.useMemo(
     () => Object.fromEntries(Object.entries(live.byCountry).map(([code, data]) => [code.toLowerCase(), data.count])),
@@ -387,21 +364,26 @@ export default function AdminDashboard() {
       </Head>
       <AdminFonts />
 
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <span style={{ fontWeight: 500, fontSize: 26 }}>Smells Iconic admin</span>
-          <button onClick={handleLogout} style={S.btnOutline}>Sign out</button>
-        </div>
-
-        <div style={tabBar}>
-          {[['dashboard', 'Dashboard'], ['visitors', 'Visitors']].map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setTab(key)} style={tab === key ? tabActive : tabButton}>{label}</button>
+      <div className="admin-shell">
+        <nav className="admin-nav">
+          <div style={{ fontWeight: 600, fontSize: 18, padding: '4px 12px 18px' }}>Smells Iconic</div>
+          {ADMIN_TABS.map(([key, label]) => (
+            <button key={key} type="button" onClick={() => selectTab(key)} className={`admin-nav-item${tab === key ? ' active' : ''}`}>
+              {label}
+              {key === 'reviews' && pendingReviews.length > 0 && <span className="admin-nav-badge">{pendingReviews.length}</span>}
+            </button>
           ))}
-        </div>
+          <button type="button" onClick={handleLogout} className="admin-nav-item admin-nav-signout">Sign out</button>
+        </nav>
 
+        <main className="admin-main">
+        <h1 style={{ fontWeight: 600, fontSize: 26, margin: '0 0 24px' }}>{ADMIN_TABS.find(([k]) => k === tab)?.[1]}</h1>
+
+        {tab === 'orders' && <OrdersTab />}
         {tab === 'visitors' && <VisitorsTab />}
+        {tab === 'subscribers' && <SubscribersTab />}
 
-        {tab === 'dashboard' && (<>
+        {tab === 'settings' && (<>
 
         {/* NOTIFICATIONS */}
         <Section title="Order notifications">
@@ -425,6 +407,10 @@ export default function AdminDashboard() {
           {notifMessage && <p style={{ fontSize: 12, color: T.soft, marginTop: 12 }}>{notifMessage}</p>}
         </Section>
 
+        {dashboard?.capi && <CapiStatus capi={dashboard.capi} />}
+        </>)}
+
+        {tab === 'dashboard' && (<>
         {/* TOP STATS */}
         <div className="stat-grid" style={statGrid}>
           <StatCard label="Revenue today" value={dashboard ? `$${dashboard.revenueToday.toFixed(2)}` : '—'} />
@@ -592,63 +578,9 @@ export default function AdminDashboard() {
           )}
         </Section>
 
-        {dashboard?.capi && <CapiStatus capi={dashboard.capi} />}
+        </>)}
 
-        {/* RECENT ORDERS */}
-        <Section title={`Recent orders (${orders.length})`}>
-          {ordersLoading ? (
-            <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>
-          ) : orders.length === 0 ? (
-            <p style={{ color: T.soft, fontSize: 14 }}>No orders in the last 30 days.</p>
-          ) : (
-            <div style={{ maxHeight: 480, overflowY: 'auto' }}>
-              <div style={orderHeadRow}>
-                <span style={{ flex: '0 0 130px' }}>Date</span>
-                <span style={{ flex: 1 }}>Items</span>
-                <span style={{ flex: '0 0 90px' }}>Amount</span>
-                <span style={{ flex: '0 0 100px' }}>Payment</span>
-                <span style={{ flex: '0 0 160px' }}>Source</span>
-                <span style={{ flex: '0 0 120px' }}>Meta</span>
-              </div>
-              {orders.map((o) => {
-                const { source, campaign } = attributionSource(o);
-                const itemSummary = (o.items || []).map((i) => `${i.name} ×${i.quantity}`).join(', ');
-                return (
-                  <div key={o.id} style={orderRow}>
-                    <span style={{ flex: '0 0 130px', color: T.soft }}>
-                      {new Date(o.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                    </span>
-                    <span style={{ flex: 1 }} title={itemSummary}>{itemSummary}</span>
-                    <span style={{ flex: '0 0 90px' }}>${Number(o.amount).toFixed(2)}</span>
-                    <span style={{ flex: '0 0 100px', color: T.soft }}>{o.paymentMethod || 'Unknown'}</span>
-                    <span style={{ flex: '0 0 160px' }}>
-                      {source}
-                      {campaign && <span style={{ color: T.soft }}> · {campaign}</span>}
-                    </span>
-                    <span style={{ flex: '0 0 120px' }}>
-                      {o.meta?.sent ? (
-                        <span style={{ fontWeight: 700 }}>Sent</span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={Boolean(metaBusy[o.id])}
-                          onClick={() => handleSendToMeta(o)}
-                          style={{ ...S.btnOutline, height: 30, padding: '0 10px', fontSize: 11, opacity: metaBusy[o.id] ? 0.5 : 1 }}
-                        >
-                          {metaBusy[o.id] ? 'Sending…' : 'Send to Meta'}
-                        </button>
-                      )}
-                      {!o.meta?.sent && (metaError[o.id] || o.meta?.lastError) && (
-                        <div style={{ fontSize: 11, color: '#a13d2b', marginTop: 4 }}>{metaError[o.id] || o.meta.lastError}</div>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
+        {tab === 'reviews' && (<>
         {/* PENDING REVIEWS */}
         <Section title={`Pending approval (${pendingReviews.length})`}>
           {reviewsLoading ? (
@@ -753,6 +685,9 @@ export default function AdminDashboard() {
           )}
         </Section>
 
+        </>)}
+
+        {tab === 'discounts' && (<>
         {/* DISCOUNT CODES */}
         <Section title={`Discount codes (${discounts.length})`}>
           {discounts.length === 0 ? (
@@ -803,9 +738,25 @@ export default function AdminDashboard() {
           {discountFormMessage && <p style={{ fontSize: 12, color: T.ink, marginTop: 12 }}>{discountFormMessage}</p>}
         </Section>
         </>)}
+        </main>
       </div>
 
       <style jsx>{`
+        .admin-shell { display: flex; gap: 32px; max-width: 1240px; margin: 0 auto; align-items: flex-start; }
+        .admin-nav { position: sticky; top: 24px; width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+        .admin-nav-item { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: 10px 12px; border: none; border-radius: 8px; background: none; font-size: 15px; color: ${T.soft}; cursor: pointer; }
+        .admin-nav-item:hover { background: rgba(0, 0, 0, 0.04); color: ${T.ink}; }
+        .admin-nav-item.active { background: ${T.white}; color: ${T.ink}; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+        .admin-nav-badge { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: ${T.ink}; color: ${T.white}; font-size: 11px; text-align: center; }
+        .admin-nav-signout { margin-top: 16px; }
+        .admin-main { flex: 1; min-width: 0; }
+        @media (max-width: 760px) {
+          .admin-shell { flex-direction: column; gap: 16px; }
+          .admin-nav { position: sticky; top: 0; z-index: 5; width: 100%; flex-direction: row; overflow-x: auto; background: ${T.paper}; padding: 8px 0; }
+          .admin-nav > div:first-child { display: none; }
+          .admin-nav-item { white-space: nowrap; flex-shrink: 0; }
+          .admin-nav-signout { margin-top: 0; }
+        }
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         .funnel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         @media (max-width: 640px) {
@@ -835,6 +786,373 @@ function FunnelStep({ label, value, rate }) {
     </div>
   );
 }
+
+const ADMIN_TABS = [
+  ['dashboard', 'Dashboard'],
+  ['orders', 'Orders'],
+  ['visitors', 'Visitors'],
+  ['subscribers', 'Subscribers'],
+  ['reviews', 'Reviews'],
+  ['discounts', 'Discounts'],
+  ['settings', 'Settings'],
+];
+
+// Subscribers tab: everyone who has given an email or phone — newsletter
+// signups, checkouts (paid or abandoned), and customers — with whether they
+// bought, what was in an abandoned cart, and whether they opted in to email.
+const SUB_FILTERS = [['all', 'All'], ['abandoned', 'Abandoned checkout'], ['customers', 'Customers'], ['newsletter', 'Newsletter'], ['optedin', 'Emails OK'], ['optedout', 'Not opted in']];
+
+function subscriberStatus(s) {
+  if (s.orders?.count) return { kind: 'customer', label: `Customer · ${s.orders.count} order${s.orders.count === 1 ? '' : 's'} · $${s.orders.spent.toFixed(2)}`, color: '#1a7a3c' };
+  if (s.sources?.includes('order')) return { kind: 'customer', label: 'Customer', color: '#1a7a3c' };
+  if (s.lastCheckoutAt) return { kind: 'abandoned', label: 'Abandoned checkout', color: '#a13d2b' };
+  return { kind: 'newsletter', label: 'Newsletter signup', color: T.soft };
+}
+
+function SubscribersTab() {
+  const [list, setList] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const [filter, setFilter] = React.useState('all');
+  const [query, setQuery] = React.useState('');
+
+  const load = React.useCallback(() => {
+    setError('');
+    fetch('/api/admin/subscribers')
+      .then((r) => r.json().then((d) => (r.ok ? d : Promise.reject(new Error(d.error || 'Could not load subscribers.')))))
+      .then((d) => setList(d.subscribers || []))
+      .catch((err) => setError(err.message));
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  const matches = (s, f) => {
+    const st = subscriberStatus(s).kind;
+    if (f === 'abandoned') return st === 'abandoned';
+    if (f === 'customers') return st === 'customer';
+    if (f === 'newsletter') return s.sources?.includes('newsletter');
+    if (f === 'optedin') return s.consent && s.email;
+    if (f === 'optedout') return !s.consent;
+    return true;
+  };
+  const counts = React.useMemo(() => Object.fromEntries(SUB_FILTERS.map(([k]) => [k, (list || []).filter((s) => matches(s, k)).length])), [list]);
+  const rows = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (list || []).filter((s) => matches(s, filter) && (!q || [s.email, s.phone, s.name, s.city, s.state, ...(s.cart || []).map((i) => i.name)].filter(Boolean).join(' ').toLowerCase().includes(q)));
+  }, [list, filter, query]);
+
+  const toggleConsent = async (s) => {
+    const res = await fetch('/api/admin/subscribers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: s.key, consent: !s.consent }) });
+    const d = await res.json();
+    if (d.subscriber) setList((prev) => prev.map((x) => (x.key === s.key ? { ...x, ...d.subscriber } : x)));
+  };
+
+  const exportCsv = () => {
+    const header = ['Email', 'Phone', 'Name', 'City', 'State', 'Status', 'Emails OK', 'Sources', 'Abandoned cart', 'First seen', 'Last seen'];
+    const lines = rows.map((s) => [s.email, s.phone, s.name, s.city, s.state, subscriberStatus(s).label, s.consent ? 'yes' : 'no', (s.sources || []).join(' '),
+      subscriberStatus(s).kind === 'abandoned' ? (s.cart || []).map((i) => `${i.name} x${i.quantity}`).join('; ') : '',
+      s.firstSeen ? new Date(s.firstSeen).toLocaleString() : '', s.lastSeen ? new Date(s.lastSeen).toLocaleString() : ''].map(csvCell).join(','));
+    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `smells-iconic-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <Section
+      title={list ? `${rows.length} ${rows.length === 1 ? 'person' : 'people'}` : 'Subscribers'}
+      action={<div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" onClick={exportCsv} disabled={!rows.length} style={S.btnOutline}>Export CSV</button>
+        <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
+      </div>}
+    >
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {SUB_FILTERS.map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setFilter(key)} style={{ ...chip, cursor: 'pointer', background: filter === key ? T.ink : T.white, color: filter === key ? T.white : T.ink }}>{label} · {counts[key] ?? 0}</button>
+        ))}
+      </div>
+      <input placeholder="Search email, phone, name, city, product…" value={query} onChange={(e) => setQuery(e.target.value)}
+        style={{ width: '100%', boxSizing: 'border-box', height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14, marginBottom: 16 }} />
+
+      {list === null && !error && <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>}
+      {error && <p style={{ color: '#a13d2b', fontSize: 14 }}>{error}</p>}
+      {list && rows.length === 0 && <p style={{ color: T.soft, fontSize: 14 }}>No one here yet. People appear as soon as they sign up or type their email/phone at checkout.</p>}
+
+      {rows.map((s) => {
+        const st = subscriberStatus(s);
+        return (
+          <div key={s.key} style={{ padding: '14px 0', borderTop: `1px solid ${T.line}`, fontSize: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span>
+                <span style={{ fontWeight: 600 }}>{s.name || s.email || s.phone}</span>
+                {s.name && s.email && <span style={{ color: T.soft }}> · {s.email}</span>}
+                {s.phone && <span style={{ color: T.soft }}> · {s.phone}</span>}
+              </span>
+              <span style={{ color: T.soft, fontSize: 13 }}>
+                {[s.city, s.state].filter(Boolean).join(', ')}{(s.city || s.state) ? ' · ' : ''}last seen {s.lastSeen ? new Date(s.lastSeen).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
+              <span style={{ fontWeight: 600, color: st.color }}>{st.label}</span>
+              {st.kind === 'abandoned' && s.cart?.length > 0 && (
+                <span style={{ color: T.soft }}>left {s.cart.map((i) => `${i.name} ×${i.quantity}`).join(', ')} (${s.cart.reduce((t, i) => t + i.price * i.quantity, 0).toFixed(2)})</span>
+              )}
+              <span style={{ color: T.soft, fontSize: 13 }}>via {(s.sources || []).join(', ')}</span>
+              <button type="button" onClick={() => toggleConsent(s)} title="Whether they agreed to marketing emails"
+                style={{ ...chip, cursor: 'pointer', background: s.consent ? '#e7f4ea' : T.white, color: s.consent ? '#1a7a3c' : T.soft }}>
+                {s.consent ? 'Emails OK' : 'Not opted in'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </Section>
+  );
+}
+
+// Orders tab: every order kept (45 days) with customer, shipping, items,
+// payment, where they came from, Meta status, tracking, and actions
+// (refund through the company that took the payment, cancel, archive).
+const ORDER_RANGES = [['today', 'Today', 1], ['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['all', 'All (45 days)', 45]];
+const ORDER_STATUSES = [['open', 'Open'], ['unshipped', 'To ship'], ['shipped', 'Shipped'], ['refunded', 'Refunded'], ['cancelled', 'Cancelled'], ['archived', 'Archived'], ['every', 'Everything']];
+
+function orderState(o) {
+  if (o.status === 'refunded') return { label: 'Refunded', color: '#a13d2b' };
+  if (o.status === 'cancelled') return { label: 'Cancelled', color: T.soft };
+  if (o.status === 'archived') return { label: 'Archived', color: T.soft };
+  if (o.trackingNumber) return { label: 'Shipped', color: '#1a7a3c' };
+  return { label: 'To ship', color: '#9a6a12' };
+}
+
+function customerName(o) {
+  const s = o.shipping || {};
+  return (s.name || `${s.firstName || ''} ${s.lastName || ''}`).trim();
+}
+
+function csvCell(v) {
+  const t = v == null ? '' : String(v);
+  return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+function OrdersTab() {
+  const [orders, setOrders] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const [range, setRange] = React.useState('30d');
+  const [statusFilter, setStatusFilter] = React.useState('open');
+  const [query, setQuery] = React.useState('');
+  const [openId, setOpenId] = React.useState(null);
+  const [busy, setBusy] = React.useState({});
+  const [msg, setMsg] = React.useState({});
+  const [tracking, setTracking] = React.useState({});
+
+  const load = React.useCallback(() => {
+    setError('');
+    fetch('/api/admin/orders')
+      .then((r) => r.json().then((d) => (r.ok ? d : Promise.reject(new Error(d.error || 'Could not load orders.')))))
+      .then((d) => setOrders(d.orders || []))
+      .catch((err) => setError(err.message));
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  const replace = (order) => setOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
+
+  const act = async (o, key, url, body, confirmText) => {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBusy((b) => ({ ...b, [o.id]: key }));
+    setMsg((m) => ({ ...m, [o.id]: '' }));
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: o.id, ...body }) });
+      const data = await res.json();
+      if (data.order) replace(data.order);
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'meta' ? 'Sent to Meta.' : 'Updated.' } }));
+    } catch (err) {
+      setMsg((m) => ({ ...m, [o.id]: { ok: false, text: err.message } }));
+    } finally {
+      setBusy((b) => ({ ...b, [o.id]: null }));
+    }
+  };
+
+  const rows = React.useMemo(() => {
+    const days = ORDER_RANGES.find(([k]) => k === range)?.[2] || 45;
+    const since = range === 'today' ? new Date(new Date().toDateString()).getTime() : Date.now() - days * 24 * 60 * 60 * 1000;
+    const q = query.trim().toLowerCase();
+    return (orders || []).filter((o) => {
+      if (new Date(o.createdAt).getTime() < since) return false;
+      const st = o.status || 'paid';
+      if (statusFilter === 'open' && !['paid', undefined].includes(o.status) ) return false;
+      if (statusFilter === 'unshipped' && (st !== 'paid' || o.trackingNumber)) return false;
+      if (statusFilter === 'shipped' && (st !== 'paid' || !o.trackingNumber)) return false;
+      if (['refunded', 'cancelled', 'archived'].includes(statusFilter) && st !== statusFilter) return false;
+      if (!q) return true;
+      const hay = [o.id, o.email, customerName(o), o.paymentMethod, o.trackingNumber, o.shipping?.city, o.shipping?.zip,
+        ...(o.items || []).map((i) => i.name), attributionSource(o).source, attributionSource(o).campaign].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [orders, range, statusFilter, query]);
+
+  const totals = React.useMemo(() => {
+    const paid = rows.filter((o) => !['refunded', 'cancelled'].includes(o.status));
+    return { count: rows.length, revenue: paid.reduce((s, o) => s + Number(o.amount || 0), 0) };
+  }, [rows]);
+
+  const exportCsv = () => {
+    const header = ['Date', 'Order ID', 'Status', 'Customer', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Amount', 'Payment', 'Source', 'Campaign', 'Carrier', 'Tracking'];
+    const lines = rows.map((o) => {
+      const s = o.shipping || {};
+      const { source, campaign } = attributionSource(o);
+      return [new Date(o.createdAt).toLocaleString(), o.id, orderState(o).label, customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
+        (o.items || []).map((i) => `${i.name} x${i.quantity}`).join('; '), Number(o.amount || 0).toFixed(2), o.paymentMethod, source, campaign, o.carrier, o.trackingNumber].map(csvCell).join(',');
+    });
+    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `smells-iconic-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const field = { height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14 };
+
+  return (
+    <Section
+      title={orders ? `${totals.count} order${totals.count === 1 ? '' : 's'} · $${totals.revenue.toFixed(2)}` : 'Orders'}
+      action={<div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" onClick={exportCsv} disabled={!rows.length} style={S.btnOutline}>Export CSV</button>
+        <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
+      </div>}
+    >
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        {ORDER_STATUSES.map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : T.white, color: statusFilter === key ? T.white : T.ink }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <input placeholder="Search name, email, order ID, product, tracking…" value={query} onChange={(e) => setQuery(e.target.value)} style={{ ...field, flex: 1, minWidth: 220 }} />
+        <select value={range} onChange={(e) => setRange(e.target.value)} style={field}>
+          {ORDER_RANGES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+        </select>
+      </div>
+
+      {orders === null && !error && <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>}
+      {error && <p style={{ color: '#a13d2b', fontSize: 14 }}>{error}</p>}
+      {orders && rows.length === 0 && <p style={{ color: T.soft, fontSize: 14 }}>No orders match.</p>}
+
+      {rows.map((o) => {
+        const state = orderState(o);
+        const open = openId === o.id;
+        const s = o.shipping || {};
+        const { source, campaign } = attributionSource(o);
+        const attr = o.attribution || {};
+        const t = tracking[o.id] ?? { carrier: o.carrier || 'USPS', trackingNumber: o.trackingNumber || '', trackingUrl: o.trackingUrl || '' };
+        const setT = (k, v) => setTracking((prev) => ({ ...prev, [o.id]: { ...t, [k]: v } }));
+        const m = msg[o.id];
+        return (
+          <div key={o.id} style={{ borderTop: `1px solid ${T.line}` }}>
+            <button type="button" onClick={() => setOpenId(open ? null : o.id)} style={{ display: 'flex', width: '100%', gap: 12, alignItems: 'center', padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flexWrap: 'wrap', fontSize: 14, color: T.ink }}>
+              <span style={{ flex: '0 0 120px', color: T.soft }}>{new Date(o.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+              <span style={{ flex: '1 1 180px', minWidth: 0 }}>
+                <span style={{ fontWeight: 600 }}>{customerName(o) || o.email || 'Customer'}</span>
+                <span style={{ color: T.soft }}> · {(o.items || []).map((i) => `${i.name} ×${i.quantity}`).join(', ')}</span>
+              </span>
+              <span style={{ flex: '0 0 80px', fontWeight: 600 }}>${Number(o.amount || 0).toFixed(2)}</span>
+              <span style={{ flex: '0 0 90px', fontWeight: 600, color: state.color }}>{state.label}</span>
+              <span style={{ flex: '0 0 16px', color: T.soft }}>{open ? '−' : '+'}</span>
+            </button>
+
+            {open && (
+              <div style={{ padding: '4px 0 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, fontSize: 14 }}>
+                <div>
+                  <div style={orderLabel}>Customer</div>
+                  <div>{customerName(o) || '—'}</div>
+                  {o.email && <div><a href={`mailto:${o.email}`} style={{ color: T.ink }}>{o.email}</a></div>}
+                  {s.phone && <div>{s.phone}</div>}
+                </div>
+                <div>
+                  <div style={orderLabel}>Ship to</div>
+                  {s.address ? (
+                    <div>{s.address}{s.apt ? `, ${s.apt}` : ''}<br />{s.city}, {s.state} {s.zip}</div>
+                  ) : <div style={{ color: T.soft }}>No address saved</div>}
+                </div>
+                <div>
+                  <div style={orderLabel}>Items</div>
+                  {(o.items || []).map((i) => (
+                    <div key={i.id}>{i.name} × {i.quantity} — ${(Number(i.price || 0) * i.quantity).toFixed(2)}</div>
+                  ))}
+                  <div style={{ fontWeight: 600, marginTop: 4 }}>Total ${Number(o.amount || 0).toFixed(2)}</div>
+                </div>
+                <div>
+                  <div style={orderLabel}>Payment</div>
+                  <div>{o.paymentMethod || 'Unknown'}{o.processor ? ` (${o.processor})` : ''}</div>
+                  <div style={{ color: T.soft, fontSize: 12, wordBreak: 'break-all' }}>Order ID {o.id}</div>
+                  {o.refundedAt && <div style={{ color: '#a13d2b' }}>Refunded {new Date(o.refundedAt).toLocaleDateString()}</div>}
+                </div>
+                <div>
+                  <div style={orderLabel}>Came from</div>
+                  <div>{source}{campaign ? ` · ${campaign}` : ''}</div>
+                  {(attr.utm_content || attr.adset_name) && <div style={{ color: T.soft }}>Ad set: {attr.adset_name || attr.utm_content}</div>}
+                  {(attr.utm_term || attr.ad_name) && <div style={{ color: T.soft }}>Ad: {attr.ad_name || attr.utm_term}</div>}
+                  {attr.landingPage && <div style={{ color: T.soft }}>Landed on {attr.landingPage}</div>}
+                </div>
+                <div>
+                  <div style={orderLabel}>Meta</div>
+                  {o.meta?.sent ? <div style={{ color: '#1a7a3c', fontWeight: 600 }}>Purchase sent</div> : (
+                    <>
+                      <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'meta', '/api/admin/order-meta', {})} style={{ ...S.btnOutline, height: 34, padding: '0 12px' }}>
+                        {busy[o.id] === 'meta' ? 'Sending…' : 'Send to Meta'}
+                      </button>
+                      {o.meta?.lastError && <div style={{ color: '#a13d2b', fontSize: 12, marginTop: 4 }}>{o.meta.lastError}</div>}
+                    </>
+                  )}
+                </div>
+
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={orderLabel}>Tracking</div>
+                  {o.trackingNumber && (
+                    <div style={{ marginBottom: 8 }}>
+                      {o.carrier ? `${o.carrier} · ` : ''}{o.trackingUrl ? <a href={o.trackingUrl} target="_blank" rel="noreferrer" style={{ color: T.ink }}>{o.trackingNumber}</a> : o.trackingNumber}
+                      {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}</span>}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <select value={t.carrier} onChange={(e) => setT('carrier', e.target.value)} style={field}>
+                      {['USPS', 'UPS', 'FedEx', 'DHL', 'Other'].map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                    <input placeholder="Tracking number" value={t.trackingNumber} onChange={(e) => setT('trackingNumber', e.target.value)} style={{ ...field, flex: '1 1 180px' }} />
+                    <input placeholder="Tracking link (optional)" value={t.trackingUrl} onChange={(e) => setT('trackingUrl', e.target.value)} style={{ ...field, flex: '1 1 220px' }} />
+                    <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'track', '/api/admin/orders/tracking', t)} style={S.btnFill}>
+                      {busy[o.id] === 'track' ? 'Saving…' : o.trackingNumber ? 'Update' : 'Mark shipped'}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {o.status !== 'refunded' && (
+                    <button type="button" disabled={Boolean(busy[o.id])} style={{ ...S.btnOutline, color: '#a13d2b', borderColor: '#a13d2b' }}
+                      onClick={() => act(o, 'refund', '/api/admin/orders/refund', {}, `Refund $${Number(o.amount || 0).toFixed(2)} to ${customerName(o) || o.email || 'this customer'}? This can't be undone.`)}>
+                      {busy[o.id] === 'refund' ? 'Refunding…' : `Refund $${Number(o.amount || 0).toFixed(2)}`}
+                    </button>
+                  )}
+                  {(!o.status || o.status === 'paid') && (
+                    <button type="button" disabled={Boolean(busy[o.id])} style={S.btnOutline} onClick={() => act(o, 'status', '/api/admin/orders/status', { status: 'cancelled' }, 'Mark this order cancelled? (No money is refunded — use Refund for that.)')}>Cancel</button>
+                  )}
+                  {o.status !== 'archived' ? (
+                    <button type="button" disabled={Boolean(busy[o.id])} style={S.btnOutline} onClick={() => act(o, 'status', '/api/admin/orders/status', { status: 'archived' })}>Archive</button>
+                  ) : (
+                    <button type="button" disabled={Boolean(busy[o.id])} style={S.btnOutline} onClick={() => act(o, 'status', '/api/admin/orders/status', { status: 'paid' })}>Restore</button>
+                  )}
+                  {m && <span style={{ fontSize: 13, color: m.ok ? '#1a7a3c' : '#a13d2b' }}>{m.text}</span>}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </Section>
+  );
+}
+
+const orderLabel = { fontSize: 12, color: T.soft, marginBottom: 4, fontWeight: 600 };
 
 // Which checkout step a form field belongs to, by its label.
 function checkoutStepFor(label) {
