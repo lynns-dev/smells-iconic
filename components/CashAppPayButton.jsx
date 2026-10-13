@@ -15,7 +15,7 @@ import { loadAfterpayConfig, loadAfterpayScript, finishAfterpayOrder } from '../
 
 const CONTAINER_ID = 'cash-app-pay';
 
-export default function CashAppPayButton({ order, purchaseKey, onError, onReady, onNeedDetails }) {
+export default function CashAppPayButton({ order, purchaseKey, onError, onReady, onNeedDetails, onShown }) {
   const router = useRouter();
   const { clear } = useCart();
   const [ready, setReady] = React.useState(false);
@@ -94,6 +94,8 @@ export default function CashAppPayButton({ order, purchaseKey, onError, onReady,
   }, []);
 
   const showPlaceholder = available && !failed && !ready && !finishing;
+  const shown = showPlaceholder || ready || finishing;
+  React.useEffect(() => { onShown?.(shown); }, [shown, onShown]);
   return (
     <div style={{ marginTop: ready || showPlaceholder ? 10 : 0 }}>
       {showPlaceholder && (
