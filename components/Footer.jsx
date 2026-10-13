@@ -19,7 +19,7 @@ export default function Footer() {
           <Link href="/shipping">Shipping Policy</Link>
         </div>
         <small style={{ width: '100%', color: T.soft, fontSize: 11 }}>
-          Fragrance · Smells Iconic, an archive.
+          Body mist · Smells Iconic, an archive.
         </small>
       </div>
     </footer>

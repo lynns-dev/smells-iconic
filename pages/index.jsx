@@ -76,7 +76,7 @@ export default function HomePage() {
         <div className="hero-grid" style={heroBg}>
           <div className="hero-text" style={heroContent}>
             <div>
-              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Fragrance · an archive</span>
+              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · an archive</span>
               <h1 style={heroH1}>Smell like <span style={S.it}>the main character.</span></h1>
               <p style={heroSub}>Scents pulled from the cultural record — worn like a costume, remembered like a scent.</p>
               {siteReviews.count > 0 && (
@@ -153,10 +153,10 @@ export default function HomePage() {
               </ul>
             </div>
             <div className="hm-cell" style={{ ...vcell, background: T.ink, color: T.white }}>
-              <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC fragrance</div>
+              <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC mist</div>
               <div style={{ ...vbig, color: T.white }}>$28</div>
               <ul style={vlist}>
-                {['A character, not a cologne', 'Internet-coded, not overdone', '1.7 oz — sized to carry, reapply anywhere', 'Milky, spiced, or cherry-sweet — your era'].map((x, i) => (
+                {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, spiced, or cherry-sweet — your era'].map((x, i) => (
                   <li key={i} style={{ ...vli, color: 'rgba(251,245,241,0.78)', borderTop: i === 0 ? 'none' : `1px solid ${T.dline}` }}>{x}</li>
                 ))}
               </ul>
@@ -215,9 +215,9 @@ export default function HomePage() {
           <p style={S.label}>The ritual</p>
           <h2 style={{ ...S.h2, marginTop: 12 }}>Three soft motions.</h2>
           <div className="rit-grid" style={ritGrid}>
-            {[['i', 'Fresh out the shower', 'Spray onto clean, warm skin — that’s when it holds longest.'],
+            {[['i', 'Fresh out the shower', 'Mist onto clean, warm skin — that’s when it holds longest.'],
               ['ii', 'Where you’d get kissed', 'Collarbones, neck, wrists, the backs of the knees.'],
-              ['iii', 'Reapply whenever', 'Made for everyday wear — a spritz whenever the moment calls for it.']].map(([n, h, p], i) => (
+              ['iii', 'Reapply whenever', 'It’s a mist, not a perfume — spray as often as the moment calls for it.']].map(([n, h, p], i) => (
               <div key={i}>
                 <div style={{ fontFamily: T.display, fontWeight: 400, fontSize: 24 }}>{n}</div>
                 <h4 style={{ fontFamily: T.display, fontWeight: 400, fontSize: 19, margin: '12px 0 6px' }}>{h}</h4>
@@ -232,7 +232,7 @@ export default function HomePage() {
       <section style={{ ...band, textAlign: 'center', borderTop: `1px solid ${T.line}` }}>
         <p style={S.label}>The list</p>
         <h2 style={{ ...S.h2, marginTop: 12 }}>Get access <span style={S.it}>before it drops.</span></h2>
-        <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>New characters, restocks, and 15% off your first fragrance.</p>
+        <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>New characters, restocks, and 15% off your first mist.</p>
         {newsDone ? (
           <p style={{ fontSize: 15, color: T.ink }}>You're on the list — use code <strong>ICONIC15</strong> for 15% off.</p>
         ) : (
