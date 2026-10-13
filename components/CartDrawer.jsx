@@ -3,6 +3,11 @@ import Link from 'next/link';
 import { T, S } from '../lib/theme';
 import ProductVisual from './ProductVisual';
 import { getProductById } from '../lib/products';
+import { rememberIdentity } from '../lib/identity';
+
+// Code revealed by the cart's email field (must exist in admin → Discounts).
+const UNLOCK_CODE = 'ICONIC15';
+const UNLOCKED_KEY = 'si-cart-code-unlocked';
 
 const FREE_SHIP_AT = 50;
 const FREE_GIFT_AT = 70;
@@ -21,6 +26,35 @@ export default function CartDrawer({
   React.useEffect(() => {
     if (appliedDiscount) setDiscountCode(appliedDiscount.code);
   }, [appliedDiscount]);
+
+  // "Unlock 15% off": an email field that reveals and applies the code, and
+  // adds them to the contact list (admin → Subscribers) as opted in.
+  // Remembered on this device so it isn't offered again once used.
+  const [unlockEmail, setUnlockEmail] = React.useState('');
+  const [unlockState, setUnlockState] = React.useState('idle'); // idle | busy | done | error
+  const [alreadyUnlocked, setAlreadyUnlocked] = React.useState(false);
+  React.useEffect(() => {
+    try { setAlreadyUnlocked(Boolean(window.localStorage.getItem(UNLOCKED_KEY))); } catch { /* storage blocked */ }
+  }, []);
+  const handleUnlock = async (e) => {
+    e.preventDefault();
+    const email = unlockEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setUnlockState('error'); return; }
+    setUnlockState('busy');
+    rememberIdentity({ email });
+    fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, consent: true, source: 'cart', cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })) }),
+      keepalive: true,
+    }).catch(() => {});
+    const data = await applyDiscount(UNLOCK_CODE).catch(() => ({}));
+    setDiscountCode(UNLOCK_CODE);
+    setDiscountMessage(data?.valid ? `Code "${UNLOCK_CODE}" applied.` : `Your code is ${UNLOCK_CODE} — enter it at checkout.`);
+    try { window.localStorage.setItem(UNLOCKED_KEY, '1'); } catch { /* storage blocked */ }
+    setUnlockState('done');
+  };
+  const showUnlock = cart.length > 0 && !alreadyUnlocked && !(appliedDiscount && unlockState !== 'done');
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) return;
@@ -129,6 +163,34 @@ export default function CartDrawer({
           )}
         </div>
 
+        {showUnlock && (
+          <div style={unlockBox}>
+            {unlockState === 'done' ? (
+              <p style={{ margin: 0, fontSize: 13, color: T.ink }}>
+                You're in — <strong>{UNLOCK_CODE}</strong> {appliedDiscount ? 'is applied to your bag (15% off).' : 'gets you 15% off at checkout.'}
+              </p>
+            ) : (
+              <form onSubmit={handleUnlock}>
+                <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: T.ink }}>Unlock 15% off your order</p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    aria-label="Email for 15% off"
+                    autoComplete="email"
+                    value={unlockEmail}
+                    onChange={(e) => { setUnlockEmail(e.target.value); if (unlockState === 'error') setUnlockState('idle'); }}
+                    style={discountInput}
+                  />
+                  <button type="submit" style={S.btnFill} disabled={unlockState === 'busy'}>{unlockState === 'busy' ? '…' : 'Reveal code'}</button>
+                </div>
+                {unlockState === 'error' && <p style={{ fontSize: 12, color: '#a13d2b', margin: '6px 0 0' }}>Enter a valid email address.</p>}
+                <p style={{ fontSize: 10, color: T.soft, margin: '6px 0 0' }}>By signing up you agree to receive emails from Smells Iconic. Unsubscribe anytime.</p>
+              </form>
+            )}
+          </div>
+        )}
+
         {cart.length > 0 && (
           <div style={{ marginTop: 16, flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -215,4 +277,5 @@ const discountInput = {
 };
 
 const summaryRow = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' };
+const unlockBox = { background: T.paper, border: `1px solid ${T.line}`, padding: '14px 14px 12px', marginTop: 16, flexShrink: 0 };
 const shippingNote = { fontSize: 11, color: T.soft, marginTop: 8, letterSpacing: '0.02em' };

@@ -800,13 +800,13 @@ const ADMIN_TABS = [
 // Subscribers tab: everyone who has given an email or phone — newsletter
 // signups, checkouts (paid or abandoned), and customers — with whether they
 // bought, what was in an abandoned cart, and whether they opted in to email.
-const SUB_FILTERS = [['all', 'All'], ['abandoned', 'Abandoned checkout'], ['customers', 'Customers'], ['newsletter', 'Newsletter'], ['optedin', 'Emails OK'], ['optedout', 'Not opted in']];
+const SUB_FILTERS = [['all', 'All'], ['abandoned', 'Abandoned checkout'], ['customers', 'Customers'], ['newsletter', 'Signups'], ['optedin', 'Emails OK'], ['optedout', 'Not opted in']];
 
 function subscriberStatus(s) {
   if (s.orders?.count) return { kind: 'customer', label: `Customer · ${s.orders.count} order${s.orders.count === 1 ? '' : 's'} · $${s.orders.spent.toFixed(2)}`, color: '#1a7a3c' };
   if (s.sources?.includes('order')) return { kind: 'customer', label: 'Customer', color: '#1a7a3c' };
   if (s.lastCheckoutAt) return { kind: 'abandoned', label: 'Abandoned checkout', color: '#a13d2b' };
-  return { kind: 'newsletter', label: 'Newsletter signup', color: T.soft };
+  return { kind: 'newsletter', label: s.sources?.includes('cart') && !s.sources?.includes('newsletter') ? 'Signed up in cart for 15% off' : 'Newsletter signup', color: T.soft };
 }
 
 function SubscribersTab() {
@@ -828,7 +828,7 @@ function SubscribersTab() {
     const st = subscriberStatus(s).kind;
     if (f === 'abandoned') return st === 'abandoned';
     if (f === 'customers') return st === 'customer';
-    if (f === 'newsletter') return s.sources?.includes('newsletter');
+    if (f === 'newsletter') return s.sources?.includes('newsletter') || s.sources?.includes('cart');
     if (f === 'optedin') return s.consent && s.email;
     if (f === 'optedout') return !s.consent;
     return true;
