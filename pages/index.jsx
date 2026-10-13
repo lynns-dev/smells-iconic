@@ -76,9 +76,9 @@ export default function HomePage() {
         <div className="hero-grid" style={heroBg}>
           <div className="hero-text" style={heroContent}>
             <div>
-              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · an archive</span>
-              <h1 style={heroH1}>Smell like <span style={S.it}>the main character.</span></h1>
-              <p style={heroSub}>Scents pulled from the cultural record — worn like a costume, remembered like a scent.</p>
+              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Small batch · limited run</span>
+              <h1 style={heroH1}>Main characters <span style={S.it}>don&rsquo;t restock.</span></h1>
+              <p style={heroSub}>Each scent is poured in one small batch. When it sells out, it&rsquo;s gone — get yours before someone else becomes the main character.</p>
               {siteReviews.count > 0 && (
                 <div style={hrate}>
                   <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
@@ -232,7 +232,7 @@ export default function HomePage() {
       <section style={{ ...band, textAlign: 'center', borderTop: `1px solid ${T.line}` }}>
         <p style={S.label}>The list</p>
         <h2 style={{ ...S.h2, marginTop: 12 }}>Get access <span style={S.it}>before it drops.</span></h2>
-        <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>New characters, restocks, and 15% off your first mist.</p>
+        <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>First dibs on new drops before they sell out, plus 15% off your first mist.</p>
         {newsDone ? (
           <p style={{ fontSize: 15, color: T.ink }}>You're on the list — use code <strong>ICONIC15</strong> for 15% off.</p>
         ) : (
