@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     const email = data.payer?.email_address || '';
     const shipping = addressFromCapture(data);
 
-    await fulfillOrder({ id: data.id, amount, items, eventId, url, req, paymentMethod: paymentMethod || 'PayPal', attribution, email, shipping, processor: 'paypal', sessionId });
+    await fulfillOrder({ id: data.id, amount, items, eventId, url, req, paymentMethod: paymentMethod || 'PayPal', attribution, email, shipping, processor: 'paypal', captureId: capture.id, sessionId });
 
     return res.status(200).json({ id: data.id, status: capture.status, amount, email, shipping });
   } catch (err) {

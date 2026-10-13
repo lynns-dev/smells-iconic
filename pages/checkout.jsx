@@ -391,10 +391,28 @@ export default function CheckoutPage() {
   // Remember the shopper's email/phone for ad matching once they've typed
   // them, and re-init the Pixel so the rest of this visit's events carry
   // them (lib/identity.js, lib/fbPixel.js).
+  // Also saves them to the store's contact list (admin → Subscribers), so an
+  // abandoned checkout can still be followed up. Only sent when something
+  // they typed changed.
+  const lastSavedContactRef = React.useRef('');
   const handleIdentityBlur = () => {
     if (!email.trim() && !shipping.phone) return;
     rememberIdentity({ email, phone: shipping.phone });
     refreshPixelIdentity(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+    const name = `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim();
+    const sig = JSON.stringify([email.trim(), shipping.phone, name, shipping.city, shipping.state, newsletter]);
+    if (sig === lastSavedContactRef.current) return;
+    lastSavedContactRef.current = sig;
+    fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email, phone: shipping.phone, name, consent: newsletter, source: 'checkout',
+        address: { city: shipping.city, state: shipping.state },
+        cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
+      }),
+      keepalive: true,
+    }).catch(() => {});
   };
 
   const handleApplyDiscount = async () => {
