@@ -391,29 +391,66 @@ export default function CheckoutPage() {
   // Remember the shopper's email/phone for ad matching once they've typed
   // them, and re-init the Pixel so the rest of this visit's events carry
   // them (lib/identity.js, lib/fbPixel.js).
-  // Also saves them to the store's contact list (admin → Subscribers), so an
-  // abandoned checkout can still be followed up. Only sent when something
-  // they typed changed.
+  // Saves them to the store's contact list (admin → Subscribers) so an
+  // abandoned checkout can still be followed up. Listens three ways, because
+  // relying on leaving a field missed browser autofill and shoppers who type
+  // their email then go straight to Apple Pay / Afterpay / PayPal:
+  //  - when they leave a contact or delivery field (handleIdentityBlur),
+  //  - a moment after they stop typing (or autofill fills the form),
+  //  - when they switch away from or close the tab.
+  // Only sent when there's a complete-looking email or phone, and only when
+  // something changed since the last save.
   const lastSavedContactRef = React.useRef('');
-  const handleIdentityBlur = () => {
-    if (!email.trim() && !shipping.phone) return;
-    rememberIdentity({ email, phone: shipping.phone });
-    refreshPixelIdentity(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+  const contactRef = React.useRef({});
+  contactRef.current = { email, shipping, newsletter, cart };
+  const saveContact = React.useCallback(() => {
+    const { email, shipping, newsletter, cart } = contactRef.current;
+    const cleanEmail = email.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail);
+    const phoneOk = String(shipping.phone || '').replace(/\D/g, '').length >= 10;
+    if (!emailOk && !phoneOk) return;
     const name = `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim();
-    const sig = JSON.stringify([email.trim(), shipping.phone, name, shipping.city, shipping.state, newsletter]);
+    const sig = JSON.stringify([emailOk ? cleanEmail.toLowerCase() : '', shipping.phone, name, shipping.city, shipping.state, newsletter, cartSignature(cart)]);
     if (sig === lastSavedContactRef.current) return;
     lastSavedContactRef.current = sig;
+    rememberIdentity({ email: emailOk ? cleanEmail : '', phone: shipping.phone });
     fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email, phone: shipping.phone, name, consent: newsletter, source: 'checkout',
+        email: emailOk ? cleanEmail : '', phone: shipping.phone, name, consent: newsletter, source: 'checkout',
         address: { city: shipping.city, state: shipping.state },
         cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
       }),
       keepalive: true,
     }).catch(() => {});
+  }, []);
+
+  const handleIdentityBlur = () => {
+    if (!email.trim() && !shipping.phone) return;
+    rememberIdentity({ email, phone: shipping.phone });
+    refreshPixelIdentity(process.env.NEXT_PUBLIC_META_PIXEL_ID);
+    saveContact();
   };
+
+  // A moment after typing stops (also catches autofill, which fills fields
+  // without ever focusing or leaving them).
+  React.useEffect(() => {
+    const t = setTimeout(saveContact, 1500);
+    return () => clearTimeout(t);
+  }, [email, shipping.phone, shipping.firstName, shipping.lastName, shipping.city, shipping.state, newsletter, saveContact]);
+
+  // Switching apps, closing the tab, or a wallet/Afterpay/PayPal window
+  // taking over: save what's there right away.
+  React.useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') saveContact(); };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', saveContact);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', saveContact);
+    };
+  }, [saveContact]);
 
   const handleApplyDiscount = async () => {
     if (!discountCode.trim()) return;
