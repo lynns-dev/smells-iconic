@@ -1,7 +1,7 @@
 // Admin's Subscribers tab: the contact list (lib/subscribersStore.js) with
 // each person's orders matched by email, so the tab can show customers vs.
 // abandoned checkouts vs. newsletter-only. POST toggles email consent.
-import { getSubscribers, setSubscriberConsent } from '../../../lib/subscribersStore';
+import { getSubscribers, setSubscriberConsent, upsertSubscriber, normalizeEmail } from '../../../lib/subscribersStore';
 import { getOrders, dateKeysForRange } from '../../../lib/analyticsStore';
 
 export default async function handler(req, res) {
@@ -17,10 +17,26 @@ export default async function handler(req, res) {
       res.setHeader('Allow', 'GET, POST');
       return res.status(405).json({ error: 'Method not allowed' });
     }
-    const [subscribers, perDay] = await Promise.all([
+    let [subscribers, perDay] = await Promise.all([
       getSubscribers(),
       Promise.all(dateKeysForRange('45d').map((key) => getOrders(key))),
     ]);
+    // Everyone who ordered belongs on the list — including orders placed
+    // before the contact list existed. Add any customer who's missing (once;
+    // after that they're saved like everyone else).
+    const known = new Set(subscribers.map((s) => s.email).filter(Boolean));
+    const missing = new Map();
+    for (const o of perDay.flat().sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))) {
+      const e = normalizeEmail(o.email);
+      if (e && !known.has(e)) missing.set(e, o);
+    }
+    if (missing.size) {
+      for (const o of missing.values()) {
+        await upsertSubscriber({ email: o.email, phone: o.shipping?.phone, name: o.shipping?.name || `${o.shipping?.firstName || ''} ${o.shipping?.lastName || ''}`.trim(), address: o.shipping, source: 'order', seenAt: o.createdAt })
+          .catch((err) => console.error('Backfilling customer failed:', err.message));
+      }
+      subscribers = await getSubscribers();
+    }
     const byEmail = {};
     for (const o of perDay.flat()) {
       const e = String(o.email || '').trim().toLowerCase();
