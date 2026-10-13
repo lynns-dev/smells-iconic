@@ -23,8 +23,9 @@ import { T, S } from '../lib/theme';
 
 // Same layout as Anese's checkout: two steps (Shipping -> Payment) with
 // large touch-friendly fields and buttons.
-//  - Step 1: express Apple Pay / Google Pay (the wallet sheet collects the
-//    address), shipping address, shipping method, country, contact email,
+//  - Step 1: express Apple Pay (the wallet sheet collects the address),
+//    Afterpay and Cash App Pay (these use the address and email typed
+//    below), shipping address, shipping method, country, contact email,
 //    "Continue to final step".
 //  - Step 2: "How do you want to pay?" — Apple Pay / Google Pay, Afterpay,
 //    Cash App Pay, PayPal / Venmo, then the card box, billing recap (always
@@ -37,6 +38,8 @@ import { T, S } from '../lib/theme';
 // the Square keys are set the card box falls back to QuickBooks Payments,
 // so card checkout never goes dark.
 const SQUARE_ENABLED = Boolean(process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID && process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID);
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const EMPTY_ADDRESS = { name: '', address: '', apt: '', city: '', state: '', zip: '', phone: '' };
 
@@ -277,16 +280,18 @@ export default function CheckoutPage() {
   const [appleAvailable, setAppleAvailable] = React.useState(false);
   const [googleAvailable, setGoogleAvailable] = React.useState(false);
 
-  // Express Apple Pay / Google Pay at the top of Step 1 — the wallet sheet
-  // collects name, email and address itself. Separate instances from Step
-  // 2's since both payment requests are configured differently.
+  // Express Apple Pay at the top of Step 1 — the wallet sheet collects
+  // name, email and address itself. A separate instance from Step 2's since
+  // the two payment requests are configured differently. Google Pay is only
+  // offered on Step 2.
   const expressAppleMethodRef = React.useRef(null);
-  const expressGoogleMethodRef = React.useRef(null);
   const [expressAppleAvailable, setExpressAppleAvailable] = React.useState(false);
-  const [expressGoogleAvailable, setExpressGoogleAvailable] = React.useState(false);
 
   const [afterpayReady, setAfterpayReady] = React.useState(false);
   const [cashAppReady, setCashAppReady] = React.useState(false);
+  // Cash App Pay shows (as a placeholder) before the details are in.
+  const [cashAppShown, setCashAppShown] = React.useState(false);
+  const [expressError, setExpressError] = React.useState('');
   const cashAppEventId = React.useMemo(() => generateEventId(), []);
 
   const [discountCode, setDiscountCode] = React.useState(savedProgress?.discountCode ?? '');
@@ -442,52 +447,56 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [squareReady, grandTotal]);
 
-  // Step 1 express Apple Pay / Google Pay (requestContact: the wallet sheet
-  // collects the address). Recreated when the total changes, same as above.
+  // Step 1 express Apple Pay (requestContact: the wallet sheet collects the
+  // address). Recreated when the total changes, same as above.
   React.useEffect(() => {
     if (!SQUARE_ENABLED || step !== 1 || !hydrated || cart.length === 0) return undefined;
     let cancelled = false;
-    const cleanups = [];
     (async () => {
-      const amount = latestRef.current.grandTotal;
-      const apple = await createApplePayButton(amount, undefined, { requestContact: true });
+      const apple = await createApplePayButton(latestRef.current.grandTotal, undefined, { requestContact: true });
       if (!cancelled) {
         setExpressAppleAvailable(Boolean(apple));
         if (apple) expressAppleMethodRef.current = apple;
       }
-      const google = await createGooglePayButton(amount, 'express-google-pay-button', undefined, { requestContact: true });
-      if (cancelled) {
-        google?.destroy?.().catch(() => {});
-      } else if (google) {
-        expressGoogleMethodRef.current = google;
-        setExpressGoogleAvailable(true);
-        const btn = document.getElementById('express-google-pay-button');
-        const onClick = (event) => { event.preventDefault(); handleExpressWalletPay(expressGoogleMethodRef, 'Google Pay'); };
-        btn?.addEventListener('click', onClick);
-        cleanups.push(() => btn?.removeEventListener('click', onClick));
-      }
     })();
     return () => {
       cancelled = true;
-      cleanups.forEach((fn) => fn());
-      expressGoogleMethodRef.current?.destroy?.().catch(() => {});
       expressAppleMethodRef.current = null;
-      expressGoogleMethodRef.current = null;
       setExpressAppleAvailable(false);
-      setExpressGoogleAvailable(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, hydrated, grandTotal]);
 
+  // Afterpay and Cash App Pay can't collect a shipping address themselves
+  // (unlike the Apple Pay / Google Pay sheets), so on Step 1 they point the
+  // shopper at the first empty field instead.
+  const focusFirstMissingField = () => {
+    const { email, shipping } = latestRef.current;
+    const missing = [
+      [!String(shipping.name || '').trim(), 'input[placeholder="Full name"]'],
+      [!shipping.address.trim(), 'input[placeholder="Address"]'],
+      [!shipping.zip.trim(), 'input[placeholder="ZIP code"]'],
+      [!shipping.city.trim(), 'input[placeholder="City"]'],
+      [!EMAIL_RE.test(email.trim()), 'input[type=email]'],
+    ].find(([isMissing, sel]) => isMissing && document.querySelector(sel));
+    const el = missing && document.querySelector(missing[1]);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => el?.focus(), 400);
+  };
+
   const afterpayOrder = () => {
     const { email, shipping, cart, grandTotal } = latestRef.current;
+    if (!EMAIL_RE.test(email.trim()) || !addressComplete(shipping) || !String(shipping.name || '').trim()) {
+      focusFirstMissingField();
+      return { error: 'Enter your shipping address and email below, then tap Afterpay again.' };
+    }
     rememberIdentity({ email, phone: shipping.phone });
     return {
       amount: grandTotal, items: cart, email, shipping,
       eventId: generateEventId(), url: window.location.href, attribution: getStoredAttribution(), sessionId: getSessionId(),
     };
   };
-  const cashAppOrder = email.trim() && addressEntered ? {
+  const cashAppOrder = EMAIL_RE.test(email.trim()) && addressEntered && String(shipping.name || '').trim() ? {
     amount: grandTotal, items: cart, email, shipping,
     eventId: cashAppEventId, url: typeof window !== 'undefined' ? window.location.href : null,
     attribution: getStoredAttribution(), sessionId: getSessionId(),
@@ -504,7 +513,7 @@ export default function CheckoutPage() {
   const saveContact = React.useCallback(() => {
     const { email, shipping, newsletter, cart } = contactRef.current;
     const cleanEmail = email.trim();
-    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail);
+    const emailOk = EMAIL_RE.test(cleanEmail);
     const phoneOk = String(shipping.phone || '').replace(/\D/g, '').length >= 10;
     if (!emailOk && !phoneOk) return;
     const name = String(shipping.name || '').trim();
@@ -561,6 +570,7 @@ export default function CheckoutPage() {
 
   const goToStep = (n) => {
     setError('');
+    setExpressError('');
     setStep(n);
   };
 
@@ -785,22 +795,34 @@ export default function CheckoutPage() {
           >
             {step === 1 && (
               <section style={{ marginTop: 28 }}>
-                <div style={{ display: (expressAppleAvailable || expressGoogleAvailable) ? 'block' : 'none' }}>
+                <div style={{ display: (expressAppleAvailable || afterpayReady || cashAppShown) ? 'block' : 'none' }}>
                   <p style={{ ...fieldGroupLabel, textAlign: 'center' }}>Express checkout</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: (expressAppleAvailable && expressGoogleAvailable) ? '1fr 1fr' : '1fr', gap: 10 }}>
-                    <div style={{ display: expressAppleAvailable ? 'block' : 'none' }}>
-                      <button
-                        type="button"
-                        className="apple-pay-button"
-                        aria-label="Apple Pay"
-                        disabled={submitting}
-                        onClick={() => handleExpressWalletPay(expressAppleMethodRef, 'Apple Pay')}
-                      />
-                    </div>
-                    <div style={{ display: expressGoogleAvailable ? 'block' : 'none' }}>
-                      <div id="express-google-pay-button" style={walletButtonContainer} />
-                    </div>
+                  {expressAppleAvailable && (
+                    <button
+                      type="button"
+                      className="apple-pay-button"
+                      aria-label="Apple Pay"
+                      disabled={submitting}
+                      onClick={() => handleExpressWalletPay(expressAppleMethodRef, 'Apple Pay')}
+                    />
+                  )}
+                  <div>
+                    <AfterpayButton
+                      total={grandTotal}
+                      getOrder={afterpayOrder}
+                      onError={setExpressError}
+                      onReady={setAfterpayReady}
+                    />
+                    <CashAppPayButton
+                      order={cashAppOrder}
+                      purchaseKey="si-purchase"
+                      onError={setExpressError}
+                      onReady={setCashAppReady}
+                      onShown={setCashAppShown}
+                      onNeedDetails={focusFirstMissingField}
+                    />
                   </div>
+                  {expressError && <p style={{ ...errorText, textAlign: 'center', marginTop: 10 }}>{expressError}</p>}
                   <div style={orDivider}>
                     <span style={orDividerLine} />
                     <span style={orDividerText}>or</span>
@@ -894,6 +916,7 @@ export default function CheckoutPage() {
                     purchaseKey="si-purchase"
                     onError={setError}
                     onReady={setCashAppReady}
+                    onShown={setCashAppShown}
                     onNeedDetails={() => goToStep(1)}
                   />
                   <div style={{ marginTop: 10 }}>
