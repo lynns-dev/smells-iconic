@@ -1,6 +1,6 @@
 # Smells Iconic — E-commerce (Next.js + Square + Afterpay)
 
-Blush-and-cream storefront for Smells Iconic body mists. Next.js 14
+Blush-and-cream storefront for Smells Iconic fragrances. Next.js 14
 (Pages Router) with a custom, Shopify-style single-page checkout. Same
 payment setup as veil-ecommerce / Anese: cards, Apple Pay and Google Pay
 through Square (falls back to the QuickBooks card form until the Square
