@@ -26,7 +26,7 @@ export default function ShopPage() {
             Shop the <span style={S.it}>archive.</span>
           </h1>
           <p style={{ color: 'rgba(251,245,241,0.82)', fontSize: 15, marginTop: 14, maxWidth: '46ch', marginLeft: 'auto', marginRight: 'auto' }}>
-            A small, considered wardrobe of scent — body mists pulled from the cultural record, worn like a costume.
+            A small, considered wardrobe of scent — fragrances pulled from the cultural record, worn like a costume.
           </p>
         </div>
       </section>

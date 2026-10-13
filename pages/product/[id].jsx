@@ -15,15 +15,15 @@ import { T, S } from '../../lib/theme';
 const INGREDIENTS = 'Aqua, alcohol denat., fragrance (parfum), glycerin, skin-safe conditioning agents.';
 
 const HOW_TO_USE = [
-  ['Fresh out the shower', 'Mist onto clean, warm skin — that’s when it holds longest.'],
+  ['Fresh out the shower', 'Spray onto clean, warm skin — that’s when it holds longest.'],
   ['Where you’d get kissed', 'Collarbones, neck, wrists, the backs of the knees.'],
-  ['Reapply whenever', 'It’s a mist, not a perfume — spray as often as the moment calls for it.'],
+  ['Reapply whenever', 'Made for everyday wear — a spritz whenever the moment calls for it.'],
 ];
 
 const BENEFITS = [
   ['Internet-coded, not overdone', 'Built around a character everyone already knows — worn like a costume, not a cologne.'],
-  ['Lightweight, all-day mist', 'A fine, even mist that layers into skin instead of sitting on top of it.'],
-  ['100ml, made to be used up', 'A full bottle sized for daily reapplication — this isn’t a special-occasion scent.'],
+  ['Lightweight, all-day fragrance', 'A fine, even spray that layers into skin instead of sitting on top of it.'],
+  ['1.7 oz, made to carry', 'A bag-sized bottle made for daily wear and touch-ups — this isn’t a special-occasion scent.'],
   ['Clean, simple formula', 'Vegan and cruelty-free, made without unnecessary filler ingredients.'],
   ['Made to layer', 'Wear one alone or mix characters — Babygirl and Clean Rich play well together.'],
   ['Vegan-friendly formula', 'Cruelty-free, made without animal-derived ingredients.'],
@@ -35,12 +35,12 @@ const BENEFITS = [
 const REEL_VIDEOS = [];
 
 const FAQS = [
-  ['Will it stain clothing?', 'No — it’s a fine, quick-drying mist that won’t mark fabric.'],
-  ['How long does one bottle last?', 'Most wearers get 150+ spritzes per 100ml bottle with daily application.'],
+  ['Will it stain clothing?', 'No — it’s a fine, quick-drying spray that won’t mark fabric. Spray onto skin rather than directly onto delicate fabrics.'],
+  ['How long does one bottle last?', 'A 1.7 oz (50ml) bottle gives roughly 500 sprays — a couple of months of daily wear for most people.'],
   ['Can I wear it with perfume?', 'Yes. Many wear it alone; others layer it under or over perfume to extend the scent.'],
   ['Is it safe for sensitive skin?', 'Yes. The formula is fragrance-forward but gentle enough for daily use.'],
   ['Is it vegan and cruelty-free?', 'Yes — every SMELLS — ICONIC formula is vegan-friendly and never tested on animals.'],
-  ['How do I apply it?', 'Mist onto clean skin from about 6 inches away — collarbones, neck, wrists, and behind the knees.'],
+  ['How do I apply it?', 'Spray onto clean skin from about 6 inches away — collarbones, neck, wrists, and behind the knees.'],
 ];
 
 export async function getStaticPaths() {
