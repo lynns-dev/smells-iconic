@@ -27,6 +27,10 @@ const nextConfig = {
   env: { KV_REST_API_URL, KV_REST_API_TOKEN },
   // Apple Pay domain verification file, served by a function (see
   // pages/api/apple-pay-domain-verification.js for why).
+  // Admin data is always fetched fresh, never from a browser or CDN cache.
+  async headers() {
+    return [{ source: '/api/admin/:path*', headers: [{ key: 'Cache-Control', value: 'no-store' }] }];
+  },
   async rewrites() {
     return [
       {

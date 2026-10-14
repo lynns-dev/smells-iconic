@@ -113,7 +113,35 @@ export default function AdminDashboard() {
     const fromHash = window.location.hash.replace('#', '');
     if (ADMIN_TABS.some(([k]) => k === fromHash)) setTab(fromHash);
   }, []);
+  // Bumped whenever the admin should pull fresh data: picking a section
+  // (even the one already open), and coming back to the admin — opening the
+  // home-screen app, switching back to the browser tab, or the phone
+  // waking it up. Every section reloads when it changes.
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [updatedAt, setUpdatedAt] = React.useState(null);
+  const lastRefreshRef = React.useRef(0);
+  const refresh = React.useCallback(() => {
+    // focus + visibilitychange (+ pageshow) usually fire together.
+    if (Date.now() - lastRefreshRef.current < 1500) return;
+    lastRefreshRef.current = Date.now();
+    setRefreshKey((k) => k + 1);
+  }, []);
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    const onPageShow = (e) => { if (e.persisted) refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refresh);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, [refresh]);
+
   const selectTab = (key) => {
+    lastRefreshRef.current = 0;
+    refresh();
     setTab(key);
     window.history.replaceState(null, '', `#${key}`);
     window.scrollTo(0, 0);
@@ -183,11 +211,13 @@ export default function AdminDashboard() {
   };
 
   const loadDashboard = React.useCallback((range) => {
-    fetch(`/api/admin/dashboard?range=${range}`).then((r) => r.json()).then(setDashboard).catch(() => {});
+    fetch(`/api/admin/dashboard?range=${range}`).then((r) => r.json()).then((d) => { setDashboard(d); setUpdatedAt(new Date()); }).catch(() => {});
   }, []);
 
-  const loadReviews = React.useCallback(() => {
-    setReviewsLoading(true);
+  // quiet: a background refresh keeps the current list on screen instead
+  // of flashing "Loading…".
+  const loadReviews = React.useCallback((quiet) => {
+    if (quiet !== true) setReviewsLoading(true);
     fetch('/api/admin/reviews')
       .then((r) => r.json())
       .then((data) => setReviews(data.reviews || []))
@@ -199,15 +229,15 @@ export default function AdminDashboard() {
   }, []);
 
   React.useEffect(() => {
-    loadReviews();
+    loadReviews(refreshKey > 0);
     loadDiscounts();
-  }, [loadReviews, loadDiscounts]);
+  }, [loadReviews, loadDiscounts, refreshKey]);
 
-  // Covers both the initial load and refetching when the funnel time
-  // filter changes.
+  // Covers the initial load, refetching when the funnel time filter
+  // changes, and every refresh.
   React.useEffect(() => {
     loadDashboard(funnelRange);
-  }, [loadDashboard, funnelRange]);
+  }, [loadDashboard, funnelRange, refreshKey]);
 
   React.useEffect(() => {
     // Keep the last good data if a poll fails, rather than replacing it with
@@ -219,7 +249,7 @@ export default function AdminDashboard() {
     poll();
     const interval = setInterval(poll, LIVE_POLL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshKey]);
 
   const handleDeleteReview = async (productId, reviewId) => {
     if (!confirm('Delete this review?')) return;
@@ -377,11 +407,18 @@ export default function AdminDashboard() {
         </nav>
 
         <main className="admin-main">
-        <h1 style={{ fontWeight: 600, fontSize: 26, margin: '0 0 24px' }}>{ADMIN_TABS.find(([k]) => k === tab)?.[1]}</h1>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', margin: '0 0 24px' }}>
+          <h1 style={{ fontWeight: 600, fontSize: 26, margin: 0 }}>{ADMIN_TABS.find(([k]) => k === tab)?.[1]}</h1>
+          {updatedAt && (
+            <span style={{ fontSize: 12, color: T.soft }}>
+              Updated {updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
 
-        {tab === 'orders' && <OrdersTab />}
-        {tab === 'visitors' && <VisitorsTab />}
-        {tab === 'subscribers' && <SubscribersTab />}
+        {tab === 'orders' && <OrdersTab refreshKey={refreshKey} />}
+        {tab === 'visitors' && <VisitorsTab refreshKey={refreshKey} />}
+        {tab === 'subscribers' && <SubscribersTab refreshKey={refreshKey} />}
 
         {tab === 'settings' && (<>
 
@@ -809,7 +846,7 @@ function subscriberStatus(s) {
   return { kind: 'newsletter', label: s.sources?.includes('cart') && !s.sources?.includes('newsletter') ? 'Signed up in cart for 15% off' : 'Newsletter signup', color: T.soft };
 }
 
-function SubscribersTab() {
+function SubscribersTab({ refreshKey }) {
   const [list, setList] = React.useState(null);
   const [error, setError] = React.useState('');
   const [filter, setFilter] = React.useState('all');
@@ -822,7 +859,7 @@ function SubscribersTab() {
       .then((d) => setList(d.subscribers || []))
       .catch((err) => setError(err.message));
   }, []);
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { load(); }, [load, refreshKey]);
 
   const matches = (s, f) => {
     const st = subscriberStatus(s).kind;
@@ -934,7 +971,7 @@ function csvCell(v) {
   return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
 }
 
-function OrdersTab() {
+function OrdersTab({ refreshKey }) {
   const [orders, setOrders] = React.useState(null);
   const [error, setError] = React.useState('');
   const [range, setRange] = React.useState('30d');
@@ -952,7 +989,7 @@ function OrdersTab() {
       .then((d) => setOrders(d.orders || []))
       .catch((err) => setError(err.message));
   }, []);
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { load(); }, [load, refreshKey]);
 
   const replace = (order) => setOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
 
@@ -1191,7 +1228,7 @@ const STATUS_FILTERS = [['all', 'All'], ['cart', 'Added to cart'], ['checkout', 
 
 // Visitors tab: who came to the site, from where, and with which URL
 // parameters (utm_*, fbclid, gclid, ad names…) on their first page.
-function VisitorsTab() {
+function VisitorsTab({ refreshKey }) {
   const [visitors, setVisitors] = React.useState(null);
   const [error, setError] = React.useState('');
   const [query, setQuery] = React.useState('');
@@ -1205,7 +1242,7 @@ function VisitorsTab() {
       .then((d) => setVisitors(d.visitors || []))
       .catch((err) => setError(err.message));
   }, []);
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { load(); }, [load, refreshKey]);
 
   const rows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
