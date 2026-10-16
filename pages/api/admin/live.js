@@ -1,11 +1,11 @@
 // Live visitor count + funnel-stage breakdown, plus a Shopify-Live-View-style
 // last-5-minutes activity summary: per-minute bucketed counts and a recent
-// event feed. Visitor presence reads whatever visitor:* keys currently exist
+// event feed. Visitor presence reads whatever smellsiconic:visitor:* keys currently exist
 // in KV — each one naturally expires ~25s after a browser stops sending
 // heartbeats (see pages/api/track/heartbeat.js), so no cleanup job is needed.
 // Activity data comes from the timestamped event log in lib/analyticsStore.js.
 
-import { getRecentEvents } from '../../../lib/analyticsStore';
+import { TRAFFIC_PREFIX, getRecentEvents } from '../../../lib/analyticsStore';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -25,7 +25,7 @@ function parseVisitorValue(raw) {
 }
 
 async function getLiveVisitors() {
-  const keysRes = await fetch(`${KV_URL}/keys/visitor:*`, { headers: { Authorization: `Bearer ${KV_TOKEN}` } });
+  const keysRes = await fetch(`${KV_URL}/keys/${TRAFFIC_PREFIX}visitor:*`, { headers: { Authorization: `Bearer ${KV_TOKEN}` } });
   const keysData = await keysRes.json();
   const keys = keysData.result || [];
 

@@ -7,7 +7,7 @@
 // on every request automatically — no third-party geolocation API needed.
 
 import { isExcludedTraffic } from '../../../lib/ipFilter';
-import { updateJourney } from '../../../lib/analyticsStore';
+import { TRAFFIC_PREFIX, updateJourney } from '../../../lib/analyticsStore';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         city: city ? decodeURIComponent(city) : null,
         country,
       });
-      await fetch(`${KV_URL}/set/visitor:${encodeURIComponent(personId)}?EX=${TTL_SECONDS}`, {
+      await fetch(`${KV_URL}/set/${TRAFFIC_PREFIX}visitor:${encodeURIComponent(personId)}?EX=${TTL_SECONDS}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${KV_TOKEN}` },
         body: value,
