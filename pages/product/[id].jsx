@@ -12,6 +12,9 @@ import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
 
+// The bundle offered under each body mist ("Save with sets").
+const SET_ID = 'current-drops-set';
+
 const INGREDIENTS = 'Aqua, alcohol denat., fragrance (parfum), glycerin, skin-safe conditioning agents.';
 
 const HOW_TO_USE = [
@@ -132,8 +135,8 @@ export default function ProductPage({ product }) {
 
   if (router.isFallback || !product) return null;
 
-  const related = PRODUCTS.filter((p) => p.id !== product.id && p.id !== 'the-archive-trio').slice(0, 4);
-  const trio = getProductById('the-archive-trio');
+  const related = PRODUCTS.filter((p) => p.id !== product.id && p.id !== SET_ID).slice(0, 4);
+  const trio = getProductById(SET_ID);
   const toggleSection = (key) => setOpenSection((cur) => (cur === key ? null : key));
   const toggleFaq = (i) => setOpenFaq((cur) => (cur === i ? null : i));
 
@@ -201,7 +204,11 @@ export default function ProductPage({ product }) {
             <div style={pdpTagline}>{product.tagline}</div>
             <p style={pdpDesc}>{product.description}</p>
 
-            <div style={pdpPrice}>${unitPrice} <span style={{ fontSize: 14, color: T.soft }}>· {product.size}</span></div>
+            <div style={pdpPrice}>
+              ${unitPrice}
+              {product.originalPrice > unitPrice && <s style={{ fontSize: 16, color: T.soft, marginLeft: 8 }}>${product.originalPrice}</s>}
+              {' '}<span style={{ fontSize: 14, color: T.soft }}>· {product.size}</span>
+            </div>
 
             <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 20 }}>
               <div style={qtyWrap}>
@@ -214,16 +221,19 @@ export default function ProductPage({ product }) {
 
             <div style={badgeRow}>Ships in 2–4 days · Vegan-friendly · Cruelty-free</div>
 
-            {trio && product.id !== 'the-archive-trio' && (
+            {trio && product.id !== SET_ID && product.category === 'body-mist' && (
               <div style={trioCard}>
-                <div style={trioVisual}><ProductVisual id="the-archive-trio" images={trio.images} alt={trio.name} width={54} /></div>
+                <div style={trioVisual}><ProductVisual id={SET_ID} images={trio.images} alt={trio.name} width={54} /></div>
                 <div style={{ flex: 1 }}>
                   <div style={S.label}>Save with sets</div>
                   <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, marginTop: 4 }}>{trio.name}</div>
                   <div style={{ fontSize: 12, color: T.soft, marginTop: 2, textTransform: 'capitalize' }}>{trio.tagline}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: T.display, fontSize: 17, marginBottom: 8 }}>${trio.price}</div>
+                  <div style={{ fontFamily: T.display, fontSize: 17, marginBottom: 8 }}>
+                    ${trio.price}
+                    {trio.originalPrice > trio.price && <s style={{ fontSize: 13, color: T.soft, marginLeft: 6 }}>${trio.originalPrice}</s>}
+                  </div>
                   <button onClick={handleAddTrio} style={trioAddBtn}>Add</button>
                 </div>
               </div>
