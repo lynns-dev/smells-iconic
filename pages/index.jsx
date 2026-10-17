@@ -5,7 +5,7 @@ import CartDrawer from '../components/CartDrawer';
 import ProductVisual from '../components/ProductVisual';
 import Marquee from '../components/Marquee';
 import Footer from '../components/Footer';
-import { getFeaturedProducts, getProductById } from '../lib/products';
+import { PRODUCTS, getFeaturedProducts, getProductById } from '../lib/products';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
@@ -110,7 +110,11 @@ export default function HomePage() {
                 <div style={pcardText}>
                   <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 21 }}>{p.name}</Link>
                   <div style={pnotes}>{p.tagline}</div>
-                  <div style={{ fontSize: 13 }}>${p.price} · {p.size}</div>
+                  <div style={{ fontSize: 13 }}>
+                    ${p.price}
+                    {p.originalPrice > p.price && <s style={{ color: T.soft, marginLeft: 6 }}>${p.originalPrice}</s>}
+                    {' '}· {p.size}
+                  </div>
                   <button style={{ ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 18 }} onClick={() => c.add(p)}>Add to cart</button>
                 </div>
               </div>
@@ -199,7 +203,7 @@ export default function HomePage() {
           <p style={{ ...S.label, color: 'rgba(251,245,241,0.6)' }}>The formula</p>
           <h2 style={{ ...S.h2, color: T.white, marginTop: 12 }}>Every mood, <span style={S.it}>one archive.</span></h2>
           <div className="notes-grid" style={ncols}>
-            {featured.map((p) => (
+            {PRODUCTS.filter((p) => p.category !== 'set').map((p) => (
               <div key={p.id} className="notes-item" style={ncol}>
                 <div style={{ fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(251,245,241,0.55)', marginBottom: 14 }}>{p.name}</div>
                 <div style={{ fontFamily: T.display, fontWeight: 400, fontSize: 18, lineHeight: 1.5, textTransform: 'capitalize' }}>{p.tagline}</div>
