@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import { fbTrack } from '../lib/fbPixel';
 import { useCart } from '../lib/useCart';
 import { T, S } from '../lib/theme';
+import { trackCart } from '../lib/cartTracking';
 
 export default function SuccessPage() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function SuccessPage() {
     const raw = sessionStorage.getItem('si-purchase');
     if (!raw) return;
     sessionStorage.removeItem('si-purchase');
+    trackCart('purchased');
     try {
       const purchase = JSON.parse(raw);
       fbTrack('Purchase', {

@@ -6,6 +6,7 @@ import { parseCsv } from '../../lib/csv';
 import WorldMap from '../../components/WorldMap';
 import { T, S } from '../../lib/theme';
 import AdminFonts from '../../components/AdminFonts';
+import CartFunnelReport from '../../components/CartFunnelReport';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -614,6 +615,9 @@ export default function AdminDashboard() {
             </div>
           )}
         </Section>
+
+        {/* Where shoppers stop between cart and paying, and why. */}
+        <CartFunnelReport refreshKey={refreshKey} />
 
         </>)}
 
@@ -1334,6 +1338,11 @@ function VisitorsTab({ refreshKey }) {
                   {v.referrer && <span style={{ color: T.soft }}> · from <span title={v.referrer}>{v.referrer.length > 70 ? `${v.referrer.slice(0, 70)}…` : v.referrer}</span></span>}
                 </div>
                 <div style={{ fontSize: 14, marginTop: 6, fontWeight: 600, color: STATUS_COLORS[status.kind] }}>{status.text}</div>
+                {j?.cartSteps?.length > 0 && (
+                  <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>
+                    Cart trail: {j.cartSteps.join(' → ')}
+                  </div>
+                )}
                 {scrolls.length > 0 && (
                   <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>
                     Scrolled {scrolls.map(([path, pct]) => `${path} ${pct}%`).join(' · ')}
