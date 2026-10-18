@@ -20,6 +20,7 @@ import { getStoredAttribution } from '../lib/attribution';
 import { getSessionId, getVisitorId } from '../lib/session';
 import { loadCheckoutProgress, saveCheckoutProgress, clearCheckoutProgress } from '../lib/checkoutProgress';
 import { T, S } from '../lib/theme';
+import { trackCart } from '../lib/cartTracking';
 
 // Same layout as Anese's checkout: two steps (Shipping -> Payment) with
 // large touch-friendly fields and buttons.
@@ -336,11 +337,22 @@ export default function CheckoutPage() {
     if (hydrated && cart.length === 0) router.replace('/shop');
   }, [hydrated, cart.length, router]);
 
+  // Cart drop-off report (lib/cartFunnel.js): reaching checkout, and
+  // reaching the payment step.
+  React.useEffect(() => {
+    if (hydrated && cart.length > 0) trackCart('checkout_view');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+  React.useEffect(() => {
+    if (hydrated && step === 2) trackCart('payment_step');
+  }, [hydrated, step]);
+
   // Bounced back here after a declined or abandoned redirect payment
   // (Cash App Pay, Afterpay) — the cart was never cleared for that path.
   React.useEffect(() => {
     if (!router.isReady || !router.query.payment_error) return;
     setError('That payment didn’t go through — please try again or use a different method.');
+    trackCart('pay_failed', { method: 'Afterpay / Cash App', message: 'Declined or cancelled at Afterpay / Cash App' });
     router.replace('/checkout', undefined, { shallow: true });
   }, [router.isReady, router.query.payment_error, router]);
 
@@ -490,6 +502,7 @@ export default function CheckoutPage() {
       focusFirstMissingField();
       return { error: 'Enter your shipping address and email below, then tap Afterpay again.' };
     }
+    trackCart('pay_attempt', { method: 'Afterpay' });
     rememberIdentity({ email, phone: shipping.phone });
     return {
       amount: grandTotal, items: cart, email, shipping,
@@ -565,6 +578,7 @@ export default function CheckoutPage() {
       setDiscountMessage('Could not check that code — please try again.');
     } else {
       setDiscountMessage('That code isn’t valid.');
+      trackCart('discount_rejected', { code: discountCode });
     }
   };
 
@@ -625,9 +639,13 @@ export default function CheckoutPage() {
     setSubmitting(true);
     try {
       const token = await tokenizeWallet(methodRef.current);
+      trackCart('pay_attempt', { method: label });
       await completeSquareOrder(token, label);
     } catch (err) {
-      if (!err.cancelled) setError(err.message || 'Something went wrong. Please try again.');
+      if (!err.cancelled) {
+        setError(err.message || 'Something went wrong. Please try again.');
+        trackCart('pay_failed', { method: label, message: err.message });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -644,9 +662,13 @@ export default function CheckoutPage() {
         setError(`${label} didn’t return a shipping address. Please continue with the form below.`);
         return;
       }
+      trackCart('pay_attempt', { method: label });
       await completeSquareOrder(token, label, { email: contact.email, shipping: contact });
     } catch (err) {
-      if (!err.cancelled) setError(err.message || 'Something went wrong. Please try again.');
+      if (!err.cancelled) {
+        setError(err.message || 'Something went wrong. Please try again.');
+        trackCart('pay_failed', { method: label, message: err.message });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -662,11 +684,13 @@ export default function CheckoutPage() {
         return;
       }
       saveContact();
+      trackCart('address');
       goToStep(2);
       return;
     }
 
     setSubmitting(true);
+    trackCart('pay_attempt', { method: 'Card' });
     try {
       if (SQUARE_ENABLED) {
         if (!squareReady || !squareCardRef.current) {
@@ -723,6 +747,7 @@ export default function CheckoutPage() {
       });
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
+      trackCart('pay_failed', { method: 'Card', message: err.message });
     } finally {
       setSubmitting(false);
     }
@@ -740,6 +765,7 @@ export default function CheckoutPage() {
 
   const handlePaypalError = (message) => {
     setError(message || 'PayPal checkout failed. Please try again.');
+    trackCart('pay_failed', { method: 'PayPal', message });
   };
 
   if (!hydrated || cart.length === 0) return null;
