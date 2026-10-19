@@ -14,7 +14,7 @@ export default function ShippingPolicy() {
       </PolicySection>
 
       <PolicySection title="Shipping cost">
-        <p>Standard Shipping is a flat $5, and free automatically on orders of $50 or more, before any discount codes.</p>
+        <p>Standard Shipping is free on every order — no minimum.</p>
       </PolicySection>
 
       <PolicySection title="Delivery estimates">

@@ -5,15 +5,12 @@ import ProductVisual from './ProductVisual';
 import { getProductById } from '../lib/products';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
-import { hasFreeShipping } from '../lib/shippingPerk';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
 const UNLOCKED_KEY = 'si-cart-code-unlocked';
 
-const FREE_SHIP_AT = 50;
-const FREE_GIFT_AT = 70;
 
 export default function CartDrawer({
   cart, open, onClose, remove, setQty, total, add,
@@ -77,22 +74,10 @@ export default function CartDrawer({
 
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
-  // Free shipping from the exit popup's offer (lib/shippingPerk.js) counts too.
-  const [shipPerk, setShipPerk] = React.useState(false);
-  React.useEffect(() => { if (open) setShipPerk(hasFreeShipping()); }, [open]);
-  const freeShipping = total >= FREE_SHIP_AT || shipPerk;
+  // Free shipping on every order.
+  const freeShipping = true;
   const [exitOpen, setExitOpen] = React.useState(false);
 
-  const progressPct = Math.min(100, (total / FREE_GIFT_AT) * 100);
-  const shipMarkerPct = (FREE_SHIP_AT / FREE_GIFT_AT) * 100;
-  let progressMessage;
-  if (total >= FREE_GIFT_AT) {
-    progressMessage = 'You’ve unlocked free shipping and a free scented tassel gift.';
-  } else if (freeShipping) {
-    progressMessage = `Free shipping unlocked — add $${(FREE_GIFT_AT - total).toFixed(2)} more for a free scented tassel gift.`;
-  } else {
-    progressMessage = `Add $${(FREE_SHIP_AT - total).toFixed(2)} more for free shipping.`;
-  }
 
   // Cart drop-off report (lib/cartFunnel.js): opening the cart, and closing
   // it again without heading to checkout — with what they were looking at
@@ -113,7 +98,6 @@ export default function CartDrawer({
       if (!checkoutClickedRef.current && items.length > 0) {
         trackCart('cart_closed', {
           shipping: free ? 0 : 5,
-          freeAt: FREE_SHIP_AT,
           subtotal: due,
           dwellSec: (Date.now() - openedAtRef.current) / 1000,
           items: items.map((i) => i.name),
@@ -151,13 +135,7 @@ export default function CartDrawer({
         </div>
 
         {cart.length > 0 && (
-          <div style={{ marginBottom: 24, flexShrink: 0 }}>
-            <p style={{ fontSize: 12, color: T.ink, marginBottom: 8 }}>{progressMessage}</p>
-            <div style={progressTrack}>
-              <div style={{ ...progressFill, width: `${progressPct}%` }} />
-              <div style={{ ...progressMarker, left: `${shipMarkerPct}%` }} />
-            </div>
-          </div>
+          <p style={{ fontSize: 12, color: T.ink, margin: '0 0 20px', flexShrink: 0 }}>Free shipping on every order.</p>
         )}
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -303,7 +281,7 @@ export default function CartDrawer({
         discountCode="ICONIC15"
         discountLabel="15% off"
         payments="card, Apple Pay, Google Pay, Afterpay (4 interest-free payments), Cash App Pay, PayPal or Venmo"
-        freeShipAt={FREE_SHIP_AT}
+        freeShippingAlways
       />
     </>
   );
@@ -322,9 +300,6 @@ const itemImg = {
 
 const subscribeNote = { fontSize: 11, color: T.soft, marginTop: 3, letterSpacing: '0.02em' };
 
-const progressTrack = { position: 'relative', height: 4, background: T.paper, marginTop: 2 };
-const progressFill = { position: 'absolute', top: 0, left: 0, bottom: 0, background: T.ink, transition: 'width .3s ease' };
-const progressMarker = { position: 'absolute', top: -3, bottom: -3, width: 2, background: T.white, boxShadow: `0 0 0 1px ${T.ink}` };
 
 const upsellSection = { background: T.paper, padding: '18px 16px', marginTop: 12 };
 const upsellCard = { display: 'flex', alignItems: 'center', gap: 14 };

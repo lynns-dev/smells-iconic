@@ -21,7 +21,6 @@ import { getSessionId, getVisitorId } from '../lib/session';
 import { loadCheckoutProgress, saveCheckoutProgress, clearCheckoutProgress } from '../lib/checkoutProgress';
 import { T, S } from '../lib/theme';
 import { trackCart } from '../lib/cartTracking';
-import { hasFreeShipping } from '../lib/shippingPerk';
 
 // Same layout as Anese's checkout: two steps (Shipping -> Payment) with
 // large touch-friendly fields and buttons.
@@ -200,7 +199,7 @@ function Totals({ subtotal, discountTotal, codeDiscountAmount, appliedDiscount, 
       )}
       <div style={summaryRow}>
         <span style={{ color: T.soft }}>Shipping</span>
-        <span>{!addressEntered ? 'Enter address' : (shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`)}</span>
+        <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
       </div>
       <div style={{ ...summaryRow, borderTop: `1px solid ${T.line}`, paddingTop: big ? 16 : 12, marginTop: big ? 6 : 4 }}>
         <span style={{ fontFamily: T.sans, fontSize: big ? 18 : 17, fontWeight: big ? 400 : 700 }}>Total</span>
@@ -389,10 +388,8 @@ export default function CheckoutPage() {
   }, [hydrated]);
 
   const addressEntered = addressComplete(shipping);
-  // Free shipping offered by the cart exit popup (lib/shippingPerk.js).
-  const [shipPerk, setShipPerk] = React.useState(false);
-  React.useEffect(() => { setShipPerk(hasFreeShipping()); }, []);
-  const shippingCost = !addressEntered || cart.length === 0 ? 0 : (total >= 50 || shipPerk ? 0 : 5);
+  // Free shipping on every order.
+  const shippingCost = 0;
   const grandTotal = discountedTotal + shippingCost;
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
@@ -1105,7 +1102,7 @@ export default function CheckoutPage() {
       <div style={reassuranceWrap}>
         <div className="reassurance-grid" style={reassuranceGrid}>
           {[
-            [ShipIcon, 'Free shipping over $50', 'Ships within 1 business day.'],
+            [ShipIcon, 'Free shipping', 'On every order. Ships within 1 business day.'],
             [ReturnIcon, '30-day returns', 'Unopened items, full refund within 30 days of delivery.'],
             [LockIcon, 'Secure checkout', `Payments encrypted and processed by ${SQUARE_ENABLED ? 'Square' : 'Intuit'}.`],
             [LeafIcon, 'Vegan & cruelty-free', 'Every formula, always.'],
