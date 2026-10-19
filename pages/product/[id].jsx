@@ -336,6 +336,20 @@ export default function ProductPage({ product }) {
         <DropsOffer />
       </div>
 
+      {/* UGC — real customers with their bottles. */}
+      <section style={{ ...band, borderTop: `1px solid ${T.line}` }}>
+        <div style={{ ...S.wrap, textAlign: 'center' }}>
+          <h2 style={{ ...S.h2, fontFamily: T.display, fontSize: 'clamp(26px,3vw,38px)' }}>Iconic People, Iconic Scents</h2>
+          <div className="ugc-grid" style={ugcGrid}>
+            {UGC_PHOTOS.map((photo) => (
+              <div key={photo.src} className="ugc-item" style={ugcItem}>
+                <img src={photo.src} alt={photo.alt} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* REVIEWS */}
       <section id="reviews" style={narrowBand}>
         <div style={{ ...narrowWrap, textAlign: 'center' }}>
@@ -461,6 +475,10 @@ export default function ProductPage({ product }) {
       </div>
 
       <style jsx>{`
+        @media (max-width: 760px) {
+          .ugc-grid { grid-template-columns: none !important; grid-auto-flow: column; grid-auto-columns: 72%; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px !important; }
+          .ugc-item { scroll-snap-align: start; }
+        }
         @media (max-width: 640px) {
           .narrative-features { grid-template-columns: 1fr !important; gap: 16px !important; }
         }
@@ -523,6 +541,13 @@ const trioAddBtn = {
 };
 
 const band = { padding: '64px 0' };
+const UGC_PHOTOS = [
+  { src: '/images/si-ugc-1.webp', alt: 'Holding a bottle of Babygirl body mist' },
+  { src: '/images/si-ugc-2.webp', alt: 'Babygirl body mist on the floor beside a cream handbag' },
+  { src: '/images/si-ugc-3.webp', alt: 'Lying in the grass with a bottle of Babygirl' },
+];
+const ugcGrid = { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16, marginTop: 32 };
+const ugcItem = { aspectRatio: '9/16', overflow: 'hidden', background: T.paper, minWidth: 0 };
 const narrowBand = { padding: '48px 0' };
 const narrowWrap = { maxWidth: 720, margin: '0 auto', padding: '0 40px' };
 const narrativeHeadline = { fontFamily: T.display, fontWeight: 400, fontSize: 'clamp(28px,3.4vw,40px)', lineHeight: 1.1, margin: '14px 0 0' };
