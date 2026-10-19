@@ -12,7 +12,8 @@ import { grantFreeShipping } from '../lib/shippingPerk';
 //
 // Opened by components/CartDrawer.jsx. Store-specific bits come in as props:
 // discountCode/discountLabel (must exist in admin → Discounts), payments
-// (the ways to pay, as shown), freeShipAt.
+// (the ways to pay, as shown), freeShipAt, and freeShippingAlways for a
+// store where shipping is already free (no shipping answer or offer).
 
 const ASKED_KEY = 'cart-exit-asked-at';
 const ASK_EVERY_MS = 3 * 24 * 60 * 60 * 1000;
@@ -39,7 +40,7 @@ function markAsked() {
   try { window.localStorage.setItem(ASKED_KEY, String(Date.now())); } catch { /* storage blocked */ }
 }
 
-export default function CartExitPopup({ open, onClose, cart, applyDiscount, discountCode, discountLabel, payments, freeShipAt }) {
+export default function CartExitPopup({ open, onClose, cart, applyDiscount, discountCode, discountLabel, payments, freeShipAt, freeShippingAlways }) {
   const router = useRouter();
   const [answer, setAnswer] = React.useState(null);
   const [otherText, setOtherText] = React.useState('');
@@ -75,6 +76,8 @@ export default function CartExitPopup({ open, onClose, cart, applyDiscount, disc
       const data = discountCode ? await applyDiscount(discountCode).catch(() => null) : null;
       if (data?.valid) {
         setResult({ title: `${discountLabel || 'A discount'} is yours`, body: `Code ${data.code} is applied to your bag.`, primary: true });
+      } else if (freeShippingAlways) {
+        setResult({ title: 'Good news', body: 'Shipping is free on every order — no minimum.', primary: true });
       } else {
         grantFreeShipping();
         setResult({ title: 'Here’s something to help', body: 'Free shipping is on for your order for the next 24 hours.', primary: true });
@@ -105,7 +108,7 @@ export default function CartExitPopup({ open, onClose, cart, applyDiscount, disc
             <h2 style={title}>What’s holding you back?</h2>
             <p style={sub}>One tap — it helps us (and we might be able to help you).</p>
             <div style={{ display: 'grid', gap: 8, marginTop: 18 }}>
-              {ANSWERS.map(([key, label]) => (
+              {ANSWERS.filter(([key]) => !(freeShippingAlways && key === 'shipping')).map(([key, label]) => (
                 <button key={key} type="button" onClick={() => choose(key)} style={answerBtn}>{label}</button>
               ))}
             </div>

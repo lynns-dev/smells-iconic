@@ -10,7 +10,7 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 
-const BANNER_MESSAGES = ['Free shipping $40+', '15% off with code ICONIC15'];
+const BANNER_MESSAGES = ['Free shipping on every order', '15% off with code ICONIC15'];
 
 export default function HomePage() {
   const c = useCart();
@@ -86,7 +86,7 @@ export default function HomePage() {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button style={heroBtn} onClick={() => c.add(featured[0])}>Shop — $28</button>
+                <button style={heroBtn} onClick={() => c.add(featured[0])}>Shop — $32</button>
                 <a href="#notes" style={heroLink}>The scents</a>
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function HomePage() {
             </div>
             <div className="hm-cell" style={{ ...vcell, background: T.ink, color: T.white }}>
               <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC mist</div>
-              <div style={{ ...vbig, color: T.white }}>$28</div>
+              <div style={{ ...vbig, color: T.white }}>$32</div>
               <ul style={vlist}>
                 {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, spiced, or cherry-sweet — your era'].map((x, i) => (
                   <li key={i} style={{ ...vli, color: 'rgba(251,245,241,0.78)', borderTop: i === 0 ? 'none' : `1px solid ${T.dline}` }}>{x}</li>
