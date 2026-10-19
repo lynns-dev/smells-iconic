@@ -7,6 +7,7 @@ import CartDrawer from '../../components/CartDrawer';
 import ProductVisual from '../../components/ProductVisual';
 import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
+import DropsOffer from '../../components/DropsOffer';
 import { PRODUCTS, getProductById } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
@@ -201,6 +202,7 @@ export default function ProductPage({ product }) {
               )}
             </a>
             <h1 style={pdpTitle}>{product.name}</h1>
+            <p style={pdpValueProp}>{VALUE_PROP}</p>
             <div style={pdpTagline}>{product.tagline}</div>
             <p style={pdpDesc}>{product.description}</p>
 
@@ -219,7 +221,7 @@ export default function ProductPage({ product }) {
               <button style={{ ...S.btnFill, flex: 1, justifyContent: 'center' }} onClick={handleAdd}>Add to bag</button>
             </div>
 
-            <div style={badgeRow}>Ships in 2–4 days · Vegan-friendly · Cruelty-free</div>
+            <div style={badgeRow}>Ships in 2–4 days · 45-day guarantee + free returns · Vegan-friendly · Cruelty-free</div>
 
             {trio && product.id !== SET_ID && product.category === 'body-mist' && (
               <div style={trioCard}>
@@ -274,7 +276,16 @@ export default function ProductPage({ product }) {
       <section style={{ ...narrowBand, background: T.ink, borderTop: `1px solid ${T.line}` }}>
         <div style={narrowWrap}>
           <p style={{ ...S.label, color: 'rgba(251,245,241,0.6)' }}>The scent, in full</p>
-          <p style={{ ...narrative, color: T.white }}>{product.longDescription}</p>
+          <h2 style={{ ...narrativeHeadline, color: T.white }}>Smell like your favorite obsession.</h2>
+          <p style={{ ...narrativeBody, color: 'rgba(251,245,241,0.82)' }}>{product.longDescription}</p>
+          <div className="narrative-features" style={featureRow}>
+            {BRAND_FEATURES.map(([title, copy]) => (
+              <div key={title} style={featureItem}>
+                <div style={{ ...featureTitle, color: T.white }}>{title}</div>
+                <div style={{ ...featureCopy, color: 'rgba(251,245,241,0.65)' }}>{copy}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -320,11 +331,15 @@ export default function ProductPage({ product }) {
         </div>
       </section>
 
+      {/* LIMITED TIME OFFER — The Current Drops Set, until its deadline (components/DropsOffer.jsx). */}
+      <div style={{ borderTop: `1px solid ${T.line}` }}>
+        <DropsOffer />
+      </div>
+
       {/* REVIEWS */}
       <section id="reviews" style={narrowBand}>
         <div style={{ ...narrowWrap, textAlign: 'center' }}>
           <p style={S.label}>The verdict</p>
-          <h2 style={{ ...S.h2, marginTop: 12, fontSize: 'clamp(26px,3vw,36px)' }}>Worn close, <span style={S.it}>adored quietly.</span></h2>
           {reviewData.count > 0 && (
             <div style={{ marginTop: 20, fontSize: 12, color: T.soft, letterSpacing: '0.04em' }}>
               <span style={{ color: T.ink, letterSpacing: '1.5px' }}>{'★'.repeat(Math.round(reviewData.average))}{'☆'.repeat(5 - Math.round(reviewData.average))}</span>
@@ -446,6 +461,9 @@ export default function ProductPage({ product }) {
       </div>
 
       <style jsx>{`
+        @media (max-width: 640px) {
+          .narrative-features { grid-template-columns: 1fr !important; gap: 16px !important; }
+        }
         .pdp-grid { grid-template-columns: 1fr 1fr; }
         .related-grid { grid-template-columns: repeat(4, 1fr); }
         .related-item:nth-child(n + 2) { border-left: 1px solid ${T.line}; }
@@ -482,6 +500,9 @@ const pdpRating = {
   display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, color: T.soft, marginBottom: 14,
   fontFamily: T.sans, width: 'fit-content', borderBottom: `1px solid ${T.line}`, paddingBottom: 2,
 };
+// Brand value proposition, shown under every product's title.
+const VALUE_PROP = 'Scents inspired by the places, flavors and culture you’re obsessed with, in small-batch body mists made to collect.';
+const pdpValueProp = { fontSize: 15, lineHeight: 1.55, color: T.ink, maxWidth: '44ch', margin: '0 0 14px' };
 const pdpTitle = { fontFamily: T.display, fontWeight: 300, fontSize: 'clamp(34px,4.4vw,54px)', lineHeight: 1.02, marginBottom: 10 };
 const pdpTagline = { fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, marginBottom: 14 };
 const pdpDesc = { fontSize: 15, color: '#4a453c', maxWidth: '46ch', marginBottom: 22, lineHeight: 1.6 };
@@ -504,7 +525,18 @@ const trioAddBtn = {
 const band = { padding: '64px 0' };
 const narrowBand = { padding: '48px 0' };
 const narrowWrap = { maxWidth: 720, margin: '0 auto', padding: '0 40px' };
-const narrative = { fontFamily: T.display, fontWeight: 300, fontSize: 'clamp(20px,2.4vw,26px)', lineHeight: 1.5, marginTop: 16 };
+const narrativeHeadline = { fontFamily: T.display, fontWeight: 400, fontSize: 'clamp(28px,3.4vw,40px)', lineHeight: 1.1, margin: '14px 0 0' };
+const narrativeBody = { fontSize: 16, lineHeight: 1.7, margin: '16px 0 0', maxWidth: '58ch' };
+// Brand promises shown under the narrative on every product page.
+const BRAND_FEATURES = [
+  ['Limited drops', 'Small batches, released in waves.'],
+  ['Inspired by the culture', 'Places, flavors and moments you can’t stop thinking about.'],
+  ['Made to collect', 'Every scent is a numbered drop in the archive.'],
+];
+const featureRow = { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 24, marginTop: 32, paddingTop: 24, borderTop: '1px solid rgba(251,245,241,0.18)' };
+const featureItem = { minWidth: 0 };
+const featureTitle = { fontFamily: T.display, fontSize: 15, letterSpacing: '0.02em' };
+const featureCopy = { fontSize: 13, lineHeight: 1.5, marginTop: 6 };
 
 const accordionRow = { borderBottom: `1px solid ${T.line}` };
 const accordionHeader = { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 0', background: 'none', border: 'none', cursor: 'pointer', fontFamily: T.sans, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.ink, textAlign: 'left' };

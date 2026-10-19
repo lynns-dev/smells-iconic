@@ -3,20 +3,13 @@ import PolicyLayout, { PolicySection } from '../components/PolicyLayout';
 
 export default function ReturnPolicy() {
   return (
-    <PolicyLayout title="Return Policy" updated="July 2026">
+    <PolicyLayout title="Return Policy" updated="October 2026">
       <p>We want you to love what you ordered. If something's not right, here's how returns and exchanges work.</p>
 
-      <PolicySection title="Return window">
+      <PolicySection title="45-day guarantee">
         <p>
-          Unopened, unused products can be returned within 30 days of delivery for a full refund to your original
-          payment method.
-        </p>
-      </PolicySection>
-
-      <PolicySection title="Opened products">
-        <p>
-          Because our products are cosmetics applied to skin, opened or used items are final sale and can't be
-          returned for hygiene reasons — unless the product arrived damaged or defective, in which case see below.
+          If you're not happy with your order for any reason, you can return it within 45 days of delivery for a full
+          refund to your original payment method — opened or unopened.
         </p>
       </PolicySection>
 
@@ -46,8 +39,7 @@ export default function ReturnPolicy() {
 
       <PolicySection title="Return shipping">
         <p>
-          Return shipping is the customer's responsibility unless the return is due to our error (damaged, defective,
-          or incorrect item).
+          Returns are free: we'll email you a prepaid return label, so sending your order back costs you nothing.
         </p>
       </PolicySection>
 

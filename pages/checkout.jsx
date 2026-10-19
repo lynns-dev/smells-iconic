@@ -1103,7 +1103,7 @@ export default function CheckoutPage() {
         <div className="reassurance-grid" style={reassuranceGrid}>
           {[
             [ShipIcon, 'Free shipping', 'On every order. Ships within 1 business day.'],
-            [ReturnIcon, '30-day returns', 'Unopened items, full refund within 30 days of delivery.'],
+            [ReturnIcon, '45-day guarantee', 'Full refund within 45 days, even if opened. Free returns.'],
             [LockIcon, 'Secure checkout', `Payments encrypted and processed by ${SQUARE_ENABLED ? 'Square' : 'Intuit'}.`],
             [LeafIcon, 'Vegan & cruelty-free', 'Every formula, always.'],
           ].map(([Icon, title, copy]) => (
