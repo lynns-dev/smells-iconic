@@ -21,6 +21,7 @@ import { getSessionId, getVisitorId } from '../lib/session';
 import { loadCheckoutProgress, saveCheckoutProgress, clearCheckoutProgress } from '../lib/checkoutProgress';
 import { T, S } from '../lib/theme';
 import { trackCart } from '../lib/cartTracking';
+import { hasFreeShipping } from '../lib/shippingPerk';
 
 // Same layout as Anese's checkout: two steps (Shipping -> Payment) with
 // large touch-friendly fields and buttons.
@@ -388,7 +389,10 @@ export default function CheckoutPage() {
   }, [hydrated]);
 
   const addressEntered = addressComplete(shipping);
-  const shippingCost = !addressEntered || cart.length === 0 ? 0 : (total >= 50 ? 0 : 5);
+  // Free shipping offered by the cart exit popup (lib/shippingPerk.js).
+  const [shipPerk, setShipPerk] = React.useState(false);
+  React.useEffect(() => { setShipPerk(hasFreeShipping()); }, []);
+  const shippingCost = !addressEntered || cart.length === 0 ? 0 : (total >= 50 || shipPerk ? 0 : 5);
   const grandTotal = discountedTotal + shippingCost;
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
