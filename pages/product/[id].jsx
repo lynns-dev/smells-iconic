@@ -7,6 +7,7 @@ import CartDrawer from '../../components/CartDrawer';
 import ProductVisual from '../../components/ProductVisual';
 import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
+import DropsOffer from '../../components/DropsOffer';
 import { PRODUCTS, getProductById } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
@@ -330,11 +331,15 @@ export default function ProductPage({ product }) {
         </div>
       </section>
 
+      {/* LIMITED TIME OFFER — The Current Drops Set, until its deadline (components/DropsOffer.jsx). */}
+      <div style={{ borderTop: `1px solid ${T.line}` }}>
+        <DropsOffer />
+      </div>
+
       {/* REVIEWS */}
       <section id="reviews" style={narrowBand}>
         <div style={{ ...narrowWrap, textAlign: 'center' }}>
           <p style={S.label}>The verdict</p>
-          <h2 style={{ ...S.h2, marginTop: 12, fontSize: 'clamp(26px,3vw,36px)' }}>Worn close, <span style={S.it}>adored quietly.</span></h2>
           {reviewData.count > 0 && (
             <div style={{ marginTop: 20, fontSize: 12, color: T.soft, letterSpacing: '0.04em' }}>
               <span style={{ color: T.ink, letterSpacing: '1.5px' }}>{'★'.repeat(Math.round(reviewData.average))}{'☆'.repeat(5 - Math.round(reviewData.average))}</span>
