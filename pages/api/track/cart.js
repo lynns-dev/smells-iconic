@@ -28,6 +28,8 @@ export default async function handler(req, res) {
     code: clip(d.code, 30),
     method: clip(d.method, 30),
     message: clip(d.message, 120),
+    answer: clip(d.answer, 20),
+    text: clip(d.text, 200),
     shipping: Number(d.shipping) || 0,
     freeAt: Number(d.freeAt) || undefined,
     subtotal: Number(d.subtotal) || undefined,

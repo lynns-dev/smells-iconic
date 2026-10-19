@@ -5,6 +5,8 @@ import ProductVisual from './ProductVisual';
 import { getProductById } from '../lib/products';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
+import { hasFreeShipping } from '../lib/shippingPerk';
+import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
@@ -75,7 +77,11 @@ export default function CartDrawer({
 
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
-  const freeShipping = total >= FREE_SHIP_AT;
+  // Free shipping from the exit popup's offer (lib/shippingPerk.js) counts too.
+  const [shipPerk, setShipPerk] = React.useState(false);
+  React.useEffect(() => { if (open) setShipPerk(hasFreeShipping()); }, [open]);
+  const freeShipping = total >= FREE_SHIP_AT || shipPerk;
+  const [exitOpen, setExitOpen] = React.useState(false);
 
   const progressPct = Math.min(100, (total / FREE_GIFT_AT) * 100);
   const shipMarkerPct = (FREE_SHIP_AT / FREE_GIFT_AT) * 100;
@@ -112,6 +118,11 @@ export default function CartDrawer({
           dwellSec: (Date.now() - openedAtRef.current) / 1000,
           items: items.map((i) => i.name),
         });
+        // "What's holding you back?" (components/CartExitPopup.jsx) — not
+        // on checkout itself, and at most once every few days.
+        if (!window.location.pathname.startsWith('/checkout') && shouldAskCartExit()) {
+          setTimeout(() => setExitOpen(true), 350);
+        }
       }
       openedAtRef.current = 0;
     }
@@ -284,6 +295,16 @@ export default function CartDrawer({
           </Link>
         </div>
       </aside>
+      <CartExitPopup
+        open={exitOpen}
+        onClose={() => setExitOpen(false)}
+        cart={cart}
+        applyDiscount={applyDiscount}
+        discountCode="ICONIC15"
+        discountLabel="15% off"
+        payments="card, Apple Pay, Google Pay, Afterpay (4 interest-free payments), Cash App Pay, PayPal or Venmo"
+        freeShipAt={FREE_SHIP_AT}
+      />
     </>
   );
 }
