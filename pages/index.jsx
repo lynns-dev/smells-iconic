@@ -160,7 +160,7 @@ export default function HomePage() {
             </div>
             <div className="hm-cell" style={{ ...vcell, background: T.ink, color: T.white }}>
               <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC mist</div>
-              <div style={{ ...vbig, color: T.white }}>$32</div>
+              <div style={{ ...vbig, color: T.white }}>${babygirl.price}</div>
               <ul style={vlist}>
                 {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, spiced, or cherry-sweet — your era'].map((x, i) => (
                   <li key={i} style={{ ...vli, color: 'rgba(251,245,241,0.78)', borderTop: i === 0 ? 'none' : `1px solid ${T.dline}` }}>{x}</li>

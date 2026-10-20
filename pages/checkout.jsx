@@ -5,6 +5,7 @@ import ProductVisual from '../components/ProductVisual';
 import AddressFields from '../components/AddressFields';
 import PayPalButton from '../components/PayPalButton';
 import TopBanner from '../components/TopBanner';
+import { shippingFor } from '../lib/shipping';
 import {
   createSquareCard, tokenizeSquareCard,
   createApplePayButton, createGooglePayButton, tokenizeWallet, tokenizeWalletWithContact,
@@ -379,8 +380,8 @@ export default function CheckoutPage() {
   }, [hydrated]);
 
   const addressEntered = addressComplete(shipping);
-  // Free shipping on every order.
-  const shippingCost = 0;
+  // Flat-rate shipping, unless the cart exit popup's perk waives it.
+  const shippingCost = shippingFor();
   const grandTotal = discountedTotal + shippingCost;
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
@@ -1031,7 +1032,7 @@ export default function CheckoutPage() {
       <div style={reassuranceWrap}>
         <div className="reassurance-grid" style={reassuranceGrid}>
           {[
-            [ShipIcon, 'Free shipping', 'On every order. Ships within 1 business day.'],
+            [ShipIcon, 'Fast shipping', 'Ships within 1 business day.'],
             [ReturnIcon, '45-day guarantee', 'Full refund within 45 days, even if opened. Free returns.'],
             [LockIcon, 'Secure checkout', `Payments encrypted and processed by ${SQUARE_ENABLED ? 'Square' : 'Intuit'}.`],
             [LeafIcon, 'Vegan & cruelty-free', 'Every formula, always.'],

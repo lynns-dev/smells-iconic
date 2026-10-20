@@ -6,6 +6,7 @@ import { PRODUCTS } from '../lib/products';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
+import { shippingFor } from '../lib/shipping';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
@@ -82,8 +83,12 @@ export default function CartDrawer({
 
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
-  // Free shipping on every order.
-  const freeShipping = true;
+  // Flat-rate shipping (lib/shipping.js). Read after mount: the free-
+  // shipping perk lives in this browser's storage.
+  const [shippingCost, setShippingCost] = React.useState(null);
+  React.useEffect(() => { if (open) setShippingCost(shippingFor()); }, [open]);
+  const freeShipping = shippingCost === 0;
+  const orderTotal = discountedTotal + (shippingCost || 0);
   const [exitOpen, setExitOpen] = React.useState(false);
 
 
@@ -105,7 +110,7 @@ export default function CartDrawer({
     } else if (!open && openedAtRef.current) {
       if (!checkoutClickedRef.current && items.length > 0) {
         trackCart('cart_closed', {
-          shipping: free ? 0 : 5,
+          shipping: free ? 0 : shippingFor(),
           subtotal: due,
           dwellSec: (Date.now() - openedAtRef.current) / 1000,
           items: items.map((i) => i.name),
@@ -146,7 +151,7 @@ export default function CartDrawer({
         </div>
 
         {cart.length > 0 && (
-          <p style={{ fontSize: 12, color: T.ink, margin: '0 0 20px', flexShrink: 0 }}>Free shipping on every order.</p>
+          <p style={{ fontSize: 12, color: T.ink, margin: '0 0 20px', flexShrink: 0 }}>Ships within 1 business day.</p>
         )}
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -276,10 +281,15 @@ export default function CartDrawer({
               <span>−${codeDiscountAmount.toFixed(2)}</span>
             </div>
           )}
-          <p style={shippingNote}>{freeShipping ? 'Free shipping' : 'Shipping and taxes calculated at checkout'}</p>
+          {shippingCost !== null && (
+            <div style={summaryRow}>
+              <span style={{ color: T.soft }}>Shipping</span>
+              <span>{freeShipping ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', margin: '14px 0 18px' }}>
             <span style={S.label}>Total</span>
-            <span style={{ fontFamily: T.display, fontWeight: 300, fontSize: 24 }}>${discountedTotal.toFixed(2)}</span>
+            <span style={{ fontFamily: T.display, fontWeight: 300, fontSize: 24 }}>${orderTotal.toFixed(2)}</span>
           </div>
           <Link
             href="/checkout"
@@ -302,7 +312,6 @@ export default function CartDrawer({
         discountCode="ICONIC15"
         discountLabel="15% off"
         payments="card, Apple Pay, Google Pay, PayPal or Venmo"
-        freeShippingAlways
       />
     </>
   );
@@ -341,4 +350,3 @@ const discountInput = {
 
 const summaryRow = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' };
 const unlockBox = { background: T.paper, border: `1px solid ${T.line}`, padding: '14px 14px 12px', marginTop: 16, flexShrink: 0 };
-const shippingNote = { fontSize: 11, color: T.soft, marginTop: 8, letterSpacing: '0.02em' };

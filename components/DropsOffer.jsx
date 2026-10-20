@@ -19,8 +19,8 @@ export const OFFER_ENDS_AT = Date.parse('2026-10-24T23:59:59-07:00'); // Oct 24,
 const BENEFITS = [
   'Three full-size 100ml body mists',
   'Babygirl · Ginger Crème · Cherry Afterglow',
-  '25% less than buying them separately',
-  'Free shipping on every order',
+  '$12 less than buying them separately',
+  'Ships within 1 business day',
 ];
 const PAYMENTS = ['Visa', 'Mastercard', 'Amex', 'Apple Pay', 'Google Pay', 'PayPal'];
 
@@ -97,7 +97,7 @@ export default function DropsOffer() {
           )}
           <h3 style={title}>{set.name}</h3>
           <p style={{ fontSize: 15, lineHeight: 1.55, margin: '0 0 16px', maxWidth: '44ch' }}>
-            All three current drops in one collectible set — a scent for every mood, for 25% less.
+            All three current drops in one collectible set — a scent for every mood, for $12 less.
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
@@ -116,10 +116,10 @@ export default function DropsOffer() {
 
           <button type="button" onClick={buyNow} style={cta}>
             <span style={{ fontSize: 15, letterSpacing: '0.16em' }}>Buy now — ${set.price}</span>
-            <span style={{ fontSize: 10, letterSpacing: '0.12em', opacity: 0.75, marginTop: 4 }}>Secure checkout · Free shipping</span>
+            <span style={{ fontSize: 10, letterSpacing: '0.12em', opacity: 0.75, marginTop: 4 }}>Secure checkout · Ships in 1 business day</span>
           </button>
 
-          <p style={{ fontSize: 12, color: T.soft, margin: '12px 0 14px' }}>Ships in 2–4 days · Free shipping on every order</p>
+          <p style={{ fontSize: 12, color: T.soft, margin: '12px 0 14px' }}>Ships in 2–4 days · $3 flat-rate shipping</p>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} aria-label="Ways to pay">
             {PAYMENTS.map((p) => <span key={p} style={payChip}>{p}</span>)}
           </div>
