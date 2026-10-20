@@ -24,7 +24,7 @@ function ReturnIcon() {
 export default function TopBanner() {
   return (
     <div className="top-banner" style={styles.bar}>
-      <div className="top-banner-item" style={styles.item}><ShipIcon /><span>Free Shipping</span></div>
+      <div className="top-banner-item" style={styles.item}><ShipIcon /><span>Ships in 1 Business Day</span></div>
       <div className="top-banner-item" style={styles.item}><ReturnIcon /><span>45-Day Money-Back Guarantee</span></div>
       <style jsx>{`
         @media (max-width: 680px) {
