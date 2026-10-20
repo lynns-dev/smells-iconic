@@ -988,6 +988,7 @@ export default function CheckoutPage() {
       </div>
 
       <style jsx>{`
+        :global(body) { background: #FFFFFF; }
         :global(.row-2) { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .mobile-topbar { display: none; }
         .checkout-grid { grid-template-columns: 1.35fr 1fr; }
@@ -1041,15 +1042,19 @@ export default function CheckoutPage() {
   );
 }
 
+// Checkout is pure white rather than the site's cream (T.white), set on
+// <body> too via the :global(body) rule in the page's <style jsx>.
+const WHITE = '#FFFFFF';
+
 const topbar = { borderBottom: `1px solid ${T.line}`, textAlign: 'center' };
 // display is deliberately not set inline — the media query shows it on mobile.
 const mobileTopbar = {
   alignItems: 'center', justifyContent: 'center',
-  padding: '18px 20px', borderBottom: `1px solid ${T.line}`, background: T.white,
+  padding: '18px 20px', borderBottom: `1px solid ${T.line}`, background: WHITE,
 };
 const checkoutGrid = { display: 'grid', maxWidth: 1280, margin: '0 auto', columnGap: 40, rowGap: 20 };
 const formCol = { borderRight: `1px solid ${T.line}` };
-const summaryCol = { padding: '32px 40px', background: T.white };
+const summaryCol = { padding: '32px 40px', background: WHITE };
 const secureNote = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, fontSize: 12, color: T.soft };
 const stepTitle = { fontFamily: T.sans, fontWeight: 700, fontSize: 22, margin: 0, color: T.ink, lineHeight: 1.25 };
 const fieldGroupLabel = {
@@ -1057,7 +1062,7 @@ const fieldGroupLabel = {
 };
 // 16px+ text so iOS Safari doesn't zoom the page when a field is tapped.
 const bigInput = {
-  width: '100%', height: 58, padding: '0 18px', border: `1px solid ${T.line}`, background: T.white,
+  width: '100%', height: 58, padding: '0 18px', border: `1px solid ${T.line}`, background: WHITE,
   fontFamily: T.sans, fontSize: 16, fontWeight: 400, color: T.ink, outline: 'none', boxSizing: 'border-box', borderRadius: 14,
 };
 const bigButton = {
@@ -1073,18 +1078,18 @@ const smallOutlineButton = {
   fontSize: 13, letterSpacing: 'normal', textTransform: 'none', fontWeight: 700,
 };
 const checkboxLabel = { display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, fontSize: 13, color: T.soft };
-const paymentList = { border: `1.5px solid ${T.ink}`, borderRadius: 14, background: T.white, overflow: 'hidden' };
+const paymentList = { border: `1.5px solid ${T.ink}`, borderRadius: 14, background: WHITE, overflow: 'hidden' };
 const accordionRow = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '18px 18px', borderBottom: `1px solid ${T.line}`, background: T.white,
+  padding: '18px 18px', borderBottom: `1px solid ${T.line}`, background: WHITE,
 };
-const accordionBody = { padding: '16px 18px 20px', background: T.white };
+const accordionBody = { padding: '16px 18px 20px', background: WHITE };
 const squareCardContainer = { minHeight: 48 };
 const walletButtonContainer = { width: '100%', height: 48, border: 'none', overflow: 'hidden' };
 const billingRecap = {
-  display: 'flex', gap: 12, padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.white, fontSize: 14,
+  display: 'flex', gap: 12, padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: WHITE, fontSize: 14,
 };
-const reviewCard = { padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.white, fontSize: 14 };
+const reviewCard = { padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: WHITE, fontSize: 14 };
 const featuredReviewsWrap = { marginTop: 28, paddingTop: 24, borderTop: `1px solid ${T.line}` };
 const featuredReviewCard = { padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.paper, marginTop: 12 };
 const carouselDots = { display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 };
@@ -1099,9 +1104,9 @@ const qtyBtn = {
   fontSize: 14, lineHeight: 1, color: T.ink, padding: 0, cursor: 'pointer',
 };
 const summaryItem = { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0' };
-const summaryImgWrap = { position: 'relative', width: 48, height: 48, flexShrink: 0, overflow: 'hidden', border: `1px solid ${T.line}`, background: T.white };
+const summaryImgWrap = { position: 'relative', width: 48, height: 48, flexShrink: 0, overflow: 'hidden', border: `1px solid ${T.line}`, background: WHITE };
 const summaryRow = { display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 14 };
-const reassuranceWrap = { borderTop: `1px solid ${T.line}`, background: T.paper };
+const reassuranceWrap = { borderTop: `1px solid ${T.line}`, background: WHITE };
 const reassuranceGrid = { maxWidth: 1280, margin: '0 auto', padding: '32px 40px', display: 'grid', gap: 24 };
 const reassuranceItem = { display: 'flex', alignItems: 'flex-start', gap: 12 };
 const legalLinks = {
