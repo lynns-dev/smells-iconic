@@ -22,7 +22,7 @@ const BENEFITS = [
   '25% less than buying them separately',
   'Free shipping on every order',
 ];
-const PAYMENTS = ['Visa', 'Mastercard', 'Amex', 'Apple Pay', 'Google Pay', 'PayPal', 'Afterpay', 'Cash App Pay'];
+const PAYMENTS = ['Visa', 'Mastercard', 'Amex', 'Apple Pay', 'Google Pay', 'PayPal'];
 
 function remaining(now) {
   const ms = Math.max(0, OFFER_ENDS_AT - now);

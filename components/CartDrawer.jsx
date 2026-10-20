@@ -280,7 +280,7 @@ export default function CartDrawer({
         applyDiscount={applyDiscount}
         discountCode="ICONIC15"
         discountLabel="15% off"
-        payments="card, Apple Pay, Google Pay, Afterpay (4 interest-free payments), Cash App Pay, PayPal or Venmo"
+        payments="card, Apple Pay, Google Pay, PayPal or Venmo"
         freeShippingAlways
       />
     </>
