@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { T } from '../lib/theme';
+import TopBanner from './TopBanner';
 
 export default function Header({ cartCount = 0, onCartClick, overlay = false, scrolled = false }) {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function Header({ cartCount = 0, onCartClick, overlay = false, sc
         transition: 'background .35s ease, border-color .35s ease',
       }}
     >
+      <TopBanner />
       <div style={styles.nav}>
         <div style={styles.side}>
           <div className="desktop-links" style={styles.desktopLinks}>
