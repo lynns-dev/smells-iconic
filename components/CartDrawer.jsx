@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { T, S } from '../lib/theme';
 import ProductVisual from './ProductVisual';
+import PopularBadge from './PopularBadge';
 import { PRODUCTS } from '../lib/products';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
@@ -164,7 +165,7 @@ export default function CartDrawer({
                 </div>
                 <div>
                   <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 20 }}>{item.name}</div>
-                  <span style={popularBadge}>This item is popular with users!</span>
+                  <PopularBadge />
                   {item.plan === 'subscribe' && (
                     <div style={subscribeNote}>Subscribe &amp; save · every 2 months</div>
                   )}
@@ -329,10 +330,6 @@ const itemImg = {
 };
 
 const subscribeNote = { fontSize: 11, color: T.soft, marginTop: 3, letterSpacing: '0.02em' };
-const popularBadge = {
-  display: 'inline-block', marginTop: 5, padding: '3px 8px', borderRadius: 999,
-  background: '#E3F1E4', color: '#1F6B2E', fontSize: 11, fontWeight: 600, lineHeight: 1.3,
-};
 
 
 const upsellSection = { background: T.paper, padding: '14px 16px', marginTop: 12, flexShrink: 0 };

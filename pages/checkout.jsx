@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import ProductVisual from '../components/ProductVisual';
+import PopularBadge from '../components/PopularBadge';
 import AddressFields from '../components/AddressFields';
 import PayPalButton from '../components/PayPalButton';
 import TopBanner from '../components/TopBanner';
@@ -32,7 +33,8 @@ import { trackCart } from '../lib/cartTracking';
 //    the shipping address), Back + Place order.
 // Each step is a real <form>; a step's inputs aren't in the DOM while the
 // other step shows, so the browser only validates what's on screen.
-// Order summary: sticky sidebar on desktop, collapsible panel on mobile.
+// Order summary: sticky sidebar on desktop. On mobile the items, discount
+// and totals sit at the top of the page.
 //
 // Cards go through Square (lib/squareClient.js, /api/square-checkout). Until
 // the Square keys are set the card box falls back to QuickBooks Payments,
@@ -109,28 +111,55 @@ function CheckIcon(props) {
   );
 }
 
-// Itemized cart, discount code and totals — the mobile order-summary panel.
-function OrderItemsPanel({
-  cart, subtotal, discountTotal, codeDiscountAmount, appliedDiscount, shippingCost, addressEntered,
+// The items in the order — thumbnail, name, size, price, the popular badge
+// and a quantity adjuster. Shown at the top of the page on mobile and in the
+// desktop sidebar. − stops at 1 so the page can't be emptied by accident
+// (an empty cart sends the shopper back to /shop).
+function OrderItemList({ cart, setQty }) {
+  return (
+    <div>
+      {cart.map((item) => (
+        <div key={item.id} style={summaryItem}>
+          <div style={summaryImgWrap}>
+            <ProductVisual id={item.id} images={item.images} alt={item.name} width={48} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14 }}>{item.name}</div>
+            <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>{item.size}</div>
+            <PopularBadge />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+              <button
+                type="button"
+                aria-label={`Decrease ${item.name} quantity`}
+                disabled={item.quantity <= 1}
+                onClick={() => setQty(item.id, item.quantity - 1)}
+                style={{ ...qtyBtn, ...(item.quantity <= 1 ? { opacity: 0.4, cursor: 'default' } : {}) }}
+              >−</button>
+              <span style={{ fontSize: 13, minWidth: 12, textAlign: 'center' }}>{item.quantity}</span>
+              <button
+                type="button"
+                aria-label={`Increase ${item.name} quantity`}
+                onClick={() => setQty(item.id, item.quantity + 1)}
+                style={qtyBtn}
+              >+</button>
+            </div>
+          </div>
+          <div style={{ fontSize: 14, alignSelf: 'flex-start' }}>${(item.price * item.quantity).toFixed(2)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Items, discount code and totals — the mobile order summary, at the top of the page.
+function OrderSummaryPanel({
+  cart, setQty, subtotal, discountTotal, codeDiscountAmount, appliedDiscount, shippingCost, addressEntered,
   grandTotal, discountCode, setDiscountCode, discountMessage, setDiscountMessage,
   clearDiscount, handleApplyDiscount,
 }) {
   return (
     <div style={reviewCard}>
-      <div>
-        {cart.map((item) => (
-          <div key={item.id} style={summaryItem}>
-            <div style={summaryImgWrap}>
-              <ProductVisual id={item.id} images={item.images} alt={item.name} width={48} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14 }}>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ''}</div>
-              <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>{item.size}</div>
-            </div>
-            <div style={{ fontSize: 14 }}>${(item.price * item.quantity).toFixed(2)}</div>
-          </div>
-        ))}
-      </div>
+      <OrderItemList cart={cart} setQty={setQty} />
 
       <DiscountField
         discountCode={discountCode} setDiscountCode={setDiscountCode} discountMessage={discountMessage}
@@ -258,7 +287,7 @@ function ReviewsCarousel({ reviews }) {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, total, hydrated, clear, appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal } = useCart();
+  const { cart, total, hydrated, clear, setQty, appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal } = useCart();
 
   // Restored once at mount so a refresh mid-checkout resumes on the same
   // step with the form filled in (lib/checkoutProgress.js).
@@ -289,7 +318,6 @@ export default function CheckoutPage() {
 
   const [discountCode, setDiscountCode] = React.useState(savedProgress?.discountCode ?? '');
   const [discountMessage, setDiscountMessage] = React.useState('');
-  const [orderSummaryOpen, setOrderSummaryOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const errorRef = React.useRef(null);
@@ -751,23 +779,7 @@ export default function CheckoutPage() {
         <div className="form-col" style={formCol}>
           <div ref={formTopRef} />
           <div className="mobile-order-summary">
-            <button
-              type="button"
-              onClick={() => setOrderSummaryOpen((o) => !o)}
-              style={orderSummaryToggle}
-              aria-expanded={orderSummaryOpen}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>{orderSummaryOpen ? 'Hide' : 'Show'} order summary</span>
-                <span style={{ fontSize: 10, transform: orderSummaryOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>▾</span>
-              </span>
-              <span style={{ fontFamily: T.sans, fontSize: 16, fontWeight: 700 }}>${grandTotal.toFixed(2)}</span>
-            </button>
-            {orderSummaryOpen && (
-              <div style={{ marginTop: 12 }}>
-                <OrderItemsPanel cart={cart} {...totalsProps} {...discountProps} />
-              </div>
-            )}
+            <OrderSummaryPanel cart={cart} setQty={setQty} {...totalsProps} {...discountProps} />
           </div>
 
           <form
@@ -1005,18 +1017,7 @@ export default function CheckoutPage() {
 
         <aside className="order-summary" style={summaryCol}>
           <div style={{ maxHeight: 340, overflowY: 'auto', marginBottom: 20 }}>
-            {cart.map((item) => (
-              <div key={item.id} style={summaryItem}>
-                <div style={summaryImgWrap}>
-                  <ProductVisual id={item.id} images={item.images} alt={item.name} width={48} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14 }}>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ''}</div>
-                  <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>{item.size}</div>
-                </div>
-                <div style={{ fontSize: 14 }}>${(item.price * item.quantity).toFixed(2)}</div>
-              </div>
-            ))}
+            <OrderItemList cart={cart} setQty={setQty} />
           </div>
 
           <div style={{ marginBottom: 16 }}>
@@ -1156,11 +1157,6 @@ const billingRecap = {
   display: 'flex', gap: 12, padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.white, fontSize: 14,
 };
 const reviewCard = { padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.white, fontSize: 14 };
-const orderSummaryToggle = {
-  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '16px 18px', border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.white,
-  cursor: 'pointer', fontFamily: T.sans, fontSize: 13, color: T.ink,
-};
 const featuredReviewsWrap = { marginTop: 28, paddingTop: 24, borderTop: `1px solid ${T.line}` };
 const featuredReviewCard = { padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.paper, marginTop: 12 };
 const carouselDots = { display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 };
@@ -1170,6 +1166,10 @@ const shipMethod = {
   border: `1.5px solid ${T.ink}`, borderRadius: 14, fontSize: 14,
 };
 const errorText = { color: '#a13d2b', fontSize: 13, marginTop: 16 };
+const qtyBtn = {
+  width: 26, height: 26, border: `1px solid ${T.line}`, background: 'transparent',
+  fontSize: 14, lineHeight: 1, color: T.ink, padding: 0, cursor: 'pointer',
+};
 const summaryItem = { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0' };
 const summaryImgWrap = { position: 'relative', width: 48, height: 48, flexShrink: 0, overflow: 'hidden', border: `1px solid ${T.line}`, background: T.white };
 const summaryRow = { display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 14 };
