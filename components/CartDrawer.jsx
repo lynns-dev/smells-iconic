@@ -2,14 +2,17 @@ import React from 'react';
 import Link from 'next/link';
 import { T, S } from '../lib/theme';
 import ProductVisual from './ProductVisual';
-import { getProductById } from '../lib/products';
+import { PRODUCTS } from '../lib/products';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
+import TopBanner from './TopBanner';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
 const UNLOCKED_KEY = 'si-cart-code-unlocked';
+// Upsell priority by category, lowest first (sorted descending).
+const UPSELL_ORDER = ['body-mist', 'body-powder', 'set'];
 
 
 export default function CartDrawer({
@@ -19,9 +22,14 @@ export default function CartDrawer({
   const [discountCode, setDiscountCode] = React.useState('');
   const [discountMessage, setDiscountMessage] = React.useState('');
   const [discountSubmitting, setDiscountSubmitting] = React.useState(false);
-  const puff = getProductById('puff');
-  const hasPuff = cart.some((i) => i.id === 'puff');
-  const puffPrice = puff ? Math.round(puff.price * 0.9 * 100) / 100 : 0;
+  // Up to two things not already in the bag: the set and the body powder
+  // first, then the other mists. The set already holds every mist, so once
+  // it's in the bag the mists aren't offered.
+  const inCart = new Set(cart.map((i) => i.id));
+  const upsells = [...PRODUCTS]
+    .sort((a, b) => UPSELL_ORDER.indexOf(b.category) - UPSELL_ORDER.indexOf(a.category))
+    .filter((p) => !inCart.has(p.id) && !(inCart.has('current-drops-set') && p.category === 'body-mist'))
+    .slice(0, 2);
 
   React.useEffect(() => {
     if (appliedDiscount) setDiscountCode(appliedDiscount.code);
@@ -129,6 +137,9 @@ export default function CartDrawer({
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}
       >
+        {/* The page's banner sits under the overlay, so the drawer carries
+            its own copy and the banner stays visible while it's open. */}
+        <div style={{ margin: '-32px -30px 24px', flexShrink: 0 }}><TopBanner /></div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
           <span style={S.label}>Your cart</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: T.ink }}>×</button>
@@ -170,25 +181,33 @@ export default function CartDrawer({
             </div>
           ))}
 
-          {puff && !hasPuff && cart.length > 0 && (
-            <div style={upsellSection}>
-              <p style={{ ...S.label, marginBottom: 12 }}>You might also like</p>
-              <div style={upsellCard}>
-                <div style={itemImg}>
-                  <ProductVisual id="puff" images={puff.images} alt={puff.name} width={44} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13 }}>{puff.name}</div>
-                  <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>
-                    <span style={{ textDecoration: 'line-through', marginRight: 6 }}>${puff.price}</span>
-                    ${puffPrice.toFixed(2)} · 10% off
+        {upsells.length > 0 && cart.length > 0 && (
+          <div style={upsellSection}>
+            <p style={{ ...S.label, marginBottom: 12 }}>You might also like</p>
+            <div style={{ display: 'grid', gap: 12 }}>
+              {upsells.map((p) => (
+                <div key={p.id} style={upsellCard}>
+                  <div style={itemImg}>
+                    <ProductVisual id={p.id} images={p.images} alt={p.name} width={44} />
                   </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13 }}>{p.name}</div>
+                    <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>
+                      {p.originalPrice && <span style={{ textDecoration: 'line-through', marginRight: 6 }}>${p.originalPrice}</span>}
+                      ${p.price}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => add(p, 1)}
+                    style={upsellAddBtn}
+                  >
+                    Add
+                  </button>
                 </div>
-                <button onClick={() => add({ ...puff, price: puffPrice, originalPrice: puff.price }, 1)} style={upsellAddBtn}>Add</button>
-              </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {showUnlock && (
           <div style={unlockBox}>
@@ -209,7 +228,7 @@ export default function CartDrawer({
                     onChange={(e) => { setUnlockEmail(e.target.value); if (unlockState === 'error') setUnlockState('idle'); }}
                     style={discountInput}
                   />
-                  <button type="submit" style={S.btnFill} disabled={unlockState === 'busy'}>{unlockState === 'busy' ? '…' : 'Reveal code'}</button>
+                  <button type="submit" style={{ ...S.btnFill, flexShrink: 0, padding: '0 18px' }} disabled={unlockState === 'busy'}>{unlockState === 'busy' ? '…' : 'Reveal code'}</button>
                 </div>
                 {unlockState === 'error' && <p style={{ fontSize: 12, color: '#a13d2b', margin: '6px 0 0' }}>Enter a valid email address.</p>}
                 <p style={{ fontSize: 10, color: T.soft, margin: '6px 0 0' }}>By signing up you agree to receive emails from Smells Iconic. Unsubscribe anytime.</p>
@@ -238,6 +257,7 @@ export default function CartDrawer({
             )}
           </div>
         )}
+        </div>
 
         <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 20, marginTop: 16, flexShrink: 0 }}>
           <div style={summaryRow}>
@@ -306,7 +326,7 @@ const popularBadge = {
 };
 
 
-const upsellSection = { background: T.paper, padding: '18px 16px', marginTop: 12 };
+const upsellSection = { background: T.paper, padding: '14px 16px', marginTop: 12, flexShrink: 0 };
 const upsellCard = { display: 'flex', alignItems: 'center', gap: 14 };
 const upsellAddBtn = {
   fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: `1px solid ${T.ink}`,
@@ -314,6 +334,7 @@ const upsellAddBtn = {
 };
 
 const discountInput = {
+  minWidth: 0,
   flex: 1, height: 44, padding: '0 14px', border: `1px solid ${T.line}`, background: T.white,
   fontFamily: T.sans, fontSize: 13, color: T.ink, outline: 'none', boxSizing: 'border-box',
 };
