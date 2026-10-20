@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import ProductVisual from '../components/ProductVisual';
 import AddressFields from '../components/AddressFields';
 import PayPalButton from '../components/PayPalButton';
+import TopBanner from '../components/TopBanner';
 import {
   createSquareCard, tokenizeSquareCard,
   createApplePayButton, createGooglePayButton, tokenizeWallet, tokenizeWalletWithContact,
@@ -730,6 +731,7 @@ export default function CheckoutPage() {
 
   return (
     <div>
+      <TopBanner />
       <header className="desktop-topbar" style={topbar}>
         <div style={{ ...S.wrap, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 112 }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
