@@ -36,6 +36,7 @@ export default function HomePage() {
   };
 
   const featured = getFeaturedProducts();
+  const heroProduct = getProductById('vanilla-body-powder');
   const babygirl = getProductById('babygirl');
   const reviewsByProduct = useAllReviews();
   const siteReviews = React.useMemo(() => {
@@ -86,7 +87,8 @@ export default function HomePage() {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button style={heroBtn} onClick={() => c.add(featured[0])}>Shop — $32</button>
+                {/* The hero photo is the body powder, so the button goes there. */}
+                {heroProduct && <Link href={`/product/${heroProduct.id}`} style={heroBtn}>Shop — ${heroProduct.price}</Link>}
                 <a href="#notes" style={heroLink}>The scents</a>
               </div>
             </div>
