@@ -1,11 +1,10 @@
-# Smells Iconic — E-commerce (Next.js + Square + Afterpay)
+# Smells Iconic — E-commerce (Next.js + Square)
 
 Blush-and-cream storefront for Smells Iconic body mists. Next.js 14
 (Pages Router) with a custom, Shopify-style single-page checkout. Same
 payment setup as veil-ecommerce / Anese: cards, Apple Pay and Google Pay
 through Square (falls back to the QuickBooks card form until the Square
-keys are set), Afterpay and Cash App Pay through Afterpay directly, PayPal
-and Venmo, and Klarna/Affirm via Stripe — customers only ever see each
+keys are set), PayPal and Venmo, and Klarna/Affirm via Stripe — customers only ever see each
 method's own name, never "Stripe".
 
 Placeholder graphics stand in for real product photography — see
@@ -25,7 +24,7 @@ Placeholder graphics stand in for real product photography — see
    | `QB_ENVIRONMENT` / `NEXT_PUBLIC_QB_ENVIRONMENT` | `sandbox` or `production` (keep both in sync) |
    | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Vercel KV / Upstash Redis store, used to persist the QuickBooks refresh token |
    | `NEXT_PUBLIC_BASE_URL` | your deployed URL, e.g. `https://smells-iconic.vercel.app` |
-   | `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | API keys from your Stripe Dashboard, power the Cash App Pay/Klarna/Afterpay/Affirm options |
+   | `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | API keys from your Stripe Dashboard, power the Klarna/Affirm options |
    | `STRIPE_WEBHOOK_SECRET` | signing secret for a webhook endpoint pointed at `/api/stripe-webhook`, subscribed to `payment_intent.succeeded` |
 
 The site builds and renders fully without QuickBooks or Stripe configured —
@@ -60,7 +59,7 @@ npm run dev
 - `lib/qbTokenStore.js` — persists the QuickBooks token pair in a KV store between requests
 - `pages/api/stripe-payment-intent.js` — creates a Stripe PaymentIntent for whichever "or pay another way" method the customer picked
 - `pages/api/stripe-webhook.js` — the only thing that actually records an order for those methods, once Stripe confirms the redirect-based charge succeeded
-- `lib/altPaymentMethods.js` — the 4 backup methods (Cash App Pay, Klarna, Afterpay, Affirm) and their Stripe method types, shared by the checkout UI and API routes
+- `lib/altPaymentMethods.js` — the backup methods (Klarna, Affirm) and their Stripe method types, shared by the checkout UI and API routes
 - `lib/stripeServer.js` / `lib/stripeClient.js` — server and client Stripe SDK setup
 - `lib/products.js` — product data (edit scents/prices here)
 - `lib/theme.js` — design tokens (colors, fonts, shared styles)

@@ -10,7 +10,7 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 
-const BANNER_MESSAGES = ['Free shipping on every order', '15% off with code ICONIC15'];
+const BANNER_MESSAGES = ['15% off with code ICONIC15'];
 
 export default function HomePage() {
   const c = useCart();
