@@ -9,7 +9,7 @@ import TopBanner from '../components/TopBanner';
 import { shippingFor } from '../lib/shipping';
 import {
   createSquareCard, tokenizeSquareCard,
-  createApplePayButton, createGooglePayButton, tokenizeWallet, tokenizeWalletWithContact,
+  createApplePayButton, createGooglePayButton, tokenizeWallet,
 } from '../lib/squareClient';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
@@ -25,8 +25,7 @@ import { trackCart } from '../lib/cartTracking';
 
 // Same layout as Anese's checkout: two steps (Shipping -> Payment) with
 // large touch-friendly fields and buttons.
-//  - Step 1: express Apple Pay (the wallet sheet collects the address),
-//    shipping address, shipping method, country, contact email,
+//  - Step 1: shipping address, shipping method, country, contact email,
 //    "Continue to final step".
 //  - Step 2: "How do you want to pay?" — Apple Pay / Google Pay,
 //    PayPal / Venmo, then the card box, billing recap (always
@@ -309,13 +308,6 @@ export default function CheckoutPage() {
   const [appleAvailable, setAppleAvailable] = React.useState(false);
   const [googleAvailable, setGoogleAvailable] = React.useState(false);
 
-  // Express Apple Pay at the top of Step 1 — the wallet sheet collects
-  // name, email and address itself. A separate instance from Step 2's since
-  // the two payment requests are configured differently. Google Pay is only
-  // offered on Step 2.
-  const expressAppleMethodRef = React.useRef(null);
-  const [expressAppleAvailable, setExpressAppleAvailable] = React.useState(false);
-
   const [discountCode, setDiscountCode] = React.useState(savedProgress?.discountCode ?? '');
   const [discountMessage, setDiscountMessage] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
@@ -480,26 +472,6 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [squareReady, grandTotal]);
 
-  // Step 1 express Apple Pay (requestContact: the wallet sheet collects the
-  // address). Recreated when the total changes, same as above.
-  React.useEffect(() => {
-    if (!SQUARE_ENABLED || step !== 1 || !hydrated || cart.length === 0) return undefined;
-    let cancelled = false;
-    (async () => {
-      const apple = await createApplePayButton(latestRef.current.grandTotal, undefined, { requestContact: true });
-      if (!cancelled) {
-        setExpressAppleAvailable(Boolean(apple));
-        if (apple) expressAppleMethodRef.current = apple;
-      }
-    })();
-    return () => {
-      cancelled = true;
-      expressAppleMethodRef.current = null;
-      setExpressAppleAvailable(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, hydrated, grandTotal]);
-
   // Saves the shopper's contact to the store's list (admin → Subscribers)
   // so an abandoned checkout can still be followed up. Listens three ways,
   // since leaving a field misses autofill and shoppers who jump straight to
@@ -625,29 +597,6 @@ export default function CheckoutPage() {
       const token = await tokenizeWallet(methodRef.current);
       trackCart('pay_attempt', { method: label });
       await completeSquareOrder(token, label);
-    } catch (err) {
-      if (!err.cancelled) {
-        setError(err.message || 'Something went wrong. Please try again.');
-        trackCart('pay_failed', { method: label, message: err.message });
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Step 1 express wallets — the wallet sheet supplies the address.
-  const handleExpressWalletPay = async (methodRef, label) => {
-    setError('');
-    if (!methodRef.current) return;
-    setSubmitting(true);
-    try {
-      const { token, contact } = await tokenizeWalletWithContact(methodRef.current);
-      if (!contact) {
-        setError(`${label} didn’t return a shipping address. Please continue with the form below.`);
-        return;
-      }
-      trackCart('pay_attempt', { method: label });
-      await completeSquareOrder(token, label, { email: contact.email, shipping: contact });
     } catch (err) {
       if (!err.cancelled) {
         setError(err.message || 'Something went wrong. Please try again.');
@@ -790,25 +739,7 @@ export default function CheckoutPage() {
           >
             {step === 1 && (
               <section style={{ marginTop: 28 }}>
-                <div style={{ display: expressAppleAvailable ? 'block' : 'none' }}>
-                  <p style={{ ...fieldGroupLabel, textAlign: 'center' }}>Express checkout</p>
-                  {expressAppleAvailable && (
-                    <button
-                      type="button"
-                      className="apple-pay-button"
-                      aria-label="Apple Pay"
-                      disabled={submitting}
-                      onClick={() => handleExpressWalletPay(expressAppleMethodRef, 'Apple Pay')}
-                    />
-                  )}
-                  <div style={orDivider}>
-                    <span style={orDividerLine} />
-                    <span style={orDividerText}>or</span>
-                    <span style={orDividerLine} />
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 30 }} onBlur={handleIdentityBlur}>
+                <div onBlur={handleIdentityBlur}>
                   <p style={fieldGroupLabel}>Shipping address</p>
                   <AddressFields value={shipping} onChange={setShipping} idPrefix="ship" inputStyle={bigInput} simplified />
                 </div>
@@ -1149,9 +1080,6 @@ const accordionRow = {
 };
 const accordionBody = { padding: '16px 18px 20px', background: T.white };
 const squareCardContainer = { minHeight: 48 };
-const orDivider = { display: 'flex', alignItems: 'center', gap: 12, margin: '14px 0 0' };
-const orDividerLine = { flex: 1, height: 1, background: T.line };
-const orDividerText = { fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft };
 const walletButtonContainer = { width: '100%', height: 48, border: 'none', overflow: 'hidden' };
 const billingRecap = {
   display: 'flex', gap: 12, padding: 16, border: `1.5px solid ${T.line}`, borderRadius: 14, background: T.white, fontSize: 14,
