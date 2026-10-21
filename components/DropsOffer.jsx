@@ -116,7 +116,7 @@ export default function DropsOffer() {
 
           <button type="button" onClick={buyNow} style={cta}>
             <span style={{ fontSize: 15, letterSpacing: '0.16em' }}>Buy now — ${set.price}</span>
-            <span style={{ fontSize: 10, letterSpacing: '0.12em', opacity: 0.75, marginTop: 4 }}>Secure checkout · Ships in 1 business day</span>
+            <span style={{ fontSize: 10, letterSpacing: '0.12em', opacity: 0.75, marginTop: 4 }}>Secure checkout · Fast shipping</span>
           </button>
 
           <p style={{ fontSize: 12, color: T.soft, margin: '12px 0 14px' }}>Ships in 2–4 days · $3 flat-rate shipping</p>
