@@ -886,6 +886,16 @@ function SubscribersTab({ refreshKey }) {
     if (d.subscriber) setList((prev) => prev.map((x) => (x.key === s.key ? { ...x, ...d.subscriber } : x)));
   };
 
+  // Sends the abandoned-checkout email with a sample cart, to check Resend is
+  // set up (pages/api/admin/abandoned-email-test.js).
+  const sendTestReminder = async () => {
+    const to = window.prompt('Send a test abandoned-checkout email to:');
+    if (!to) return;
+    const res = await fetch('/api/admin/abandoned-email-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to }) });
+    const d = await res.json().catch(() => ({}));
+    window.alert(res.ok ? `Test email sent to ${to}.` : `Couldn't send: ${d.error || res.status}`);
+  };
+
   const exportCsv = () => {
     const header = ['Email', 'Phone', 'Name', 'City', 'State', 'Status', 'Emails OK', 'Sources', 'Abandoned cart', 'First seen', 'Last seen'];
     const lines = rows.map((s) => [s.email, s.phone, s.name, s.city, s.state, subscriberStatus(s).label, s.consent ? 'yes' : 'no', (s.sources || []).join(' '),
@@ -903,6 +913,7 @@ function SubscribersTab({ refreshKey }) {
     <Section
       title={list ? `${rows.length} ${rows.length === 1 ? 'person' : 'people'}` : 'Subscribers'}
       action={<div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" onClick={sendTestReminder} style={S.btnOutline}>Send test reminder</button>
         <button type="button" onClick={exportCsv} disabled={!rows.length} style={S.btnOutline}>Export CSV</button>
         <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
       </div>}
@@ -937,6 +948,9 @@ function SubscribersTab({ refreshKey }) {
               <span style={{ fontWeight: 600, color: st.color }}>{st.label}</span>
               {st.kind === 'abandoned' && s.cart?.length > 0 && (
                 <span style={{ color: T.soft }}>left {s.cart.map((i) => `${i.name} ×${i.quantity}`).join(', ')} (${s.cart.reduce((t, i) => t + i.price * i.quantity, 0).toFixed(2)})</span>
+              )}
+              {s.abandonedEmailSentAt && (
+                <span style={{ color: T.soft, fontSize: 13 }}>reminder emailed {new Date(s.abandonedEmailSentAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
               )}
               <span style={{ color: T.soft, fontSize: 13 }}>via {(s.sources || []).join(', ')}</span>
               <button type="button" onClick={() => toggleConsent(s)} title="Whether they agreed to marketing emails"

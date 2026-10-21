@@ -476,11 +476,15 @@ export default function CheckoutPage() {
   // so an abandoned checkout can still be followed up. Listens three ways,
   // since leaving a field misses autofill and shoppers who jump straight to
   // a wallet: on leaving a field, a moment after typing stops, and when the
-  // tab is hidden or closed. Only sent when something changed.
+  // tab is hidden or closed. Only sent when something changed, except
+  // `force` saves: on leaving and every couple of minutes while the page is
+  // open, which keep lastCheckoutAt at "last seen on checkout" so the
+  // abandoned-checkout email (lib/abandonedCheckout.js) goes out ~10 minutes
+  // after they actually leave, not 10 minutes after their last keystroke.
   const lastSavedContactRef = React.useRef('');
   const contactRef = React.useRef({});
   contactRef.current = { email, shipping, newsletter, cart };
-  const saveContact = React.useCallback(() => {
+  const saveContact = React.useCallback((force = false) => {
     const { email, shipping, newsletter, cart } = contactRef.current;
     const cleanEmail = email.trim();
     const emailOk = EMAIL_RE.test(cleanEmail);
@@ -488,7 +492,7 @@ export default function CheckoutPage() {
     if (!emailOk && !phoneOk) return;
     const name = String(shipping.name || '').trim();
     const sig = JSON.stringify([emailOk ? cleanEmail.toLowerCase() : '', shipping.phone, name, shipping.city, shipping.state, newsletter, cartSignature(cart)]);
-    if (sig === lastSavedContactRef.current) return;
+    if (sig === lastSavedContactRef.current && !force) return;
     lastSavedContactRef.current = sig;
     rememberIdentity({ email: emailOk ? cleanEmail : '', phone: shipping.phone });
     fetch('/api/subscribe', {
@@ -516,12 +520,15 @@ export default function CheckoutPage() {
   }, [email, shipping.phone, shipping.name, shipping.city, shipping.state, newsletter, saveContact]);
 
   React.useEffect(() => {
-    const onHide = () => { if (document.visibilityState === 'hidden') saveContact(); };
+    const onHide = () => { if (document.visibilityState === 'hidden') saveContact(true); };
+    const onPageHide = () => saveContact(true);
+    const ping = setInterval(() => { if (document.visibilityState === 'visible') saveContact(true); }, 2 * 60 * 1000);
     document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', saveContact);
+    window.addEventListener('pagehide', onPageHide);
     return () => {
+      clearInterval(ping);
       document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', saveContact);
+      window.removeEventListener('pagehide', onPageHide);
     };
   }, [saveContact]);
 

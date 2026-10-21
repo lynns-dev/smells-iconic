@@ -13,18 +13,10 @@ import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 const UNLOCK_CODE = 'ICONIC15';
 const UNLOCKED_KEY = 'si-cart-code-unlocked';
 
-
 export default function CartDrawer({
   cart, open, onClose, remove, setQty, total,
-  appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal,
+  appliedDiscount, applyDiscount, codeDiscountAmount, discountedTotal,
 }) {
-  const [discountCode, setDiscountCode] = React.useState('');
-  const [discountMessage, setDiscountMessage] = React.useState('');
-  const [discountSubmitting, setDiscountSubmitting] = React.useState(false);
-  React.useEffect(() => {
-    if (appliedDiscount) setDiscountCode(appliedDiscount.code);
-  }, [appliedDiscount]);
-
   // "Unlock 15% off": an email field that reveals and applies the code, and
   // adds them to the contact list (admin → Subscribers) as opted in.
   // Remembered on this device so it isn't offered again once used.
@@ -46,29 +38,11 @@ export default function CartDrawer({
       body: JSON.stringify({ email, consent: true, source: 'cart', cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })) }),
       keepalive: true,
     }).catch(() => {});
-    const data = await applyDiscount(UNLOCK_CODE).catch(() => ({}));
-    setDiscountCode(UNLOCK_CODE);
-    setDiscountMessage(data?.valid ? `Code "${UNLOCK_CODE}" applied.` : `Your code is ${UNLOCK_CODE} — enter it at checkout.`);
+    await applyDiscount(UNLOCK_CODE).catch(() => ({}));
     try { window.localStorage.setItem(UNLOCKED_KEY, '1'); } catch { /* storage blocked */ }
     setUnlockState('done');
   };
   const showUnlock = cart.length > 0 && !alreadyUnlocked && !(appliedDiscount && unlockState !== 'done');
-
-  const handleApplyDiscount = async () => {
-    if (!discountCode.trim()) return;
-    setDiscountSubmitting(true);
-    setDiscountMessage('Checking…');
-    const data = await applyDiscount(discountCode);
-    setDiscountSubmitting(false);
-    if (data.valid) {
-      setDiscountMessage(`Code "${data.code}" applied.`);
-    } else if (data.error) {
-      setDiscountMessage('Could not check that code — please try again.');
-    } else {
-      setDiscountMessage('That code isn’t valid.');
-      trackCart('discount_rejected', { code: discountCode });
-    }
-  };
 
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
@@ -203,26 +177,6 @@ export default function CartDrawer({
           </div>
         )}
 
-        {cart.length > 0 && (
-          <div style={{ marginTop: 16, flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input
-                placeholder="Discount code"
-                value={discountCode}
-                onChange={(e) => {
-                  setDiscountCode(e.target.value);
-                  if (appliedDiscount) clearDiscount();
-                  setDiscountMessage('');
-                }}
-                style={discountInput}
-              />
-              <button type="button" style={S.btnOutline} onClick={handleApplyDiscount} disabled={discountSubmitting}>Apply</button>
-            </div>
-            {discountMessage && (
-              <p style={{ fontSize: 12, color: appliedDiscount ? T.ink : '#a13d2b', marginTop: 6 }}>{discountMessage}</p>
-            )}
-          </div>
-        )}
         </div>
 
         <div style={{ borderTop: `1px solid ${T.line}`, paddingTop: 20, marginTop: 16, flexShrink: 0 }}>
