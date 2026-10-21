@@ -3,6 +3,10 @@
     {
       "path": "/api/meta/resend-purchases",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/abandoned-checkout",
+      "schedule": "* * * * *"
     }
   ]
 }
