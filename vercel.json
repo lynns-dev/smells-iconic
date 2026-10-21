@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/abandoned-checkout",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/shippingeasy-retry",
+      "schedule": "20 * * * *"
     }
   ]
 }
