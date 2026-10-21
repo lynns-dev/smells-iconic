@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { T, S } from '../lib/theme';
 import ProductVisual from './ProductVisual';
 import PopularBadge from './PopularBadge';
-import { PRODUCTS } from '../lib/products';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
@@ -13,26 +12,15 @@ import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
 const UNLOCKED_KEY = 'si-cart-code-unlocked';
-// Upsell priority by category, lowest first (sorted descending).
-const UPSELL_ORDER = ['body-mist', 'body-powder', 'set'];
 
 
 export default function CartDrawer({
-  cart, open, onClose, remove, setQty, total, add,
+  cart, open, onClose, remove, setQty, total,
   appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal,
 }) {
   const [discountCode, setDiscountCode] = React.useState('');
   const [discountMessage, setDiscountMessage] = React.useState('');
   const [discountSubmitting, setDiscountSubmitting] = React.useState(false);
-  // Up to two things not already in the bag: the set and the body powder
-  // first, then the other mists. The set already holds every mist, so once
-  // it's in the bag the mists aren't offered.
-  const inCart = new Set(cart.map((i) => i.id));
-  const upsells = [...PRODUCTS]
-    .sort((a, b) => UPSELL_ORDER.indexOf(b.category) - UPSELL_ORDER.indexOf(a.category))
-    .filter((p) => !inCart.has(p.id) && !(inCart.has('current-drops-set') && p.category === 'body-mist'))
-    .slice(0, 2);
-
   React.useEffect(() => {
     if (appliedDiscount) setDiscountCode(appliedDiscount.code);
   }, [appliedDiscount]);
@@ -137,7 +125,7 @@ export default function CartDrawer({
       />
       <aside
         style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(420px, 100%)', zIndex: 201,
+          position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', zIndex: 201,
           background: T.white, borderLeft: `1px solid ${T.line}`, padding: '32px 30px',
           transform: open ? 'translateX(0)' : 'translateX(100%)', transition: 'transform .35s ease',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
@@ -186,34 +174,6 @@ export default function CartDrawer({
               <button onClick={() => { trackCart('item_removed', { name: item.name }); remove(item.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, alignSelf: 'flex-start' }}>Remove</button>
             </div>
           ))}
-
-        {upsells.length > 0 && cart.length > 0 && (
-          <div style={upsellSection}>
-            <p style={{ ...S.label, marginBottom: 12 }}>You might also like</p>
-            <div style={{ display: 'grid', gap: 12 }}>
-              {upsells.map((p) => (
-                <div key={p.id} style={upsellCard}>
-                  <div style={itemImg}>
-                    <ProductVisual id={p.id} images={p.images} alt={p.name} width={44} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13 }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>
-                      {p.originalPrice && <span style={{ textDecoration: 'line-through', marginRight: 6 }}>${p.originalPrice}</span>}
-                      ${p.price}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => add(p, 1)}
-                    style={upsellAddBtn}
-                  >
-                    Add
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {showUnlock && (
           <div style={unlockBox}>
@@ -331,13 +291,6 @@ const itemImg = {
 
 const subscribeNote = { fontSize: 11, color: T.soft, marginTop: 3, letterSpacing: '0.02em' };
 
-
-const upsellSection = { background: T.paper, padding: '14px 16px', marginTop: 12, flexShrink: 0 };
-const upsellCard = { display: 'flex', alignItems: 'center', gap: 14 };
-const upsellAddBtn = {
-  fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', border: `1px solid ${T.ink}`,
-  background: 'none', padding: '8px 14px', cursor: 'pointer', fontFamily: T.sans, flexShrink: 0,
-};
 
 const discountInput = {
   minWidth: 0,
