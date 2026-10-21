@@ -1014,6 +1014,12 @@ function OrdersTab({ refreshKey }) {
   }, []);
   React.useEffect(() => { load(); }, [load, refreshKey]);
 
+  // ShippingEasy setup + latest label callback (pages/api/admin/orders/shippingeasy.js).
+  const [shippingEasyStatus, setShippingEasyStatus] = React.useState(null);
+  React.useEffect(() => {
+    fetch('/api/admin/orders/shippingeasy').then((r) => r.json()).then(setShippingEasyStatus).catch(() => {});
+  }, [refreshKey]);
+
   const replace = (order) => setOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
 
   const act = async (o, key, url, body, confirmText) => {
@@ -1025,7 +1031,7 @@ function OrdersTab({ refreshKey }) {
       const data = await res.json();
       if (data.order) replace(data.order);
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'meta' ? 'Sent to Meta.' : 'Updated.' } }));
+      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'meta' ? 'Sent to Meta.' : key === 'shippingeasy' ? 'Sent to ShippingEasy.' : 'Updated.' } }));
     } catch (err) {
       setMsg((m) => ({ ...m, [o.id]: { ok: false, text: err.message } }));
     } finally {
@@ -1094,6 +1100,7 @@ function OrdersTab({ refreshKey }) {
         </select>
       </div>
 
+      {shippingEasyStatus && <ShippingEasyStatus status={shippingEasyStatus} />}
       {orders === null && !error && <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>}
       {error && <p style={{ color: '#a13d2b', fontSize: 14 }}>{error}</p>}
       {orders && rows.length === 0 && <p style={{ color: T.soft, fontSize: 14 }}>No orders match.</p>}
@@ -1165,13 +1172,28 @@ function OrdersTab({ refreshKey }) {
                     </>
                   )}
                 </div>
+                {/* Whether ShippingEasy has this order (lib/shippingEasy.js) —
+                    sent automatically at checkout and retried hourly; the
+                    button covers older orders and failures. */}
+                <div>
+                  <div style={orderLabel}>ShippingEasy</div>
+                  {o.shippingEasy?.sent ? <div style={{ color: '#1a7a3c', fontWeight: 600 }}>In ShippingEasy</div> : (
+                    <>
+                      <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'shippingeasy', '/api/admin/orders/shippingeasy', {})} style={{ ...S.btnOutline, height: 34, padding: '0 12px' }}>
+                        {busy[o.id] === 'shippingeasy' ? 'Sending…' : 'Send to ShippingEasy'}
+                      </button>
+                      {o.shippingEasy?.lastError && <div style={{ color: '#a13d2b', fontSize: 12, marginTop: 4 }}>{o.shippingEasy.lastError}</div>}
+                    </>
+                  )}
+                </div>
 
                 <div style={{ gridColumn: '1 / -1' }}>
                   <div style={orderLabel}>Tracking</div>
                   {o.trackingNumber && (
                     <div style={{ marginBottom: 8 }}>
                       {o.carrier ? `${o.carrier} · ` : ''}{o.trackingUrl ? <a href={o.trackingUrl} target="_blank" rel="noreferrer" style={{ color: T.ink }}>{o.trackingNumber}</a> : o.trackingNumber}
-                      {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}</span>}
+                      {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}{o.shippedVia === 'shippingeasy' ? ' via ShippingEasy' : ''}</span>}
+                      {o.shippedEmail && <div style={{ fontSize: 12, color: o.shippedEmail.ok ? T.soft : '#a13d2b', marginTop: 2 }}>{o.shippedEmail.ok ? 'Shipped email sent to customer.' : `Shipped email failed — ${o.shippedEmail.error}`}</div>}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1474,6 +1496,26 @@ function CapiStatus({ capi }) {
         </div>
       )}
     </Section>
+  );
+}
+
+// One line above the Orders list: whether ShippingEasy is set up, and what
+// happened with the latest label callback (tracking coming back).
+function ShippingEasyStatus({ status }) {
+  const last = status.lastCallback;
+  let lastText = 'No labels printed yet.';
+  if (last) {
+    const when = new Date(last.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    lastText = last.ok
+      ? `Last label: ${last.carrier ? `${last.carrier} ` : ''}${last.trackingNumber} · ${when}`
+      : `Last callback ${when} failed — ${last.error}`;
+  }
+  return (
+    <p style={{ fontSize: 13, color: status.configured && last?.ok !== false ? T.soft : '#a13d2b', margin: '0 0 16px' }}>
+      {status.configured
+        ? `ShippingEasy connected — new orders are sent automatically and tracking comes back (with a shipped email) when you print a label. ${lastText}`
+        : 'ShippingEasy is not set up — add SHIPPINGEASY_API_KEY, SHIPPINGEASY_API_SECRET and SHIPPINGEASY_STORE_API_KEY in Vercel and redeploy.'}
+    </p>
   );
 }
 
