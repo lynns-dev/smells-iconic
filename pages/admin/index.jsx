@@ -8,6 +8,11 @@ import { T, S } from '../../lib/theme';
 import AdminFonts from '../../components/AdminFonts';
 import CartFunnelReport from '../../components/CartFunnelReport';
 
+// Meta error messages are hidden for now (owner's request): the
+// Conversions API status box and each order's stored Meta send error.
+// Flip to true to bring them back.
+const SHOW_META_ERRORS = false;
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -445,7 +450,7 @@ export default function AdminDashboard() {
           {notifMessage && <p style={{ fontSize: 12, color: T.soft, marginTop: 12 }}>{notifMessage}</p>}
         </Section>
 
-        {dashboard?.capi && <CapiStatus capi={dashboard.capi} />}
+        {SHOW_META_ERRORS && dashboard?.capi && <CapiStatus capi={dashboard.capi} />}
         </>)}
 
         {tab === 'dashboard' && (<>
@@ -1156,7 +1161,7 @@ function OrdersTab({ refreshKey }) {
                       <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'meta', '/api/admin/order-meta', {})} style={{ ...S.btnOutline, height: 34, padding: '0 12px' }}>
                         {busy[o.id] === 'meta' ? 'Sending…' : 'Send to Meta'}
                       </button>
-                      {o.meta?.lastError && <div style={{ color: '#a13d2b', fontSize: 12, marginTop: 4 }}>{o.meta.lastError}</div>}
+                      {SHOW_META_ERRORS && o.meta?.lastError && <div style={{ color: '#a13d2b', fontSize: 12, marginTop: 4 }}>{o.meta.lastError}</div>}
                     </>
                   )}
                 </div>
