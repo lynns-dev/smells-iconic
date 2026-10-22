@@ -19,13 +19,12 @@ export default function ShopPage() {
 
       {/* BANNER */}
       <section style={banner}>
-        <div style={bannerOverlay} />
         <div style={{ ...S.wrap, position: 'relative', textAlign: 'center' }}>
-          <p style={{ ...S.label, color: 'rgba(251,245,241,0.75)' }}>The collection</p>
-          <h1 style={{ ...S.h2, color: T.white, fontSize: 'clamp(38px,5.6vw,64px)', marginTop: 14 }}>
+          <p style={{ ...S.label, color: T.ink }}>The collection</p>
+          <h1 style={{ ...S.h2, color: T.ink, fontSize: 'clamp(38px,5.6vw,64px)', marginTop: 14 }}>
             Shop the <span style={S.it}>archive.</span>
           </h1>
-          <p style={{ color: 'rgba(251,245,241,0.82)', fontSize: 15, marginTop: 14, maxWidth: '46ch', marginLeft: 'auto', marginRight: 'auto' }}>
+          <p style={{ color: T.ink, fontSize: 15, marginTop: 14, maxWidth: '46ch', marginLeft: 'auto', marginRight: 'auto' }}>
             A small, considered wardrobe of scent — body mists pulled from the cultural record, worn like a costume.
           </p>
         </div>
@@ -78,11 +77,11 @@ export default function ShopPage() {
   );
 }
 
+// White banner, black text.
 const banner = {
   position: 'relative', minHeight: 340, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  background: `linear-gradient(160deg, ${T.blush} 0%, ${T.paper} 100%)`,
+  background: '#FFFFFF', borderBottom: `1px solid ${T.line}`,
 };
-const bannerOverlay = { position: 'absolute', inset: 0, background: 'rgba(21,17,13,0.5)' };
 const grid = { display: 'grid', gap: 40 };
 const card = { textAlign: 'center' };
 const badge = { position: 'absolute', top: 14, right: 14, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.ink, background: 'rgba(251,245,241,0.92)', padding: '6px 10px', zIndex: 1 };
