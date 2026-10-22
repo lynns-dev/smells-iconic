@@ -11,6 +11,7 @@ export default function Footer() {
           <Link href="/shop">Shop</Link>
           <Link href="/#notes">Scent</Link>
           <Link href="/#reviews">Reviews</Link>
+          <Link href="/contact">Contact</Link>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft, width: '100%', paddingTop: 20, borderTop: `1px solid ${T.line}`, marginTop: 4 }}>
           <Link href="/terms">Terms & Conditions</Link>

@@ -7,6 +7,7 @@ import WorldMap from '../../components/WorldMap';
 import { T, S } from '../../lib/theme';
 import AdminFonts from '../../components/AdminFonts';
 import CartFunnelReport from '../../components/CartFunnelReport';
+import AdminInbox from '../../components/AdminInbox';
 
 // Meta error messages are hidden for now (owner's request): the
 // Conversions API status box and each order's stored Meta send error.
@@ -277,6 +278,7 @@ export default function AdminDashboard() {
   };
 
   const pendingReviews = reviews.filter((r) => r.status !== 'approved');
+  const [inboxNew, setInboxNew] = React.useState(0);
   const approvedReviews = reviews.filter((r) => r.status === 'approved');
 
   const handleCsvFile = async (e) => {
@@ -407,6 +409,7 @@ export default function AdminDashboard() {
             <button key={key} type="button" onClick={() => selectTab(key)} className={`admin-nav-item${tab === key ? ' active' : ''}`}>
               {label}
               {key === 'reviews' && pendingReviews.length > 0 && <span className="admin-nav-badge">{pendingReviews.length}</span>}
+              {key === 'inbox' && inboxNew > 0 && <span className="admin-nav-badge">{inboxNew}</span>}
             </button>
           ))}
           <button type="button" onClick={handleLogout} className="admin-nav-item admin-nav-signout">Sign out</button>
@@ -425,6 +428,8 @@ export default function AdminDashboard() {
         {tab === 'orders' && <OrdersTab refreshKey={refreshKey} />}
         {tab === 'visitors' && <VisitorsTab refreshKey={refreshKey} />}
         {tab === 'subscribers' && <SubscribersTab refreshKey={refreshKey} />}
+        {/* Mounted (hidden) on every tab so the nav badge counts new messages. */}
+        <div style={{ display: tab === 'inbox' ? 'block' : 'none' }}><AdminInbox onCount={setInboxNew} /></div>
 
         {tab === 'settings' && (<>
 
@@ -840,6 +845,7 @@ const ADMIN_TABS = [
   ['subscribers', 'Subscribers'],
   ['reviews', 'Reviews'],
   ['discounts', 'Discounts'],
+  ['inbox', 'Inbox'],
   ['settings', 'Settings'],
 ];
 
