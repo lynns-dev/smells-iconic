@@ -8,7 +8,7 @@ import ProductVisual from '../../components/ProductVisual';
 import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
 import DropsOffer from '../../components/DropsOffer';
-import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE } from '../../lib/products';
+import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
@@ -233,7 +233,7 @@ export default function ProductPage({ product }) {
 
             {upsell && (
               <div style={trioCard}>
-                <div style={trioVisual}><ProductVisual id={upsell.id} images={upsell.images} alt={upsell.name} width={54} /></div>
+                <div style={trioVisual}><ProductVisual id={upsell.id} images={thumbImages(upsell)} alt={upsell.name} width={54} /></div>
                 <div style={{ flex: 1 }}>
                   <div style={S.label}>Take it with you</div>
                   <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, marginTop: 4 }}>{upsell.name}</div>

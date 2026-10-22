@@ -8,7 +8,7 @@ import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import { shippingFor } from '../lib/shipping';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
-import { getProductById, UPSELL_ID, UPSELL_PRICE } from '../lib/products';
+import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
@@ -129,7 +129,7 @@ export default function CartDrawer({
             <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, padding: '18px 0', borderBottom: `1px solid ${T.line}` }}>
               <div style={{ display: 'flex', gap: 14 }}>
                 <div style={itemImg}>
-                  <ProductVisual id={item.id} images={item.images} alt={item.name} width={56} />
+                  <ProductVisual id={item.id} images={thumbImages(item)} alt={item.name} width={56} />
                 </div>
                 <div>
                   <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 20 }}>{item.name}</div>
@@ -157,7 +157,7 @@ export default function CartDrawer({
 
         {showUpsell && (
           <div style={upsellBox}>
-            <div style={upsellImg}><ProductVisual id={upsell.id} images={upsell.images} alt={upsell.name} width={64} /></div>
+            <div style={upsellImg}><ProductVisual id={upsell.id} images={thumbImages(upsell)} alt={upsell.name} width={64} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ ...S.label, fontSize: 9 }}>Add the solid perfume</div>
               <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 17, marginTop: 4 }}>{upsell.name}</div>
