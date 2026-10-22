@@ -7,6 +7,7 @@ import AddressFields from '../components/AddressFields';
 import PayPalButton from '../components/PayPalButton';
 import TopBanner from '../components/TopBanner';
 import { shippingFor } from '../lib/shipping';
+import { thumbImages } from '../lib/products';
 import {
   createSquareCard, tokenizeSquareCard,
   createApplePayButton, createGooglePayButton, tokenizeWallet,
@@ -120,7 +121,7 @@ function OrderItemList({ cart, setQty }) {
       {cart.map((item) => (
         <div key={item.id} style={summaryItem}>
           <div style={summaryImgWrap}>
-            <ProductVisual id={item.id} images={item.images} alt={item.name} width={48} />
+            <ProductVisual id={item.id} images={thumbImages(item)} alt={item.name} width={48} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14 }}>{item.name}</div>
