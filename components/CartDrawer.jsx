@@ -8,15 +8,19 @@ import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import { shippingFor } from '../lib/shipping';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
+import { getProductById, UPSELL_ID } from '../lib/products';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
 const UNLOCKED_KEY = 'si-cart-code-unlocked';
 
 export default function CartDrawer({
-  cart, open, onClose, remove, setQty, total,
+  cart, open, onClose, add, remove, setQty, total,
   appliedDiscount, applyDiscount, codeDiscountAmount, discountedTotal,
 }) {
+  // Babygirl Solid Perfume, offered under the items until it's in the bag.
+  const upsell = getProductById(UPSELL_ID);
+  const showUpsell = Boolean(upsell && add && cart.length > 0 && !cart.some((i) => i.id === upsell.id));
   // "Unlock 15% off": an email field that reveals and applies the code, and
   // adds them to the contact list (admin → Subscribers) as opted in.
   // Remembered on this device so it isn't offered again once used.
@@ -149,6 +153,24 @@ export default function CartDrawer({
             </div>
           ))}
 
+        {showUpsell && (
+          <div style={upsellBox}>
+            <div style={upsellImg}><ProductVisual id={upsell.id} images={upsell.images} alt={upsell.name} width={64} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ ...S.label, fontSize: 9 }}>Add the solid perfume</div>
+              <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 17, marginTop: 4 }}>{upsell.name}</div>
+              <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>Babygirl to go · ${upsell.price}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => add(upsell, 1)}
+              style={{ ...S.btnFill, height: 38, padding: '0 16px', flexShrink: 0 }}
+            >
+              Add · ${upsell.price}
+            </button>
+          </div>
+        )}
+
         {showUnlock && (
           <div style={unlockBox}>
             {unlockState === 'done' ? (
@@ -253,4 +275,6 @@ const discountInput = {
 };
 
 const summaryRow = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' };
+const upsellBox = { display: 'flex', alignItems: 'center', gap: 14, border: `1px solid ${T.line}`, padding: 12, marginTop: 16 };
+const upsellImg = { width: 64, height: 64, flexShrink: 0, overflow: 'hidden', background: T.paper };
 const unlockBox = { background: T.paper, border: `1px solid ${T.line}`, padding: '14px 14px 12px', marginTop: 16, flexShrink: 0 };

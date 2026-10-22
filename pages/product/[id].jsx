@@ -8,7 +8,7 @@ import ProductVisual from '../../components/ProductVisual';
 import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
 import DropsOffer from '../../components/DropsOffer';
-import { PRODUCTS, getProductById } from '../../lib/products';
+import { PRODUCTS, getProductById, UPSELL_ID } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
@@ -150,6 +150,10 @@ export default function ProductPage({ product }) {
 
   const handleAddTrio = () => trio && c.add(trio, 1);
 
+  // Babygirl Solid Perfume, offered on every other product page.
+  const upsell = product.id !== UPSELL_ID ? getProductById(UPSELL_ID) : null;
+  const upsellInBag = Boolean(upsell && c.cart.some((i) => i.id === upsell.id));
+
   return (
     <div style={{ paddingBottom: 76 }}>
       <Head>
@@ -223,6 +227,23 @@ export default function ProductPage({ product }) {
 
             <div style={badgeRow}>Ships in 2–4 days · 45-day guarantee + free returns · Vegan-friendly · Cruelty-free</div>
 
+            {upsell && (
+              <div style={trioCard}>
+                <div style={trioVisual}><ProductVisual id={upsell.id} images={upsell.images} alt={upsell.name} width={54} /></div>
+                <div style={{ flex: 1 }}>
+                  <div style={S.label}>Take it with you</div>
+                  <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, marginTop: 4 }}>{upsell.name}</div>
+                  <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>Babygirl in a pocket-sized gold compact</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: T.display, fontSize: 17, marginBottom: 8 }}>${upsell.price}</div>
+                  {upsellInBag
+                    ? <span style={{ fontSize: 12, color: T.soft }}>In your bag ✓</span>
+                    : <button onClick={() => c.add(upsell, 1)} style={trioAddBtn}>Add</button>}
+                </div>
+              </div>
+            )}
+
             {trio && product.id !== SET_ID && product.category === 'body-mist' && (
               <div style={trioCard}>
                 <div style={trioVisual}><ProductVisual id={SET_ID} images={trio.images} alt={trio.name} width={54} /></div>
@@ -264,9 +285,12 @@ export default function ProductPage({ product }) {
                   </div>
                 ))}
               </AccordionRow>
-              <AccordionRow title="Ingredients" open={openSection === 'ingredients'} onToggle={() => toggleSection('ingredients')}>
-                <p style={{ fontSize: 14, color: T.soft, margin: 0 }}>{product.ingredients || INGREDIENTS}</p>
-              </AccordionRow>
+              {/* ingredients: null hides this until the list is confirmed. */}
+              {product.ingredients !== null && (
+                <AccordionRow title="Ingredients" open={openSection === 'ingredients'} onToggle={() => toggleSection('ingredients')}>
+                  <p style={{ fontSize: 14, color: T.soft, margin: 0 }}>{product.ingredients || INGREDIENTS}</p>
+                </AccordionRow>
+              )}
             </div>
           </div>
         </div>
