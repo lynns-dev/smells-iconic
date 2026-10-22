@@ -8,7 +8,7 @@ import ProductVisual from '../../components/ProductVisual';
 import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
 import DropsOffer from '../../components/DropsOffer';
-import { PRODUCTS, getProductById, UPSELL_ID } from '../../lib/products';
+import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
@@ -153,6 +153,10 @@ export default function ProductPage({ product }) {
   // Babygirl Solid Perfume, offered on every other product page.
   const upsell = product.id !== UPSELL_ID ? getProductById(UPSELL_ID) : null;
   const upsellInBag = Boolean(upsell && c.cart.some((i) => i.id === upsell.id));
+  // UPSELL_PRICE applies while anything else is in the bag (lib/useCart.js
+  // priceCart); with an empty bag it's added at full price and drops to
+  // UPSELL_PRICE as soon as they add something else.
+  const upsellDiscounted = c.cart.some((i) => i.id !== UPSELL_ID);
 
   return (
     <div style={{ paddingBottom: 76 }}>
@@ -233,13 +237,17 @@ export default function ProductPage({ product }) {
                 <div style={{ flex: 1 }}>
                   <div style={S.label}>Take it with you</div>
                   <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, marginTop: 4 }}>{upsell.name}</div>
-                  <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>Babygirl in a pocket-sized gold compact</div>
+                  <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>
+                    Babygirl in a pocket-sized gold compact · ${UPSELL_PRICE} with any other item
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: T.display, fontSize: 17, marginBottom: 8 }}>${upsell.price}</div>
+                  <div style={{ fontFamily: T.display, fontSize: 17, marginBottom: 8 }}>
+                    ${UPSELL_PRICE}<s style={{ fontSize: 13, color: T.soft, marginLeft: 6 }}>${upsell.price}</s>
+                  </div>
                   {upsellInBag
                     ? <span style={{ fontSize: 12, color: T.soft }}>In your bag ✓</span>
-                    : <button onClick={() => c.add(upsell, 1)} style={trioAddBtn}>Add</button>}
+                    : <button onClick={() => c.add({ ...upsell, price: upsellDiscounted ? UPSELL_PRICE : upsell.price }, 1, { upsell: true })} style={trioAddBtn}>Add</button>}
                 </div>
               </div>
             )}

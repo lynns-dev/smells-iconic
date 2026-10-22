@@ -8,7 +8,7 @@ import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import { shippingFor } from '../lib/shipping';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
-import { getProductById, UPSELL_ID } from '../lib/products';
+import { getProductById, UPSELL_ID, UPSELL_PRICE } from '../lib/products';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
 const UNLOCK_CODE = 'ICONIC15';
@@ -18,7 +18,9 @@ export default function CartDrawer({
   cart, open, onClose, add, remove, setQty, total,
   appliedDiscount, applyDiscount, codeDiscountAmount, discountedTotal,
 }) {
-  // Babygirl Solid Perfume, offered under the items until it's in the bag.
+  // Babygirl Solid Perfume, offered under the items until it's in the bag —
+  // at UPSELL_PRICE, since the cart always has another item when it shows
+  // (lib/useCart.js priceCart).
   const upsell = getProductById(UPSELL_ID);
   const showUpsell = Boolean(upsell && add && cart.length > 0 && !cart.some((i) => i.id === upsell.id));
   // "Unlock 15% off": an email field that reveals and applies the code, and
@@ -159,14 +161,16 @@ export default function CartDrawer({
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ ...S.label, fontSize: 9 }}>Add the solid perfume</div>
               <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 17, marginTop: 4 }}>{upsell.name}</div>
-              <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>Babygirl to go · ${upsell.price}</div>
+              <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>
+                Babygirl to go · <strong style={{ color: T.ink }}>${UPSELL_PRICE}</strong> <s>${upsell.price}</s> with your order
+              </div>
             </div>
             <button
               type="button"
-              onClick={() => add(upsell, 1)}
+              onClick={() => add({ ...upsell, price: UPSELL_PRICE }, 1, { upsell: true })}
               style={{ ...S.btnFill, height: 38, padding: '0 16px', flexShrink: 0 }}
             >
-              Add · ${upsell.price}
+              Add · ${UPSELL_PRICE}
             </button>
           </div>
         )}
