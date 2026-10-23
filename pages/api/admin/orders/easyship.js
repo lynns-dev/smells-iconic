@@ -18,8 +18,12 @@ const BULK_LIMIT = 40;
 
 const needsEasyship = (o) => (o.status || 'paid') === 'paid' && !o.trackingNumber && !o.easyship?.sent && Boolean(o.shipping?.address);
 
+// KV is read as process.env.KV_REST_API_URL / _TOKEN written out in full:
+// next.config.js maps this store's Upstash variable names onto those, and
+// that only reaches code that names them literally (not destructuring).
 async function kvGet(key) {
-  const { KV_REST_API_URL: url, KV_REST_API_TOKEN: token } = process.env;
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
   const data = await fetch(`${url}/get/${key}`, { headers: { Authorization: `Bearer ${token}` } })
     .then((r) => r.json())
@@ -32,7 +36,8 @@ async function kvGet(key) {
 }
 
 async function kvSet(key, value) {
-  const { KV_REST_API_URL: url, KV_REST_API_TOKEN: token } = process.env;
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) throw new Error('KV_REST_API_URL / KV_REST_API_TOKEN are not set.');
   await fetch(`${url}/set/${key}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: JSON.stringify(value) });
 }
