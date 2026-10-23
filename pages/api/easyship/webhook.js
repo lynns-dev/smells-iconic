@@ -16,7 +16,8 @@ import { easyshipConfig, getShipment, trackingFromShipment, parseWebhook, tracki
 const LAST_WEBHOOK_KEY = 'easyship_last_webhook';
 
 async function saveLastWebhook(entry) {
-  const { KV_REST_API_URL: url, KV_REST_API_TOKEN: token } = process.env;
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return;
   await fetch(`${url}/set/${LAST_WEBHOOK_KEY}`, {
     method: 'POST',
