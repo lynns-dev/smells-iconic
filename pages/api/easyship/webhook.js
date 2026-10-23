@@ -54,8 +54,8 @@ export default async function handler(req, res) {
   }
 
   const orders = (await Promise.all(dateKeysForRange('45d').map((key) => getOrders(key)))).flat();
-  const orderNumber = shipment.platform_order_number ? String(shipment.platform_order_number) : null;
-  const order = orders.find((o) => orderNumber && String(o.id) === orderNumber)
+  const orderNumber = shipment.order_data?.platform_order_number || shipment.platform_order_number || null;
+  const order = orders.find((o) => orderNumber && String(o.id) === String(orderNumber))
     || orders.find((o) => o.easyship?.shipmentId === hint.shipmentId);
   if (!order) {
     await saveLastWebhook({ ok: false, shipmentId: hint.shipmentId, error: `No order here matches shipment ${hint.shipmentId}${orderNumber ? ` (order ${orderNumber})` : ''}.` });
