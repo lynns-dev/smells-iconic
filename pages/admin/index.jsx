@@ -1582,6 +1582,72 @@ function EasyshipStatus({ status, onSent }) {
           {message && <span>{message}</span>}
         </div>
       )}
+      {status.configured && status.autobuy && <AutobuyLabels status={status} onChange={onSent} />}
+    </div>
+  );
+}
+
+// Daily label auto-buy (lib/easyshipLabels.js): on/off, "Buy 1 now" to try a
+// single label first, and the latest purchases / skips with their cost.
+function AutobuyLabels({ status, onChange }) {
+  const [busy, setBusy] = React.useState('');
+  const [message, setMessage] = React.useState('');
+  const { autobuy } = status;
+  const post = async (kind, body) => {
+    setBusy(kind);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/orders/easyship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      return data;
+    } catch (err) {
+      setMessage(err.message);
+      return null;
+    } finally {
+      setBusy('');
+    }
+  };
+  const toggle = async () => {
+    if (!autobuy.enabled && !confirm(`Turn on auto-buy? Every morning Easyship labels are bought for the ${autobuy.dailyLimit} oldest orders in the queue, each only if it costs $${autobuy.capUsd.toFixed(2)} or less. Your Easyship account is charged for each label.`)) return;
+    if (await post('toggle', { action: 'autobuy', enabled: !autobuy.enabled })) onChange();
+  };
+  const buyOne = async () => {
+    if (!confirm(`Buy the label for the oldest order in the queue now (only if it's $${autobuy.capUsd.toFixed(2)} or less)? Your Easyship account is charged.`)) return;
+    const data = await post('buy', { action: 'buy-one' });
+    if (!data) return;
+    if (data.bought?.length) setMessage(`Bought a label for order ${data.bought[0].id} — $${Number(data.bought[0].cost).toFixed(2)}${data.bought[0].courier ? ` (${data.bought[0].courier})` : ''}.`);
+    else if (data.failed) setMessage(`Not bought — ${data.failed}`);
+    else if (data.skipped?.length) setMessage(`Skipped ${data.skipped.length} — ${data.skipped[0].reason}`);
+    else setMessage('No orders waiting for a label.');
+    onChange();
+  };
+  const fmt = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return (
+    <div style={{ borderTop: `1px solid ${T.line}`, marginTop: 12, paddingTop: 12 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600 }}>Auto-buy labels: {autobuy.enabled ? 'On' : 'Off'}</span>
+        <button type="button" onClick={toggle} disabled={Boolean(busy)} style={{ ...(autobuy.enabled ? S.btnOutline : S.btnFill), height: 34, padding: '0 14px', fontSize: 12, opacity: busy ? 0.6 : 1 }}>
+          {busy === 'toggle' ? 'Saving…' : autobuy.enabled ? 'Turn off' : 'Turn on'}
+        </button>
+        <button type="button" onClick={buyOne} disabled={Boolean(busy) || !status.labelQueue} style={{ ...S.btnOutline, height: 34, padding: '0 14px', fontSize: 12, opacity: busy || !status.labelQueue ? 0.5 : 1 }}>
+          {busy === 'buy' ? 'Buying…' : 'Buy 1 now'}
+        </button>
+        {message && <span>{message}</span>}
+      </div>
+      <div style={{ color: T.soft, marginTop: 4 }}>
+        Every morning (7 am Pacific): the {autobuy.dailyLimit} oldest orders in Easyship without a label, using the service your Easyship account selects, each only if it's ${autobuy.capUsd.toFixed(2)} or less — anything over is skipped for you to buy by hand.
+        {' '}{status.labelQueue} waiting · {status.boughtToday} of {autobuy.dailyLimit} bought automatically today.
+      </div>
+      {status.labelLog?.length > 0 && (
+        <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.7 }}>
+          {status.labelLog.map((e, i) => (
+            <div key={i} style={{ color: e.outcome === 'bought' ? T.ink : e.outcome === 'failed' ? '#a13d2b' : T.soft }}>
+              {fmt(e.at)} · order {e.orderId} · {e.outcome === 'bought' ? `bought $${Number(e.price).toFixed(2)}${e.courier ? ` ${e.courier}` : ''}` : e.outcome === 'skipped' ? `skipped — ${e.reason}` : `failed — ${e.error}`}{e.trigger === 'manual' ? ' (Buy 1 now)' : ''}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

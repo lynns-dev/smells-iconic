@@ -4,6 +4,9 @@
 //   latest label webhook (pages/api/easyship/webhook.js) — shown on Orders.
 // - POST { action: 'connect-webhook' }: registers + activates the label
 //   webhook for this site through the API (saved as easyship_webhook).
+// - POST { action: 'autobuy', enabled }: switches the daily label auto-buy
+//   on/off; POST { action: 'buy-one' }: buys the label for the oldest order
+//   in the queue now, under the same price cap (lib/easyshipLabels.js).
 // - POST { orderId }: sends that order to Easyship now and saves the
 //   outcome on the order — for orders placed before the keys were added,
 //   or one the automatic send and hourly retry couldn't get through.
@@ -13,6 +16,7 @@
 
 import { getOrders, dateKeysForRange, updateOrderStatus, saveOrdersForDay } from '../../../../lib/analyticsStore';
 import { easyshipConfig, sendOrderToEasyship, registerWebhook, webhookUrl } from '../../../../lib/easyship';
+import { getAutobuySettings, setAutobuyEnabled, getLabelLog, autoBoughtToday, labelQueue, buyLabels } from '../../../../lib/easyshipLabels';
 
 const BULK_LIMIT = 40;
 
@@ -50,6 +54,10 @@ export default async function handler(req, res) {
       webhook: await kvGet('easyship_webhook'),
       lastWebhook: await kvGet('easyship_last_webhook'),
       unsent: orders.filter(needsEasyship).length,
+      autobuy: await getAutobuySettings().catch(() => null),
+      boughtToday: await autoBoughtToday().catch(() => 0),
+      labelQueue: (await labelQueue().catch(() => [])).length,
+      labelLog: await getLabelLog(8).catch(() => []),
     });
   }
   if (req.method !== 'POST') {
@@ -64,6 +72,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ webhook });
     } catch (err) {
       return res.status(502).json({ error: `Easyship didn't accept the webhook: ${err.message}` });
+    }
+  }
+
+  if (req.body?.action === 'autobuy') {
+    try {
+      return res.status(200).json({ autobuy: await setAutobuyEnabled(req.body.enabled) });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (req.body?.action === 'buy-one') {
+    try {
+      const settings = await getAutobuySettings();
+      return res.status(200).json(await buyLabels({ limit: 1, trigger: 'manual', capUsd: settings.capUsd }));
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
     }
   }
 
