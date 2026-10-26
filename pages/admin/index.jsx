@@ -8,6 +8,8 @@ import { T, S } from '../../lib/theme';
 import AdminFonts from '../../components/AdminFonts';
 import CartFunnelReport from '../../components/CartFunnelReport';
 import AdminInbox from '../../components/AdminInbox';
+import AdSpend from '../../components/AdSpend';
+import PathsTree from '../../components/PathsTree';
 
 // Meta error messages are hidden for now (owner's request): the
 // Conversions API status box and each order's stored Meta send error.
@@ -428,6 +430,12 @@ export default function AdminDashboard() {
         {tab === 'orders' && <OrdersTab refreshKey={refreshKey} />}
         {tab === 'visitors' && <VisitorsTab refreshKey={refreshKey} />}
         {tab === 'subscribers' && <SubscribersTab refreshKey={refreshKey} />}
+        {/* Paths to purchase (components/PathsTree.jsx, lib/journeys.js). */}
+        {tab === 'paths' && (
+          <Section title="Paths to purchase">
+            <PathsTree />
+          </Section>
+        )}
         {/* Mounted (hidden) on every tab so the nav badge counts new messages. */}
         <div style={{ display: tab === 'inbox' ? 'block' : 'none' }}><AdminInbox onCount={setInboxNew} /></div>
 
@@ -465,6 +473,11 @@ export default function AdminDashboard() {
           <StatCard label="Orders today" value={dashboard ? dashboard.ordersToday : '—'} />
           <StatCard label="Live visitors" value={live.count} highlight />
         </div>
+
+        {/* AD SPEND — this store's Meta ad spend vs. revenue (components/AdSpend.jsx). */}
+        <Section title="Ad spend (Meta)">
+          <AdSpend />
+        </Section>
 
         {/* LIVE FUNNEL */}
         <Section title="Live visitors by stage">
@@ -846,13 +859,23 @@ const ADMIN_TABS = [
   ['reviews', 'Reviews'],
   ['discounts', 'Discounts'],
   ['inbox', 'Inbox'],
+  ['paths', 'Paths'],
   ['settings', 'Settings'],
 ];
 
 // Subscribers tab: everyone who has given an email or phone — newsletter
 // signups, checkouts (paid or abandoned), and customers — with whether they
 // bought, what was in an abandoned cart, and whether they opted in to email.
-const SUB_FILTERS = [['all', 'All'], ['abandoned', 'Abandoned checkout'], ['customers', 'Customers'], ['newsletter', 'Signups'], ['optedin', 'Emails OK'], ['optedout', 'Not opted in']];
+const SUB_FILTERS = [['all', 'All'], ['abandoned', 'Abandoned checkout'], ['customers', 'Customers'], ['newsletter', 'Signups'], ['optedin', 'Emails OK'], ['optedout', 'Not opted in'], ['automated', 'Sent an automation'], ['noautomation', 'No automation yet']];
+
+// Automation emails this person was sent, newest first (subscriber
+// automationsSent, from lib/subscribersStore.js's markAbandonedEmailSent).
+// Records from before that list existed only kept the last send time.
+function automationsSent(s) {
+  const list = s.automationsSent?.length ? s.automationsSent
+    : s.abandonedEmailSentAt ? [{ flow: 'Abandoned checkout', subject: null, sentAt: s.abandonedEmailSentAt }] : [];
+  return [...list].sort((a, b) => String(b.sentAt).localeCompare(String(a.sentAt)));
+}
 
 function subscriberStatus(s) {
   if (s.orders?.count) return { kind: 'customer', label: `Customer · ${s.orders.count} order${s.orders.count === 1 ? '' : 's'} · $${s.orders.spent.toFixed(2)}`, color: '#1a7a3c' };
@@ -883,6 +906,8 @@ function SubscribersTab({ refreshKey }) {
     if (f === 'newsletter') return s.sources?.includes('newsletter') || s.sources?.includes('cart');
     if (f === 'optedin') return s.consent && s.email;
     if (f === 'optedout') return !s.consent;
+    if (f === 'automated') return automationsSent(s).length > 0;
+    if (f === 'noautomation') return Boolean(s.email) && !automationsSent(s).length;
     return true;
   };
   const counts = React.useMemo(() => Object.fromEntries(SUB_FILTERS.map(([k]) => [k, (list || []).filter((s) => matches(s, k)).length])), [list]);
@@ -908,9 +933,10 @@ function SubscribersTab({ refreshKey }) {
   };
 
   const exportCsv = () => {
-    const header = ['Email', 'Phone', 'Name', 'City', 'State', 'Status', 'Emails OK', 'Sources', 'Abandoned cart', 'First seen', 'Last seen'];
+    const header = ['Email', 'Phone', 'Name', 'City', 'State', 'Status', 'Emails OK', 'Sources', 'Abandoned cart', 'Automations sent', 'First seen', 'Last seen'];
     const lines = rows.map((s) => [s.email, s.phone, s.name, s.city, s.state, subscriberStatus(s).label, s.consent ? 'yes' : 'no', (s.sources || []).join(' '),
       subscriberStatus(s).kind === 'abandoned' ? (s.cart || []).map((i) => `${i.name} x${i.quantity}`).join('; ') : '',
+      automationsSent(s).map((a) => `${a.flow} (${new Date(a.sentAt).toLocaleString()})`).join('; '),
       s.firstSeen ? new Date(s.firstSeen).toLocaleString() : '', s.lastSeen ? new Date(s.lastSeen).toLocaleString() : ''].map(csvCell).join(','));
     const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -960,15 +986,27 @@ function SubscribersTab({ refreshKey }) {
               {st.kind === 'abandoned' && s.cart?.length > 0 && (
                 <span style={{ color: T.soft }}>left {s.cart.map((i) => `${i.name} ×${i.quantity}`).join(', ')} (${s.cart.reduce((t, i) => t + i.price * i.quantity, 0).toFixed(2)})</span>
               )}
-              {s.abandonedEmailSentAt && (
-                <span style={{ color: T.soft, fontSize: 13 }}>reminder emailed {new Date(s.abandonedEmailSentAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
-              )}
               <span style={{ color: T.soft, fontSize: 13 }}>via {(s.sources || []).join(', ')}</span>
               <button type="button" onClick={() => toggleConsent(s)} title="Whether they agreed to marketing emails"
                 style={{ ...chip, cursor: 'pointer', background: s.consent ? '#e7f4ea' : T.white, color: s.consent ? '#1a7a3c' : T.soft }}>
                 {s.consent ? 'Emails OK' : 'Not opted in'}
               </button>
             </div>
+            {s.email && (
+              <div style={{ marginTop: 6, fontSize: 13, color: T.soft }}>
+                {automationsSent(s).length ? (
+                  <>
+                    <span>Automations sent:</span>
+                    {automationsSent(s).map((a) => (
+                      <div key={a.sentAt} style={{ paddingLeft: 12 }}>
+                        <span style={{ color: T.ink }}>{a.flow}</span>
+                        {a.subject && <> · &ldquo;{a.subject}&rdquo;</>} · {new Date(a.sentAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                    ))}
+                  </>
+                ) : 'No automation emails sent yet'}
+              </div>
+            )}
           </div>
         );
       })}
@@ -1028,6 +1066,41 @@ function OrdersTab({ refreshKey }) {
   React.useEffect(() => { loadEasyship(); }, [loadEasyship, refreshKey]);
 
   const replace = (order) => setOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
+
+  // Orders ticked in the list for "Send selected to Easyship".
+  const [selected, setSelected] = React.useState([]);
+  const [selectedSending, setSelectedSending] = React.useState(false);
+  const [selectedMessage, setSelectedMessage] = React.useState('');
+  const canSendToEasyship = (o) => (o.status || 'paid') === 'paid' && !o.trackingNumber && !o.easyship?.sent && Boolean(o.shipping?.address);
+  const toggleSelected = (id) => setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const sendSelected = async () => {
+    setSelectedSending(true);
+    setSelectedMessage('');
+    let sent = 0;
+    const problems = [];
+    try {
+      // 40 per request (the endpoint's batch size).
+      for (let i = 0; i < selected.length; i += 40) {
+        const res = await fetch('/api/admin/orders/easyship', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderIds: selected.slice(i, i + 40) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not send.');
+        sent += data.sent;
+        problems.push(...data.failed.map((f) => `${f.id}: ${f.error}`), ...data.skipped.map((k) => `${k.id}: ${k.reason}`));
+      }
+      setSelectedMessage(`Sent ${sent} to Easyship.${problems.length ? ` Not sent — ${problems.slice(0, 3).join(' · ')}${problems.length > 3 ? ` (+${problems.length - 3} more)` : ''}` : ''}`);
+      setSelected([]);
+    } catch (err) {
+      setSelectedMessage(err.message);
+    } finally {
+      setSelectedSending(false);
+      load();
+      loadEasyship();
+    }
+  };
 
   const act = async (o, key, url, body, confirmText) => {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -1109,6 +1182,28 @@ function OrdersTab({ refreshKey }) {
       </div>
 
       {easyshipStatus && <EasyshipStatus status={easyshipStatus} onSent={() => { load(); loadEasyship(); }} />}
+      {(() => {
+        const eligible = rows.filter(canSendToEasyship).map((o) => o.id);
+        const all = eligible.length > 0 && eligible.every((id) => selected.includes(id));
+        if (!eligible.length && !selected.length && !selectedMessage) return null;
+        return (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', margin: '0 0 12px', fontSize: 13 }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: eligible.length ? 'pointer' : 'default' }} title="Select all orders not yet in Easyship">
+              <input type="checkbox" checked={all} disabled={!eligible.length} onChange={() => setSelected(all ? [] : eligible)} />
+              Select all not in Easyship ({eligible.length})
+            </label>
+            {selected.length > 0 && (
+              <>
+                <button type="button" onClick={sendSelected} disabled={selectedSending} style={{ ...S.btnFill, height: 36, padding: '0 16px', fontSize: 13, opacity: selectedSending ? 0.6 : 1 }}>
+                  {selectedSending ? 'Sending…' : `Send ${selected.length} selected to Easyship`}
+                </button>
+                <button type="button" onClick={() => setSelected([])} style={{ ...S.btnOutline, height: 36, padding: '0 14px', fontSize: 12 }}>Clear</button>
+              </>
+            )}
+            {selectedMessage && <span>{selectedMessage}</span>}
+          </div>
+        );
+      })()}
       {orders === null && !error && <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>}
       {error && <p style={{ color: '#a13d2b', fontSize: 14 }}>{error}</p>}
       {orders && rows.length === 0 && <p style={{ color: T.soft, fontSize: 14 }}>No orders match.</p>}
@@ -1124,7 +1219,13 @@ function OrdersTab({ refreshKey }) {
         const m = msg[o.id];
         return (
           <div key={o.id} style={{ borderTop: `1px solid ${T.line}` }}>
-            <button type="button" onClick={() => setOpenId(open ? null : o.id)} style={{ display: 'flex', width: '100%', gap: 12, alignItems: 'center', padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flexWrap: 'wrap', fontSize: 14, color: T.ink }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: '0 0 18px' }}>
+              {canSendToEasyship(o) && (
+                <input type="checkbox" aria-label="Select for Easyship" checked={selected.includes(o.id)} onChange={() => toggleSelected(o.id)} />
+              )}
+            </span>
+            <button type="button" onClick={() => setOpenId(open ? null : o.id)} style={{ display: 'flex', flex: 1, minWidth: 0, gap: 12, alignItems: 'center', padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flexWrap: 'wrap', fontSize: 14, color: T.ink }}>
               <span style={{ flex: '0 0 120px', color: T.soft }}>{new Date(o.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
               <span style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <span style={{ fontWeight: 600 }}>{customerName(o) || o.email || 'Customer'}</span>
@@ -1133,10 +1234,11 @@ function OrdersTab({ refreshKey }) {
               <span style={{ flex: '0 0 80px', fontWeight: 600 }}>${Number(o.amount || 0).toFixed(2)}</span>
               <span style={{ flex: '0 0 90px', fontWeight: 600, color: state.color }}>{state.label}</span>
               <span style={{ flex: '0 0 130px', fontSize: 12, color: o.easyship?.sent ? T.soft : o.easyship?.lastError ? '#a13d2b' : T.soft }}>
-                {o.easyship?.sent ? '✓ In Easyship' : o.easyship?.lastError ? 'Easyship failed' : (o.status || 'paid') === 'paid' && !o.trackingNumber ? 'Not in Easyship' : ''}
+                {o.easyship?.sent ? '✓ In Easyship' : o.easyship?.lastError ? 'Easyship failed' : (o.status || 'paid') === 'paid' && !o.trackingNumber ? (o.shipping?.address ? 'Not in Easyship' : 'No address') : ''}
               </span>
               <span style={{ flex: '0 0 16px', color: T.soft }}>{open ? '−' : '+'}</span>
             </button>
+            </div>
 
             {open && (
               <div style={{ padding: '4px 0 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, fontSize: 14 }}>
@@ -1580,6 +1682,11 @@ function EasyshipStatus({ status, onSent }) {
             <span style={{ color: T.soft }}>Every order that needs shipping is in Easyship.</span>
           )}
           {message && <span>{message}</span>}
+        </div>
+      )}
+      {status.configured && status.noAddress > 0 && (
+        <div style={{ color: T.soft, marginTop: 6 }}>
+          {status.noAddress} paid order{status.noAddress === 1 ? ' has' : 's have'} no shipping address saved here, so {status.noAddress === 1 ? 'it' : 'they'} can’t be sent to Easyship from this page.
         </div>
       )}
       {status.configured && status.autobuy && <AutobuyLabels status={status} onChange={onSent} />}
