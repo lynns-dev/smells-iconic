@@ -6,6 +6,7 @@ import { incrementEvent, logEvent, logVisitor, updateJourney, linkSessionToVisit
 import { sendCapiEvent, getRequestUserData } from '../../../lib/metaCapi';
 import { isExcludedTraffic } from '../../../lib/ipFilter';
 import { fbcSetCookieHeader } from '../../../lib/metaClickId';
+import { recordJourneyStep, pageLabel, EVENT_LABELS } from '../../../lib/journeys';
 
 const ALLOWED = ['pageview', 'addtocart', 'checkout_start'];
 // Logged to the timestamped recent-events feed for the live-activity view.
@@ -94,7 +95,7 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
 
-  const { event, productName, eventId, contentId, contentIds, contents, value, url, sessionId, email, phone, fbc, visit, visitorId } = req.body || {};
+  const { event, productName, eventId, contentId, contentIds, contents, value, url, sessionId, email, phone, fbc, visit, visitorId, path } = req.body || {};
 
   // Re-issue the Meta click ID cookie from the server. The browser sends its
   // click ID on the first page view of a visit (pages/_app.jsx); setting the
@@ -121,8 +122,17 @@ export default async function handler(req, res) {
       // First page of a visit: record where the visitor came from for
       // admin's Visitors tab (lib/analyticsStore.js logVisitor).
       if (event === 'pageview' && sessionId && personId !== sessionId) await linkSessionToVisitor(sessionId, personId);
-      if (event === 'pageview' && sessionId && visit && typeof visit === 'object') {
-        await logVisitor({ ...describeVisit(req, sessionId, visit), visitorId: personId !== sessionId ? personId : null });
+      const described = event === 'pageview' && sessionId && visit && typeof visit === 'object' ? describeVisit(req, sessionId, visit) : null;
+      if (described) await logVisitor({ ...described, visitorId: personId !== sessionId ? personId : null });
+      // Admin's Paths tab (lib/journeys.js): one step per page or funnel
+      // event, on the device's visitor id. A visit's first page carries
+      // where it came from.
+      if (personId !== sessionId) {
+        await recordJourneyStep(personId, {
+          sessionId,
+          label: event === 'pageview' ? pageLabel(clip(path, 200) || described?.landing || '/') : EVENT_LABELS[event],
+          source: described ? clip(described.source, 60) : null,
+        });
       }
       if (personId && event === 'addtocart') await updateJourney(personId, { cartAdd: clip(productName, 80) || 'item' });
       if (personId && event === 'checkout_start') await updateJourney(personId, { checkout: true });

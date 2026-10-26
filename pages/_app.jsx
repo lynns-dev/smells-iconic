@@ -66,7 +66,7 @@ function Tracking() {
     fetch('/api/track/event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), visitorId: getVisitorId(), ...(fbc ? { fbc } : {}), ...(visit ? { visit } : {}) }),
+      body: JSON.stringify({ event: 'pageview', sessionId: getSessionId(), visitorId: getVisitorId(), path: window.location.pathname, ...(fbc ? { fbc } : {}), ...(visit ? { visit } : {}) }),
       keepalive: true,
     }).then((r) => { if (fbc && r.ok) markFbcSynced(fbc); }).catch(() => {});
   }, [router.asPath]); // eslint-disable-line react-hooks/exhaustive-deps
