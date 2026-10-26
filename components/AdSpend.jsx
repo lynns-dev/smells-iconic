@@ -46,7 +46,7 @@ export default function AdSpend() {
 
       {data && data.configured === false && (
         <p style={softText}>
-          Not connected yet. Add <code>META_ADS_ACCESS_TOKEN</code> (a Meta token with the <code>ads_read</code> permission) in Vercel and redeploy.
+          Not connected yet. Add <code>META_AD_ACCOUNT_ID</code> (this store&rsquo;s Meta ad account) and <code>META_ADS_ACCESS_TOKEN</code> (a Meta token with the <code>ads_read</code> permission) in Vercel and redeploy.
         </p>
       )}
 
