@@ -37,7 +37,7 @@ export default function HomePage() {
   };
 
   const featured = getFeaturedProducts();
-  const heroProduct = getProductById('vanilla-body-powder');
+  const heroProduct = getProductById('daddy-is-a-state-of-mind');
   const babygirl = getProductById('babygirl');
   const reviewsByProduct = useAllReviews();
   const siteReviews = React.useMemo(() => {
@@ -78,9 +78,9 @@ export default function HomePage() {
         <div className="hero-grid" style={heroBg}>
           <div className="hero-text" style={heroContent}>
             <div>
-              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Small-batch fragrance</span>
-              <h1 style={heroH1}>Limited batches. <span style={S.it}>Don&rsquo;t wait.</span></h1>
-              <p style={heroSub}>Every scent is made in small batches. When this batch sells out, it&rsquo;s gone.</p>
+              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>New · Body mist · Scent 04</span>
+              <h1 style={heroH1}>Daddy is a <span style={S.it}>state of mind.</span></h1>
+              <p style={heroSub}>Saffron, tobacco, burnt vanilla. Made in small batches — when this batch sells out, it&rsquo;s gone.</p>
               {siteReviews.count > 0 && (
                 <div style={hrate}>
                   <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
@@ -88,13 +88,16 @@ export default function HomePage() {
                 </div>
               )}
               <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* The hero photo is the body powder, so the button goes there. */}
+                {/* The hero photos are Daddy Is a State of Mind, so the button goes there. */}
                 {heroProduct && <Link href={`/product/${heroProduct.id}`} style={heroBtn}>Shop — ${heroProduct.price}</Link>}
                 <a href="#notes" style={heroLink}>The scents</a>
               </div>
             </div>
           </div>
-          <div className="hero-img" style={heroImg} role="img" aria-label="Smells Iconic Fragrance Body Powder" />
+          <div className="hero-img" style={heroImgs}>
+            <div style={{ ...heroImg, backgroundImage: 'url(/images/si-daddy-hero-spray.webp)' }} role="img" aria-label="Spraying Daddy Is a State of Mind Body Mist on the neck" />
+            <div style={{ ...heroImg, backgroundImage: 'url(/images/si-daddy-hero-glove.webp)' }} role="img" aria-label="A black leather glove over the eyes" />
+          </div>
         </div>
       </section>
 
@@ -273,7 +276,7 @@ export default function HomePage() {
 
         @media (max-width: 960px) {
           .hero-grid { grid-template-columns: 1fr; height: auto; min-height: 0; }
-          .hero-img { order: -1; aspect-ratio: 1312 / 1199; }
+          .hero-img { order: -1; aspect-ratio: 2174 / 1449; }
           .hero-text { padding: 40px 24px 48px; }
           .col-grid { grid-template-columns: repeat(2, 1fr); }
         }
@@ -298,12 +301,11 @@ export default function HomePage() {
 
 const announce = { textAlign: 'center', fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: T.white, background: T.ink, padding: '14px 20px', borderBottom: `1px solid ${T.dline}`, overflow: 'hidden' };
 const heroWrap = { position: 'relative' };
-// Split hero: copy on a white panel, image beside it (stacked above it on small screens).
-// The image carries its own product label, so text is never laid over it.
+// Split hero: copy on a white panel, two photos side by side next to it
+// (stacked above it on small screens). Text is never laid over the photos.
 const heroBg = { position: 'relative', display: 'grid', background: T.white, borderBottom: `1px solid ${T.line}` };
-const heroImg = {
-  backgroundImage: 'url(/images/si-body-powder-hero.jpg)', backgroundSize: 'cover', backgroundPosition: 'center 40%',
-};
+const heroImgs = { display: 'grid', gridTemplateColumns: '1fr 1fr' };
+const heroImg = { backgroundSize: 'cover', backgroundPosition: 'center 30%' };
 const heroContent = { display: 'flex', alignItems: 'flex-end', color: T.ink };
 const heroH1 = { fontFamily: T.display, fontWeight: 400, fontSize: 'clamp(34px,3.6vw,60px)', lineHeight: 1.05, marginBottom: 22, color: T.ink, maxWidth: '17ch' };
 const heroSub = { fontSize: 16, color: T.ink, maxWidth: '38ch', marginBottom: 26 };
