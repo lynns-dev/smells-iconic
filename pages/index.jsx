@@ -5,6 +5,7 @@ import CartDrawer from '../components/CartDrawer';
 import ProductVisual from '../components/ProductVisual';
 import Marquee from '../components/Marquee';
 import Footer from '../components/Footer';
+import { ArchivedX, BringBackButton } from '../components/Archived';
 import { PRODUCTS, getFeaturedProducts, getProductById } from '../lib/products';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
@@ -106,8 +107,9 @@ export default function HomePage() {
             {featured.map((p) => (
               <div key={p.id} className="col-item" style={pcard}>
                 <Link href={`/product/${p.id}`} style={pimg}>
-                  {p.badge && <span style={badge}>{p.badge}</span>}
+                  {p.badge && !p.archived && <span style={badge}>{p.badge}</span>}
                   <ProductVisual id={p.id} images={p.images} alt={p.name} width={104} />
+                  {p.archived && <ArchivedX />}
                 </Link>
                 <div style={pcardText}>
                   <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 21 }}>{p.name}</Link>
@@ -117,7 +119,9 @@ export default function HomePage() {
                     {p.originalPrice > p.price && <s style={{ color: T.soft, marginLeft: 6 }}>${p.originalPrice}</s>}
                     {' '}· {p.size}
                   </div>
-                  <button style={{ ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 18 }} onClick={() => c.add(p)}>Add to cart</button>
+                  {p.archived
+                    ? <BringBackButton product={p} style={{ marginTop: 18 }} />
+                    : <button style={{ ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 18 }} onClick={() => c.add(p)}>Add to cart</button>}
                 </div>
               </div>
             ))}

@@ -5,6 +5,7 @@ import CartDrawer from '../components/CartDrawer';
 import ProductVisual from '../components/ProductVisual';
 import Marquee from '../components/Marquee';
 import Footer from '../components/Footer';
+import { ArchivedX, BringBackButton } from '../components/Archived';
 import { PRODUCTS } from '../lib/products';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
@@ -35,8 +36,9 @@ export default function ShopPage() {
           {PRODUCTS.filter((p) => p.id !== 'the-archive-trio').map((p) => (
             <div key={p.id} style={card}>
               <Link href={`/product/${p.id}`} style={imgWrap}>
-                {p.badge && <span style={badge}>{p.badge}</span>}
+                {p.badge && !p.archived && <span style={badge}>{p.badge}</span>}
                 <ProductVisual id={p.id} images={p.images} alt={p.name} width={120} />
+                {p.archived && <ArchivedX />}
               </Link>
               <div style={cardText}>
                 <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 300, fontSize: 22 }}>{p.name}</Link>
@@ -52,7 +54,9 @@ export default function ShopPage() {
                   {p.originalPrice > p.price && <s style={{ color: T.soft, marginLeft: 6 }}>${p.originalPrice}</s>}
                   {' '}· {p.size}
                 </div>
-                <button style={{ ...S.btnFill, width: '100%', justifyContent: 'center' }} onClick={() => c.add(p)}>Add to cart</button>
+                {p.archived
+                  ? <BringBackButton product={p} />
+                  : <button style={{ ...S.btnFill, width: '100%', justifyContent: 'center' }} onClick={() => c.add(p)}>Add to cart</button>}
               </div>
             </div>
           ))}

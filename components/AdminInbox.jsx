@@ -88,17 +88,19 @@ export default function AdminInbox({ onCount }) {
         <div key={e.id} style={row}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
             <span style={{ ...tag, background: T.paper, border: `1px solid ${T.line}` }}>
-              {e.orderNumber ? `Order ${e.orderNumber}` : 'Message'}
+              {e.type === 'vote' ? 'Bring it back vote' : e.orderNumber ? `Order ${e.orderNumber}` : 'Message'}
             </span>
             <span style={{ fontSize: 12, color: T.soft }}>
-              {new Date(e.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              {new Date(e.updatedAt || e.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </span>
           </div>
           <p style={{ fontSize: 15, whiteSpace: 'pre-wrap', margin: '0 0 10px' }}>{e.text}</p>
-          <div style={{ fontSize: 12, color: T.soft, marginBottom: 12 }}>
-            {e.name && <span>{e.name} · </span>}
-            {e.email ? <a href={`mailto:${e.email}`} style={{ textDecoration: 'underline', color: T.ink }}>{e.email}</a> : 'No email'}
-          </div>
+          {e.type !== 'vote' && (
+            <div style={{ fontSize: 12, color: T.soft, marginBottom: 12 }}>
+              {e.name && <span>{e.name} · </span>}
+              {e.email ? <a href={`mailto:${e.email}`} style={{ textDecoration: 'underline', color: T.ink }}>{e.email}</a> : 'No email'}
+            </div>
+          )}
           {(e.replies || []).map((r) => (
             <div key={r.id} style={replyBubble}>
               <div style={{ fontSize: 11, color: T.soft, marginBottom: 4 }}>

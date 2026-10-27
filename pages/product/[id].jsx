@@ -8,6 +8,7 @@ import ProductVisual from '../../components/ProductVisual';
 import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
 import DropsOffer from '../../components/DropsOffer';
+import { ArchivedX, BringBackButton } from '../../components/Archived';
 import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
@@ -174,12 +175,13 @@ export default function ProductPage({ product }) {
         <div className="pdp-grid" style={grid}>
           <div className="pdp-gallery" style={gallery}>
             <div style={imgSide}>
-              {product.badge && <span style={imageBadge}>{product.badge}</span>}
+              {product.badge && !product.archived && <span style={imageBadge}>{product.badge}</span>}
               {activeImage ? (
                 <img src={activeImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               ) : (
                 <ProductVisual id={product.id} width={230} />
               )}
+              {product.archived && <ArchivedX />}
             </div>
             {images.length > 1 && (
               <div className="thumb-col" style={thumbCol}>
@@ -220,14 +222,18 @@ export default function ProductPage({ product }) {
               {' '}<span style={{ fontSize: 14, color: T.soft }}>· {product.size}</span>
             </div>
 
-            <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 20 }}>
-              <div style={qtyWrap}>
-                <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} style={qtyBtn} aria-label="Decrease quantity">−</button>
-                <span style={qtyValue}>{quantity}</span>
-                <button onClick={() => setQuantity((q) => q + 1)} style={qtyBtn} aria-label="Increase quantity">+</button>
+            {product.archived ? (
+              <BringBackButton product={product} style={{ marginBottom: 20 }} />
+            ) : (
+              <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 20 }}>
+                <div style={qtyWrap}>
+                  <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} style={qtyBtn} aria-label="Decrease quantity">−</button>
+                  <span style={qtyValue}>{quantity}</span>
+                  <button onClick={() => setQuantity((q) => q + 1)} style={qtyBtn} aria-label="Increase quantity">+</button>
+                </div>
+                <button style={{ ...S.btnFill, flex: 1, justifyContent: 'center' }} onClick={handleAdd}>Add to bag</button>
               </div>
-              <button style={{ ...S.btnFill, flex: 1, justifyContent: 'center' }} onClick={handleAdd}>Add to bag</button>
-            </div>
+            )}
 
             <div style={badgeRow}>Ships in 2–4 days · 45-day guarantee + free returns · Vegan-friendly · Cruelty-free</div>
 
@@ -471,7 +477,10 @@ export default function ProductPage({ product }) {
             <div className="related-grid" style={relatedGrid}>
               {related.map((p) => (
                 <Link key={p.id} href={`/product/${p.id}`} className="related-item" style={relatedCard}>
-                  <div style={relatedImg}><ProductVisual id={p.id} images={p.images} alt={p.name} width={104} /></div>
+                  <div style={{ ...relatedImg, position: 'relative' }}>
+                    <ProductVisual id={p.id} images={p.images} alt={p.name} width={104} />
+                    {p.archived && <ArchivedX stamp={false} />}
+                  </div>
                   <div style={relatedText}>
                     <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18 }}>{p.name}</div>
                     <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>${p.price}</div>
@@ -495,14 +504,18 @@ export default function ProductPage({ product }) {
             <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, color: T.white, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</div>
             <div style={{ fontSize: 13, color: 'rgba(251,245,241,0.7)', marginTop: 2 }}>${unitPrice}</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={stickyQtyWrap}>
-              <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} style={stickyQtyBtn} aria-label="Decrease quantity">−</button>
-              <span style={{ ...qtyValue, color: T.white }}>{quantity}</span>
-              <button onClick={() => setQuantity((q) => q + 1)} style={stickyQtyBtn} aria-label="Increase quantity">+</button>
+          {product.archived ? (
+            <BringBackButton product={product} dark compact style={{ flexShrink: 0 }} />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={stickyQtyWrap}>
+                <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} style={stickyQtyBtn} aria-label="Decrease quantity">−</button>
+                <span style={{ ...qtyValue, color: T.white }}>{quantity}</span>
+                <button onClick={() => setQuantity((q) => q + 1)} style={stickyQtyBtn} aria-label="Increase quantity">+</button>
+              </div>
+              <button onClick={handleAdd} style={stickyAddBtn}>Add to bag</button>
             </div>
-            <button onClick={handleAdd} style={stickyAddBtn}>Add to bag</button>
-          </div>
+          )}
         </div>
       </div>
 
