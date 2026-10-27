@@ -6,7 +6,7 @@ import ProductVisual from '../components/ProductVisual';
 import Marquee from '../components/Marquee';
 import Footer from '../components/Footer';
 import { ArchivedX, BringBackButton } from '../components/Archived';
-import { PRODUCTS } from '../lib/products';
+import { PRODUCTS, archivedLast } from '../lib/products';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
@@ -33,7 +33,7 @@ export default function ShopPage() {
 
       <section style={{ ...S.wrap, padding: '50px 0 64px' }}>
         <div className="shop-grid" style={grid}>
-          {PRODUCTS.filter((p) => p.id !== 'the-archive-trio').map((p) => (
+          {archivedLast(PRODUCTS.filter((p) => p.id !== 'the-archive-trio')).map((p) => (
             <div key={p.id} style={card}>
               <Link href={`/product/${p.id}`} style={imgWrap}>
                 {p.badge && !p.archived && <span style={badge}>{p.badge}</span>}
