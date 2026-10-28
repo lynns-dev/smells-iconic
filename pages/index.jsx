@@ -10,8 +10,9 @@ import { PRODUCTS, archivedLast, getFeaturedProducts, getProductById } from '../
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
+import { activePromo } from '../lib/promos';
 
-const BANNER_MESSAGES = ['15% off with code ICONIC15'];
+const DEFAULT_MESSAGES = ['15% off with code ICONIC15'];
 
 export default function HomePage() {
   const c = useCart();
@@ -48,13 +49,19 @@ export default function HomePage() {
     return { all, count, average, recommendPct };
   }, [reviewsByProduct]);
   const [bannerIndex, setBannerIndex] = React.useState(0);
+  // While a holiday sale is running (lib/promos.js) the bar shows only the
+  // sale, so a smaller code never sits next to it. Checked after mount since
+  // this page is statically built.
+  const [promo, setPromo] = React.useState(null);
+  React.useEffect(() => { setPromo(activePromo()); setBannerIndex(0); }, []);
+  const bannerMessages = promo ? [promo.banner] : DEFAULT_MESSAGES;
 
   React.useEffect(() => {
     const id = setInterval(() => {
-      setBannerIndex((i) => (i + 1) % BANNER_MESSAGES.length);
+      setBannerIndex((i) => (i + 1) % bannerMessages.length);
     }, 3500);
     return () => clearInterval(id);
-  }, []);
+  }, [bannerMessages.length]);
 
   return (
     <div>
@@ -62,13 +69,13 @@ export default function HomePage() {
         <div
           style={{
             display: 'flex',
-            width: `${BANNER_MESSAGES.length * 100}%`,
-            transform: `translateX(-${(100 / BANNER_MESSAGES.length) * bannerIndex}%)`,
+            width: `${bannerMessages.length * 100}%`,
+            transform: `translateX(-${(100 / bannerMessages.length) * bannerIndex}%)`,
             transition: 'transform 0.6s ease',
           }}
         >
-          {BANNER_MESSAGES.map((msg, i) => (
-            <span key={i} style={{ width: `${100 / BANNER_MESSAGES.length}%` }}>{msg}</span>
+          {bannerMessages.map((msg, i) => (
+            <span key={i} style={{ width: `${100 / bannerMessages.length}%` }}>{msg}</span>
           ))}
         </div>
       </div>

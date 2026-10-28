@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import { T } from '../lib/theme';
+import { activePromo } from '../lib/promos';
 
 // Thin reassurance strip above the nav on every storefront page: two
 // columns with an icon each. Same icons as the checkout's reassurance row.
@@ -22,7 +24,17 @@ function ReturnIcon() {
 }
 
 export default function TopBanner() {
+  // Checked after mount rather than during render: storefront pages are
+  // statically built, so a render-time check would freeze whatever was
+  // running at build time into the HTML.
+  // The homepage puts the sale in its own announcement bar instead.
+  const { pathname } = useRouter();
+  const [promo, setPromo] = useState(null);
+  useEffect(() => { setPromo(activePromo()); }, []);
+
   return (
+    <>
+    {promo && pathname !== '/' && <div style={styles.promo}>{promo.banner}</div>}
     <div className="top-banner" style={styles.bar}>
       <div className="top-banner-item" style={styles.item}><ShipIcon /><span>Fast Shipping</span></div>
       <div className="top-banner-item" style={styles.item}><ReturnIcon /><span>45-Day Money-Back Guarantee</span></div>
@@ -33,10 +45,16 @@ export default function TopBanner() {
         }
       `}</style>
     </div>
+    </>
   );
 }
 
 const styles = {
+  promo: {
+    background: T.blush, color: T.ink, padding: '8px 16px', textAlign: 'center',
+    fontFamily: T.sans, fontSize: 11, fontWeight: 700, letterSpacing: '0.14em',
+    textTransform: 'uppercase', lineHeight: 1.3,
+  },
   bar: {
     display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center',
     background: T.ink, color: T.white, padding: '9px 40px',
