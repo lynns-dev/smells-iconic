@@ -502,7 +502,7 @@ export default function CheckoutPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: emailOk ? cleanEmail : '', phone: shipping.phone, name, consent: newsletter, source: 'checkout',
+        email: emailOk ? cleanEmail : '', phone: shipping.phone, name, consent: newsletter, source: 'checkout', journeyId: getVisitorId(),
         address: { city: shipping.city, state: shipping.state },
         cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
       }),

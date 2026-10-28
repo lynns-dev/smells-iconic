@@ -4,6 +4,7 @@ import { T, S } from '../lib/theme';
 import ProductVisual from './ProductVisual';
 import PopularBadge from './PopularBadge';
 import { rememberIdentity } from '../lib/identity';
+import { getVisitorId } from '../lib/session';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import SaleCallout, { useActivePromo } from './SaleCallout';
@@ -42,7 +43,7 @@ export default function CartDrawer({
     fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, consent: true, source: 'cart', cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })) }),
+      body: JSON.stringify({ email, consent: true, source: 'cart', journeyId: getVisitorId(), cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })) }),
       keepalive: true,
     }).catch(() => {});
     await applyDiscount(UNLOCK_CODE).catch(() => ({}));

@@ -1409,6 +1409,53 @@ function VisitTag({ n }) {
   );
 }
 
+// Who the visitor is (once they've typed an email at checkout or in the
+// cart) and a button that sends them the abandoned-checkout email now
+// (pages/api/admin/abandoned-email-send.js).
+function VisitorEmailAction({ contact, status }) {
+  const [state, setState] = React.useState({ busy: false, sentAt: null, error: '' });
+  if (!contact) {
+    if (status.kind !== 'cart' && status.kind !== 'checkout') return null;
+    return <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>No email captured — can’t send a reminder.</div>;
+  }
+  const sentAt = state.sentAt || contact.abandonedEmailSentAt;
+  const blocked = !contact.email ? 'Phone only — no email to send to.'
+    : contact.unsubscribed ? 'Unsubscribed from emails.'
+      : !contact.cartCount ? 'No saved cart to remind them about.' : null;
+  const send = async () => {
+    const consentNote = contact.consent ? '' : '\n\nThey didn’t tick “Email me with news and offers”.';
+    if (!window.confirm(`Send the abandoned checkout email to ${contact.email} now?${consentNote}`)) return;
+    setState({ busy: true, sentAt: null, error: '' });
+    try {
+      const res = await fetch('/api/admin/abandoned-email-send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: contact.key }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not send the email.');
+      setState({ busy: false, sentAt: data.sentAt, error: '' });
+    } catch (err) {
+      setState({ busy: false, sentAt: null, error: err.message });
+    }
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+      <span style={{ fontSize: 13 }}>
+        {contact.name ? `${contact.name} · ` : ''}{contact.email || contact.key.replace(/^phone:/, '')}
+        {!contact.consent && contact.email && <span style={{ color: T.soft }}> · not opted in</span>}
+      </span>
+      {blocked ? (
+        <span style={{ fontSize: 13, color: T.soft }}>{blocked}</span>
+      ) : (
+        <button type="button" onClick={send} disabled={state.busy} style={{ ...S.btnOutline, height: 32, padding: '0 12px', fontSize: 12, opacity: state.busy ? 0.6 : 1 }}>
+          {state.busy ? 'Sending…' : sentAt ? 'Send again' : 'Send abandoned checkout email'}
+        </button>
+      )}
+      {sentAt && <span style={{ fontSize: 12, color: '#1a7a3c' }}>Reminder sent {sinceIso(sentAt)}</span>}
+      {state.error && <span style={{ fontSize: 12, color: '#a13d2b' }}>{state.error}</span>}
+    </div>
+  );
+}
+
 function VisitorsTab({ refreshKey }) {
   const [visitors, setVisitors] = React.useState(null);
   const [error, setError] = React.useState('');
@@ -1521,6 +1568,7 @@ function VisitorsTab({ refreshKey }) {
                   {v.referrer && <span style={{ color: T.soft }}> · from <span title={v.referrer}>{v.referrer.length > 70 ? `${v.referrer.slice(0, 70)}…` : v.referrer}</span></span>}
                 </div>
                 <div style={{ fontSize: 14, marginTop: 6, fontWeight: 600, color: STATUS_COLORS[status.kind] }}>{status.text}</div>
+                <VisitorEmailAction contact={v.contact} status={status} />
                 {j?.cartSteps?.length > 0 && (
                   <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>
                     Cart trail: {j.cartSteps.join(' → ')}
