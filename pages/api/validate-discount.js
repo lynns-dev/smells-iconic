@@ -3,6 +3,7 @@
 // confirms whether the specific submitted code is valid.
 
 import { getDiscounts } from '../../lib/discountsStore';
+import { findPromo } from '../../lib/promos';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,6 +17,10 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Running time-boxed promos (lib/promos.js) win over the admin list.
+    const promo = findPromo(code);
+    if (promo) return res.status(200).json({ valid: true, code: promo.code, type: promo.type, value: promo.value });
+
     const discounts = await getDiscounts();
     const match = discounts.find((d) => d.code.toLowerCase() === code.trim().toLowerCase());
     if (!match) return res.status(200).json({ valid: false });
