@@ -6,6 +6,7 @@ import PopularBadge from '../components/PopularBadge';
 import AddressFields from '../components/AddressFields';
 import PayPalButton from '../components/PayPalButton';
 import TopBanner from '../components/TopBanner';
+import SaleCallout from '../components/SaleCallout';
 import { shippingFor } from '../lib/shipping';
 import { thumbImages } from '../lib/products';
 import {
@@ -180,6 +181,7 @@ function OrderSummaryPanel({
 function DiscountField({ discountCode, setDiscountCode, discountMessage, setDiscountMessage, appliedDiscount, clearDiscount, handleApplyDiscount }) {
   return (
     <div style={{ marginTop: 6 }}>
+      <SaleCallout appliedDiscount={appliedDiscount} onApply={handleApplyDiscount} style={{ marginBottom: 10 }} />
       <div style={{ display: 'flex', gap: 10 }}>
         <input
           placeholder="Discount code"
@@ -533,18 +535,21 @@ export default function CheckoutPage() {
     };
   }, [saveContact]);
 
-  const handleApplyDiscount = async () => {
-    if (!discountCode.trim()) return;
+  const handleApplyDiscount = async (codeArg) => {
+    // The sale callout passes its code; the Apply button passes a click event.
+    const code = typeof codeArg === 'string' ? codeArg : discountCode;
+    if (!code.trim()) return null;
     setDiscountMessage('Checking…');
-    const data = await applyDiscount(discountCode);
+    const data = await applyDiscount(code);
     if (data.valid) {
       setDiscountMessage(`Code "${data.code}" applied.`);
     } else if (data.error) {
       setDiscountMessage('Could not check that code — please try again.');
     } else {
       setDiscountMessage('That code isn’t valid.');
-      trackCart('discount_rejected', { code: discountCode });
+      trackCart('discount_rejected', { code });
     }
+    return data;
   };
 
   const goToStep = (n) => {
