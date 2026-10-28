@@ -6,6 +6,7 @@ import PopularBadge from './PopularBadge';
 import { rememberIdentity } from '../lib/identity';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
+import SaleCallout, { useActivePromo } from './SaleCallout';
 import { shippingFor } from '../lib/shipping';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
@@ -48,7 +49,10 @@ export default function CartDrawer({
     try { window.localStorage.setItem(UNLOCKED_KEY, '1'); } catch { /* storage blocked */ }
     setUnlockState('done');
   };
-  const showUnlock = cart.length > 0 && !alreadyUnlocked && !(appliedDiscount && unlockState !== 'done');
+  // During a holiday sale the cart (and its exit popup) offers the sale code
+  // instead, so the 15% unlock can't swap a shopper's 20% code for a smaller one.
+  const salePromo = useActivePromo();
+  const showUnlock = !salePromo && cart.length > 0 && !alreadyUnlocked && !(appliedDiscount && unlockState !== 'done');
 
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
@@ -175,6 +179,10 @@ export default function CartDrawer({
           </div>
         )}
 
+        {salePromo && cart.length > 0 && (
+          <SaleCallout appliedDiscount={appliedDiscount} onApply={applyDiscount} style={{ marginTop: 16, flexShrink: 0 }} />
+        )}
+
         {showUnlock && (
           <div style={unlockBox}>
             {unlockState === 'done' ? (
@@ -250,8 +258,8 @@ export default function CartDrawer({
         onClose={() => setExitOpen(false)}
         cart={cart}
         applyDiscount={applyDiscount}
-        discountCode="ICONIC15"
-        discountLabel="15% off"
+        discountCode={salePromo ? salePromo.code : 'ICONIC15'}
+        discountLabel={salePromo ? `${salePromo.value}% off` : '15% off'}
         payments="card, Apple Pay, Google Pay, PayPal or Venmo"
       />
     </>
