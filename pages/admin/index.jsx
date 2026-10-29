@@ -41,12 +41,14 @@ function pickField(row, key) {
 }
 
 const LIVE_POLL_MS = 5000;
-const FUNNEL_RANGE_LABELS = {
-  today: "Today's funnel",
-  yesterday: "Yesterday's funnel",
-  '7d': 'Funnel — last 7 days',
-  '30d': 'Funnel — last 30 days',
-};
+// Dashboard date range: [key, picker label, phrase used in card titles].
+const DASH_RANGES = [
+  ['today', 'Today', 'today'],
+  ['yesterday', 'Yesterday', 'yesterday'],
+  ['7d', 'Last 7 days', 'last 7 days'],
+  ['30d', 'Last 30 days', 'last 30 days'],
+];
+const rangePhrase = (range) => DASH_RANGES.find(([k]) => k === range)?.[2] || 'today';
 const STAGE_LABELS = {
   browsing: 'Browsing',
   cart_open: 'Cart open',
@@ -101,7 +103,7 @@ function attributionSource(order) {
 export default function AdminDashboard() {
   const router = useRouter();
   const [dashboard, setDashboard] = React.useState(null);
-  const [funnelRange, setFunnelRange] = React.useState('today');
+  const [dashRange, setDashRange] = React.useState('today');
   const [live, setLive] = React.useState({ count: 0, byStage: {}, byCountry: {}, activity: EMPTY_ACTIVITY });
   const [reviews, setReviews] = React.useState([]);
   const [reviewsLoading, setReviewsLoading] = React.useState(true);
@@ -242,11 +244,11 @@ export default function AdminDashboard() {
     loadDiscounts();
   }, [loadReviews, loadDiscounts, refreshKey]);
 
-  // Covers the initial load, refetching when the funnel time filter
+  // Covers the initial load, refetching when the dashboard date range
   // changes, and every refresh.
   React.useEffect(() => {
-    loadDashboard(funnelRange);
-  }, [loadDashboard, funnelRange, refreshKey]);
+    loadDashboard(dashRange);
+  }, [loadDashboard, dashRange, refreshKey]);
 
   React.useEffect(() => {
     // Keep the last good data if a poll fails, rather than replacing it with
@@ -467,10 +469,17 @@ export default function AdminDashboard() {
         </>)}
 
         {tab === 'dashboard' && (<>
+        {/* DATE RANGE — drives revenue, orders, payment methods and the funnel. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          <select aria-label="Date range" value={dashRange} onChange={(e) => { setDashboard(null); setDashRange(e.target.value); }} style={rangeSelect}>
+            {DASH_RANGES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </select>
+        </div>
+
         {/* TOP STATS */}
         <div className="stat-grid" style={statGrid}>
-          <StatCard label="Revenue today" value={dashboard ? `$${dashboard.revenueToday.toFixed(2)}` : '—'} />
-          <StatCard label="Orders today" value={dashboard ? dashboard.ordersToday : '—'} />
+          <StatCard label={`Revenue ${rangePhrase(dashRange)}`} value={dashboard ? `$${dashboard.revenue.toFixed(2)}` : '—'} />
+          <StatCard label={`Orders ${rangePhrase(dashRange)}`} value={dashboard ? dashboard.orderCount : '—'} />
           <StatCard label="Live visitors" value={live.count} highlight />
         </div>
 
@@ -594,9 +603,9 @@ export default function AdminDashboard() {
         </Section>
 
         {/* PAYMENT METHODS */}
-        <Section title="Payment methods today">
+        <Section title={`Payment methods ${rangePhrase(dashRange)}`}>
           {!dashboard || dashboard.paymentMethods.length === 0 ? (
-            <p style={{ color: T.soft, fontSize: 14 }}>No orders yet today.</p>
+            <p style={{ color: T.soft, fontSize: 14 }}>{dashRange === 'today' ? 'No orders yet today.' : `No orders ${rangePhrase(dashRange)}.`}</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {dashboard.paymentMethods.map(({ method, count, revenue }) => {
@@ -618,17 +627,7 @@ export default function AdminDashboard() {
         </Section>
 
         {/* FUNNEL / CONVERSION */}
-        <Section
-          title={FUNNEL_RANGE_LABELS[funnelRange]}
-          action={
-            <select value={funnelRange} onChange={(e) => setFunnelRange(e.target.value)} style={funnelRangeSelect}>
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-            </select>
-          }
-        >
+        <Section title={`Funnel — ${rangePhrase(dashRange)}`}>
           {dashboard && (
             <div className="funnel-grid" style={funnelGrid}>
               <FunnelStep label="Visitors" value={dashboard.funnel.pageviews} />
@@ -1017,7 +1016,11 @@ function SubscribersTab({ refreshKey }) {
 // Orders tab: every order kept (45 days) with customer, shipping, items,
 // payment, where they came from, Meta status, tracking, and actions
 // (refund through the company that took the payment, cancel, archive).
-const ORDER_RANGES = [['today', 'Today', 1], ['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['all', 'All (45 days)', 45]];
+const ORDER_RANGES = [['today', 'Today', 1], ['yesterday', 'Yesterday', 1], ['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['all', 'All (45 days)', 45]];
+// Calendar day (YYYY-MM-DD) in the store's Pacific timezone — the same days
+// the order ledger and dashboard use — so "Today"/"Yesterday" match them.
+const storeDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+const storeDayOf = (t) => storeDay.format(new Date(t));
 const ORDER_STATUSES = [['open', 'Open'], ['unshipped', 'To ship'], ['shipped', 'Shipped'], ['refunded', 'Refunded'], ['cancelled', 'Cancelled'], ['archived', 'Archived'], ['every', 'Everything']];
 
 function orderState(o) {
@@ -1122,10 +1125,11 @@ function OrdersTab({ refreshKey }) {
 
   const rows = React.useMemo(() => {
     const days = ORDER_RANGES.find(([k]) => k === range)?.[2] || 45;
-    const since = range === 'today' ? new Date(new Date().toDateString()).getTime() : Date.now() - days * 24 * 60 * 60 * 1000;
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+    const onlyDay = range === 'today' ? storeDayOf(Date.now()) : range === 'yesterday' ? storeDayOf(Date.now() - 24 * 60 * 60 * 1000) : null;
     const q = query.trim().toLowerCase();
     return (orders || []).filter((o) => {
-      if (new Date(o.createdAt).getTime() < since) return false;
+      if (onlyDay ? storeDayOf(o.createdAt) !== onlyDay : new Date(o.createdAt).getTime() < since) return false;
       const st = o.status || 'paid';
       if (statusFilter === 'open' && !['paid', undefined].includes(o.status) ) return false;
       if (statusFilter === 'unshipped' && (st !== 'paid' || o.trackingNumber)) return false;
@@ -1827,7 +1831,7 @@ const chip = { display: 'inline-block', border: `1px solid ${T.line}`, backgroun
 const statGrid = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 };
 const statCard = { background: T.white, border: `1px solid ${T.line}`, padding: '24px 20px', textAlign: 'center' };
 const funnelGrid = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 };
-const funnelRangeSelect = {
+const rangeSelect = {
   height: 34, padding: '0 10px', border: `1px solid ${T.line}`, background: T.white,
   fontFamily: T.sans, fontSize: 12, color: T.ink, outline: 'none',
 };
