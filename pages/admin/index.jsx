@@ -3,18 +3,12 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { PRODUCTS } from '../../lib/products';
 import { parseCsv } from '../../lib/csv';
-import WorldMap from '../../components/WorldMap';
 import { T, S } from '../../lib/theme';
 import AdminFonts from '../../components/AdminFonts';
 import CartFunnelReport from '../../components/CartFunnelReport';
 import AdminInbox from '../../components/AdminInbox';
-import AdSpend from '../../components/AdSpend';
 import PathsTree from '../../components/PathsTree';
 
-// Meta error messages are hidden for now (owner's request): the
-// Conversions API status box and each order's stored Meta send error.
-// Flip to true to bring them back.
-const SHOW_META_ERRORS = false;
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -117,7 +111,6 @@ export default function AdminDashboard() {
   const [discountFormMessage, setDiscountFormMessage] = React.useState('');
   const [notifStatus, setNotifStatus] = React.useState('unsupported'); // unsupported | denied | off | on | busy
   const [notifMessage, setNotifMessage] = React.useState('');
-  const [hoveredCountry, setHoveredCountry] = React.useState(null);
   const [tab, setTab] = React.useState('dashboard');
   // The chosen section rides in the URL (#orders) so a refresh keeps it.
   React.useEffect(() => {
@@ -158,10 +151,6 @@ export default function AdminDashboard() {
     window.scrollTo(0, 0);
   };
 
-  const mapCounts = React.useMemo(
-    () => Object.fromEntries(Object.entries(live.byCountry).map(([code, data]) => [code.toLowerCase(), data.count])),
-    [live.byCountry]
-  );
 
   React.useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
@@ -465,7 +454,6 @@ export default function AdminDashboard() {
           {notifMessage && <p style={{ fontSize: 12, color: T.soft, marginTop: 12 }}>{notifMessage}</p>}
         </Section>
 
-        {SHOW_META_ERRORS && dashboard?.capi && <CapiStatus capi={dashboard.capi} />}
         </>)}
 
         {tab === 'dashboard' && (<>
@@ -482,11 +470,6 @@ export default function AdminDashboard() {
           <StatCard label={`Orders ${rangePhrase(dashRange)}`} value={dashboard ? dashboard.orderCount : '—'} />
           <StatCard label="Live visitors" value={live.count} highlight />
         </div>
-
-        {/* AD SPEND — this store's Meta ad spend vs. revenue (components/AdSpend.jsx). */}
-        <Section title="Ad spend (Meta)">
-          <AdSpend />
-        </Section>
 
         {/* LIVE FUNNEL */}
         <Section title="Live visitors by stage">
@@ -512,16 +495,6 @@ export default function AdminDashboard() {
             <p style={{ color: T.soft, fontSize: 14 }}>No one on the site right now.</p>
           ) : (
             <>
-              <div style={{ position: 'relative', marginBottom: 24 }}>
-                <WorldMap counts={mapCounts} onHoverCountry={setHoveredCountry} />
-                <div style={{ position: 'absolute', top: 8, left: 8, fontSize: 12, color: T.soft, background: T.paper, padding: hoveredCountry ? '4px 8px' : 0 }}>
-                  {hoveredCountry && (
-                    <span>
-                      {countryFlag(hoveredCountry.toUpperCase())} {countryName(hoveredCountry.toUpperCase())} — {live.byCountry[hoveredCountry.toUpperCase()]?.count ?? mapCounts[hoveredCountry]}
-                    </span>
-                  )}
-                </div>
-              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {Object.entries(live.byCountry)
                 .sort((a, b) => b[1].count - a[1].count)
@@ -1014,7 +987,7 @@ function SubscribersTab({ refreshKey }) {
 }
 
 // Orders tab: every order kept (45 days) with customer, shipping, items,
-// payment, where they came from, Meta status, tracking, and actions
+// payment, where they came from, tracking, and actions
 // (refund through the company that took the payment, cancel, archive).
 const ORDER_RANGES = [['today', 'Today', 1], ['yesterday', 'Yesterday', 1], ['7d', 'Last 7 days', 7], ['30d', 'Last 30 days', 30], ['all', 'All (45 days)', 45]];
 // Calendar day (YYYY-MM-DD) in the store's Pacific timezone — the same days
@@ -1118,7 +1091,7 @@ function OrdersTab({ refreshKey }) {
       if (data.order) replace(data.order);
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
       if (key === 'easyship') loadEasyship();
-      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'meta' ? 'Sent to Meta.' : key === 'easyship' ? 'Sent to Easyship.' : 'Updated.' } }));
+      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'easyship' ? 'Sent to Easyship.' : 'Updated.' } }));
     } catch (err) {
       setMsg((m) => ({ ...m, [o.id]: { ok: false, text: err.message } }));
     } finally {
@@ -1306,17 +1279,6 @@ function OrdersTab({ refreshKey }) {
                   {(attr.utm_content || attr.adset_name) && <div style={{ color: T.soft }}>Ad set: {attr.adset_name || attr.utm_content}</div>}
                   {(attr.utm_term || attr.ad_name) && <div style={{ color: T.soft }}>Ad: {attr.ad_name || attr.utm_term}</div>}
                   {attr.landingPage && <div style={{ color: T.soft }}>Landed on {attr.landingPage}</div>}
-                </div>
-                <div>
-                  <div style={orderLabel}>Meta</div>
-                  {o.meta?.sent ? <div style={{ color: '#1a7a3c', fontWeight: 600 }}>Purchase sent</div> : (
-                    <>
-                      <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'meta', '/api/admin/order-meta', {})} style={{ ...S.btnOutline, height: 34, padding: '0 12px' }}>
-                        {busy[o.id] === 'meta' ? 'Sending…' : 'Send to Meta'}
-                      </button>
-                      {SHOW_META_ERRORS && o.meta?.lastError && <div style={{ color: '#a13d2b', fontSize: 12, marginTop: 4 }}>{o.meta.lastError}</div>}
-                    </>
-                  )}
                 </div>
                 {/* Whether Easyship has this order (lib/easyship.js) —
                     sent automatically at checkout and retried hourly; the
@@ -1640,58 +1602,6 @@ function sinceIso(iso) {
   return `${Math.round(hrs / 24)} days ago`;
 }
 
-// Whether Meta is actually receiving server-side events (lib/metaCapi.js).
-function CapiStatus({ capi }) {
-  const [check, setCheck] = React.useState(null);
-  const [checking, setChecking] = React.useState(false);
-  const runCheck = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch('/api/admin/meta-check', { method: 'POST' });
-      setCheck(await res.json());
-    } catch (err) {
-      setCheck({ verdict: `Could not run the check: ${err.message}` });
-    } finally {
-      setChecking(false);
-    }
-  };
-  const okAt = capi.lastOk?.at ? new Date(capi.lastOk.at).getTime() : 0;
-  const errAt = capi.lastError?.at ? new Date(capi.lastError.at).getTime() : 0;
-  const failing = !capi.configured || errAt > okAt;
-  const color = failing ? '#a13d2b' : '#1a7a3c';
-  return (
-    <Section title="Meta server events (Conversions API)">
-      <p style={{ fontSize: 14, margin: '0 0 6px', color, fontWeight: 600 }}>
-        {!capi.configured
-          ? 'Not configured — set META_CAPI_ACCESS_TOKEN and NEXT_PUBLIC_META_PIXEL_ID in Vercel.'
-          : failing
-            ? 'Meta rejected the most recent event.'
-            : capi.lastOk
-              ? 'Meta is receiving server events.'
-              : 'No server events sent yet since this check was added.'}
-      </p>
-      <div style={{ fontSize: 13, color: T.soft, lineHeight: 1.7 }}>
-        {capi.lastOk && <div>Last accepted: {capi.lastOk.eventName} · {sinceIso(capi.lastOk.at)}</div>}
-        {capi.lastError && (
-          <div>Last error: {capi.lastError.eventName || 'event'} · {sinceIso(capi.lastError.at)} — {capi.lastError.error}</div>
-        )}
-        <div>API version {capi.graphVersion}{capi.testMode ? ' · test mode on (META_CAPI_TEST_EVENT_CODE is set — events only show in Test Events)' : ''}</div>
-      </div>
-      <button type="button" onClick={runCheck} disabled={checking} style={{ ...S.btnOutline, marginTop: 14, opacity: checking ? 0.6 : 1 }}>
-        {checking ? 'Checking…' : 'Check Meta connection'}
-      </button>
-      {check && (
-        <div style={{ marginTop: 14, fontSize: 13, lineHeight: 1.7, borderTop: `1px solid ${T.line}`, paddingTop: 12 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: check.pixel && !check.pixel.error && !check.tokenOwner?.error ? '#1a7a3c' : '#a13d2b', marginBottom: 6 }}>{check.verdict}</div>
-          {check.pixelId && <div>Pixel id in use: {check.pixelId}{check.pixelIdHadExtraCharacters ? ' (had extra spaces/quotes — now ignored)' : ''}</div>}
-          {check.tokenPreview && <div>Access token: {check.tokenPreview}{check.tokenHadExtraCharacters ? ' (had extra spaces/quotes — now ignored)' : ''}</div>}
-          {check.tokenOwner && <div>Token belongs to: {check.tokenOwner.error ? `— (${check.tokenOwner.error})` : `${check.tokenOwner.name || ''} (${check.tokenOwner.id})`}</div>}
-          {check.pixel && <div>Pixel as Meta sees it: {check.pixel.error ? `not reachable — ${check.pixel.error}` : `${check.pixel.name || ''} (${check.pixel.id})${check.pixel.lastFired ? ` · last fired ${new Date(check.pixel.lastFired).toLocaleString()}` : ''}`}</div>}
-        </div>
-      )}
-    </Section>
-  );
-}
 
 // Panel above the Orders list: whether Easyship is set up, whether the
 // tracking webhook is connected (with a button to connect it), how many

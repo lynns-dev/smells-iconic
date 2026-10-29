@@ -1,5 +1,4 @@
 import { getOrders, getEventCounts, dateKeysForRange } from '../../../lib/analyticsStore';
-import { getCapiStatus } from '../../../lib/metaCapi';
 
 const VALID_RANGES = new Set(['today', 'yesterday', '7d', '30d']);
 
@@ -14,10 +13,9 @@ export default async function handler(req, res) {
   const dateKeys = dateKeysForRange(range);
 
   try {
-    const [perDay, events, capi] = await Promise.all([
+    const [perDay, events] = await Promise.all([
       Promise.all(dateKeys.map((key) => getOrders(key))),
       getEventCounts(dateKeys),
-      getCapiStatus(),
     ]);
     const orders = perDay.flat();
     const revenue = orders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
@@ -41,7 +39,6 @@ export default async function handler(req, res) {
       orderCount: orders.length,
       paymentMethods,
       range,
-      capi,
       funnel: {
         pageviews: events.pageview,
         addToCart: events.addtocart,
