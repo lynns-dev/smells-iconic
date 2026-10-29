@@ -1,7 +1,7 @@
 import { getOrders, getEventCounts, dateKeysForRange } from '../../../lib/analyticsStore';
 import { getCapiStatus } from '../../../lib/metaCapi';
 
-const VALID_FUNNEL_RANGES = new Set(['today', 'yesterday', '7d', '30d']);
+const VALID_RANGES = new Set(['today', 'yesterday', '7d', '30d']);
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -9,10 +9,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const funnelRange = VALID_FUNNEL_RANGES.has(req.query.range) ? req.query.range : 'today';
+  // One range drives the whole dashboard: sales, payment methods and funnel.
+  const range = VALID_RANGES.has(req.query.range) ? req.query.range : 'today';
+  const dateKeys = dateKeysForRange(range);
 
   try {
-    const [orders, events, capi] = await Promise.all([getOrders(), getEventCounts(dateKeysForRange(funnelRange)), getCapiStatus()]);
+    const [perDay, events, capi] = await Promise.all([
+      Promise.all(dateKeys.map((key) => getOrders(key))),
+      getEventCounts(dateKeys),
+      getCapiStatus(),
+    ]);
+    const orders = perDay.flat();
     const revenue = orders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
 
     const rate = (num, den) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
@@ -30,10 +37,10 @@ export default async function handler(req, res) {
       .sort((a, b) => b.count - a.count);
 
     return res.status(200).json({
-      revenueToday: revenue,
-      ordersToday: orders.length,
+      revenue,
+      orderCount: orders.length,
       paymentMethods,
-      funnelRange,
+      range,
       capi,
       funnel: {
         pageviews: events.pageview,
