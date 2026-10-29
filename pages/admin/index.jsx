@@ -1021,13 +1021,14 @@ const ORDER_RANGES = [['today', 'Today', 1], ['yesterday', 'Yesterday', 1], ['7d
 // the order ledger and dashboard use — so "Today"/"Yesterday" match them.
 const storeDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
 const storeDayOf = (t) => storeDay.format(new Date(t));
-const ORDER_STATUSES = [['open', 'Open'], ['unshipped', 'To ship'], ['shipped', 'Shipped'], ['refunded', 'Refunded'], ['cancelled', 'Cancelled'], ['archived', 'Archived'], ['every', 'Everything']];
+const ORDER_STATUSES = [['open', 'Open'], ['unshipped', 'To ship'], ['shipped', 'Fulfilled'], ['refunded', 'Refunded'], ['cancelled', 'Cancelled'], ['archived', 'Archived'], ['every', 'Everything']];
 
 function orderState(o) {
   if (o.status === 'refunded') return { label: 'Refunded', color: '#a13d2b' };
   if (o.status === 'cancelled') return { label: 'Cancelled', color: T.soft };
   if (o.status === 'archived') return { label: 'Archived', color: T.soft };
-  if (o.trackingNumber) return { label: 'Shipped', color: '#1a7a3c' };
+  // A tracking number on the order means it has been fulfilled.
+  if (o.trackingNumber) return { label: 'Fulfilled', color: '#1a7a3c', icon: '✓ ' };
   return { label: 'To ship', color: '#9a6a12' };
 }
 
@@ -1070,7 +1071,8 @@ function OrdersTab({ refreshKey }) {
 
   const replace = (order) => setOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
 
-  // Orders ticked in the list for "Send selected to Easyship".
+  // Orders ticked in the list, for "Export selected" and "Send to Easyship"
+  // (only the ticked orders that can go to Easyship are sent).
   const [selected, setSelected] = React.useState([]);
   const [selectedSending, setSelectedSending] = React.useState(false);
   const [selectedMessage, setSelectedMessage] = React.useState('');
@@ -1083,11 +1085,12 @@ function OrdersTab({ refreshKey }) {
     const problems = [];
     try {
       // 40 per request (the endpoint's batch size).
-      for (let i = 0; i < selected.length; i += 40) {
+      const toSend = (orders || []).filter((o) => selected.includes(o.id) && canSendToEasyship(o)).map((o) => o.id);
+      for (let i = 0; i < toSend.length; i += 40) {
         const res = await fetch('/api/admin/orders/easyship', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderIds: selected.slice(i, i + 40) }),
+          body: JSON.stringify({ orderIds: toSend.slice(i, i + 40) }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Could not send.');
@@ -1095,7 +1098,7 @@ function OrdersTab({ refreshKey }) {
         problems.push(...data.failed.map((f) => `${f.id}: ${f.error}`), ...data.skipped.map((k) => `${k.id}: ${k.reason}`));
       }
       setSelectedMessage(`Sent ${sent} to Easyship.${problems.length ? ` Not sent — ${problems.slice(0, 3).join(' · ')}${problems.length > 3 ? ` (+${problems.length - 3} more)` : ''}` : ''}`);
-      setSelected([]);
+      setSelected((prev) => prev.filter((id) => !toSend.includes(id)));
     } catch (err) {
       setSelectedMessage(err.message);
     } finally {
@@ -1147,20 +1150,36 @@ function OrdersTab({ refreshKey }) {
     return { count: rows.length, revenue: paid.reduce((s, o) => s + Number(o.amount || 0), 0) };
   }, [rows]);
 
+  const downloadCsv = (header, lines, name) => {
+    const blob = new Blob([[header.map(csvCell).join(','), ...lines.map((l) => l.map(csvCell).join(','))].join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `smells-iconic-${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const exportCsv = () => {
     const header = ['Date', 'Order ID', 'Status', 'Customer', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Amount', 'Payment', 'Source', 'Campaign', 'Carrier', 'Tracking'];
     const lines = rows.map((o) => {
       const s = o.shipping || {};
       const { source, campaign } = attributionSource(o);
       return [new Date(o.createdAt).toLocaleString(), o.id, orderState(o).label, customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
-        (o.items || []).map((i) => `${i.name} x${i.quantity}`).join('; '), Number(o.amount || 0).toFixed(2), o.paymentMethod, source, campaign, o.carrier, o.trackingNumber].map(csvCell).join(',');
+        (o.items || []).map((i) => `${i.name} x${i.quantity}`).join('; '), Number(o.amount || 0).toFixed(2), o.paymentMethod, source, campaign, o.carrier, o.trackingNumber];
     });
-    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `smells-iconic-orders-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadCsv(header, lines, 'orders');
+  };
+
+  // Just the ticked orders: who, where to ship, and what's in the order.
+  const exportSelected = () => {
+    const header = ['Order ID', 'Date', 'Name', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Total qty'];
+    const lines = (orders || []).filter((o) => selected.includes(o.id)).map((o) => {
+      const s = o.shipping || {};
+      const items = o.items || [];
+      return [o.id, new Date(o.createdAt).toLocaleString(), customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
+        items.map((i) => `${i.name} x${i.quantity || 1}`).join('; '), items.reduce((n, i) => n + Number(i.quantity || 1), 0)];
+    });
+    downloadCsv(header, lines, `selected-orders-${lines.length}`);
   };
 
   const field = { height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14 };
@@ -1187,20 +1206,32 @@ function OrdersTab({ refreshKey }) {
 
       {easyshipStatus && <EasyshipStatus status={easyshipStatus} onSent={() => { load(); loadEasyship(); }} />}
       {(() => {
+        const shown = rows.map((o) => o.id);
         const eligible = rows.filter(canSendToEasyship).map((o) => o.id);
-        const all = eligible.length > 0 && eligible.every((id) => selected.includes(id));
-        if (!eligible.length && !selected.length && !selectedMessage) return null;
+        const all = shown.length > 0 && shown.every((id) => selected.includes(id));
+        const sendable = (orders || []).filter((o) => selected.includes(o.id) && canSendToEasyship(o)).length;
+        if (!shown.length && !selected.length && !selectedMessage) return null;
         return (
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', margin: '0 0 12px', fontSize: 13 }}>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: eligible.length ? 'pointer' : 'default' }} title="Select all orders not yet in Easyship">
-              <input type="checkbox" checked={all} disabled={!eligible.length} onChange={() => setSelected(all ? [] : eligible)} />
-              Select all not in Easyship ({eligible.length})
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: shown.length ? 'pointer' : 'default' }}>
+              <input type="checkbox" checked={all} disabled={!shown.length} onChange={() => setSelected(all ? selected.filter((id) => !shown.includes(id)) : [...new Set([...selected, ...shown])])} />
+              Select all shown ({shown.length})
             </label>
+            {eligible.length > 0 && (
+              <button type="button" onClick={() => setSelected(eligible)} style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, color: T.ink, textDecoration: 'underline', cursor: 'pointer' }}>
+                Select not in Easyship ({eligible.length})
+              </button>
+            )}
             {selected.length > 0 && (
               <>
-                <button type="button" onClick={sendSelected} disabled={selectedSending} style={{ ...S.btnFill, height: 36, padding: '0 16px', fontSize: 13, opacity: selectedSending ? 0.6 : 1 }}>
-                  {selectedSending ? 'Sending…' : `Send ${selected.length} selected to Easyship`}
+                <button type="button" onClick={exportSelected} style={{ ...S.btnFill, height: 36, padding: '0 16px', fontSize: 13 }}>
+                  Export {selected.length} selected to CSV
                 </button>
+                {sendable > 0 && (
+                  <button type="button" onClick={sendSelected} disabled={selectedSending} style={{ ...S.btnOutline, height: 36, padding: '0 16px', fontSize: 13, opacity: selectedSending ? 0.6 : 1 }}>
+                    {selectedSending ? 'Sending…' : `Send ${sendable} to Easyship`}
+                  </button>
+                )}
                 <button type="button" onClick={() => setSelected([])} style={{ ...S.btnOutline, height: 36, padding: '0 14px', fontSize: 12 }}>Clear</button>
               </>
             )}
@@ -1225,9 +1256,7 @@ function OrdersTab({ refreshKey }) {
           <div key={o.id} style={{ borderTop: `1px solid ${T.line}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ flex: '0 0 18px' }}>
-              {canSendToEasyship(o) && (
-                <input type="checkbox" aria-label="Select for Easyship" checked={selected.includes(o.id)} onChange={() => toggleSelected(o.id)} />
-              )}
+              <input type="checkbox" aria-label="Select order" checked={selected.includes(o.id)} onChange={() => toggleSelected(o.id)} />
             </span>
             <button type="button" onClick={() => setOpenId(open ? null : o.id)} style={{ display: 'flex', flex: 1, minWidth: 0, gap: 12, alignItems: 'center', padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flexWrap: 'wrap', fontSize: 14, color: T.ink }}>
               <span style={{ flex: '0 0 120px', color: T.soft }}>{new Date(o.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
@@ -1236,9 +1265,9 @@ function OrdersTab({ refreshKey }) {
                 <span style={{ color: T.soft }}> · {(o.items || []).map((i) => `${i.name} ×${i.quantity}`).join(', ')}</span>
               </span>
               <span style={{ flex: '0 0 80px', fontWeight: 600 }}>${Number(o.amount || 0).toFixed(2)}</span>
-              <span style={{ flex: '0 0 90px', fontWeight: 600, color: state.color }}>{state.label}</span>
-              <span style={{ flex: '0 0 130px', fontSize: 12, color: o.easyship?.sent ? T.soft : o.easyship?.lastError ? '#a13d2b' : T.soft }}>
-                {o.easyship?.sent ? '✓ In Easyship' : o.easyship?.lastError ? 'Easyship failed' : (o.status || 'paid') === 'paid' && !o.trackingNumber ? (o.shipping?.address ? 'Not in Easyship' : 'No address') : ''}
+              <span style={{ flex: '0 0 90px', fontWeight: 600, color: state.color }}>{state.icon}{state.label}</span>
+              <span style={{ flex: '0 0 130px', fontSize: 12, color: o.trackingNumber ? '#1a7a3c' : o.easyship?.lastError ? '#a13d2b' : T.soft, wordBreak: 'break-all' }} title={o.trackingNumber ? 'Tracking number' : undefined}>
+                {o.trackingNumber ? `${o.carrier ? `${o.carrier} ` : ''}${o.trackingNumber}` : o.easyship?.sent ? '✓ In Easyship' : o.easyship?.lastError ? 'Easyship failed' : (o.status || 'paid') === 'paid' && !o.trackingNumber ? (o.shipping?.address ? 'Not in Easyship' : 'No address') : ''}
               </span>
               <span style={{ flex: '0 0 16px', color: T.soft }}>{open ? '−' : '+'}</span>
             </button>
