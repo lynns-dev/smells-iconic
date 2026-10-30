@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { T, S } from '../../lib/theme';
+import { T, S } from '../../lib/adminTheme';
 import AdminFonts from '../../components/AdminFonts';
 
 export default function AdminLogin() {
@@ -43,16 +43,16 @@ export default function AdminLogin() {
         <meta name="apple-mobile-web-app-title" content="Smells Iconic Admin" />
       </Head>
       <AdminFonts />
-      <form onSubmit={handleSubmit} style={{ width: 320, padding: 40, background: T.white, border: `1px solid ${T.line}` }}>
-        <span style={{ fontWeight: 500, fontSize: 26, display: 'block', marginBottom: 24, textAlign: 'center' }}>Smells Iconic</span>
-        <p style={{ ...S.label, marginBottom: 16, textAlign: 'center' }}>Admin</p>
+      <form onSubmit={handleSubmit} style={{ width: 340, maxWidth: 'calc(100vw - 32px)', boxSizing: 'border-box', padding: '40px 32px', background: T.white, borderRadius: 22, boxShadow: T.shadow }}>
+        <span className="admin-serif" style={{ fontSize: 32, display: 'block', marginBottom: 4, textAlign: 'center' }}>Smells Iconic</span>
+        <p style={{ ...S.label, fontWeight: 500, marginBottom: 28, textAlign: 'center' }}>Sign in to Admin</p>
         <input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={{
-            width: '100%', height: 46, padding: '0 14px', border: `1px solid ${T.line}`, background: T.white,
+            width: '100%', height: 46, padding: '0 14px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 12, background: T.white,
             fontFamily: T.sans, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box',
           }}
           autoFocus
@@ -62,7 +62,7 @@ export default function AdminLogin() {
         <button
           type="submit"
           disabled={submitting}
-          style={{ ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 20, opacity: submitting ? 0.6 : 1 }}
+          style={{ ...S.btnFill, width: '100%', height: 46, fontSize: 15, justifyContent: 'center', marginTop: 16, opacity: submitting ? 0.6 : 1 }}
         >
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>

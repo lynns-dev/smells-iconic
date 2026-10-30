@@ -1,5 +1,5 @@
 import React from 'react';
-import { T, S } from '../lib/theme';
+import { T, S } from '../lib/adminTheme';
 
 // Admin's Paths tab: how visitors move from first touch to purchase
 // (lib/journeys.js). A collapsible tree — each row is one step on a path,
@@ -207,8 +207,8 @@ export default function PathsTree() {
   );
 }
 
-const chip = { border: `1px solid ${T.line}`, background: T.white, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: T.sans, color: T.ink };
+const chip = { border: 'none', borderRadius: 980, background: 'rgba(0,0,0,0.05)', padding: '6px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: T.sans, color: T.ink };
 const chipOn = { background: T.ink, color: T.white, borderColor: T.ink };
-const tile = { border: `1px solid ${T.line}`, padding: '12px 18px', minWidth: 120, background: T.white };
+const tile = { borderRadius: 14, padding: '12px 18px', minWidth: 120, background: T.paper };
 const tileNum = { fontSize: 22, fontWeight: 700 };
 const tileLabel = { fontSize: 11, color: T.soft, marginTop: 2 };

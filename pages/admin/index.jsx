@@ -3,10 +3,11 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { PRODUCTS } from '../../lib/products';
 import { parseCsv } from '../../lib/csv';
-import { T, S } from '../../lib/theme';
+import { T, S } from '../../lib/adminTheme';
 import { orderLabel as orderNo } from '../../lib/orderNumbers';
 import { EMAIL_TYPE_LABELS, orderEmailLog } from '../../lib/emailLog';
 import AdminFonts from '../../components/AdminFonts';
+import AdminNavIcon from '../../components/AdminNavIcon';
 import CartFunnelReport from '../../components/CartFunnelReport';
 import AdminInbox from '../../components/AdminInbox';
 import PathsTree from '../../components/PathsTree';
@@ -384,7 +385,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: T.paper, padding: '32px 24px 80px' }}>
+    <div className="admin-page" style={{ minHeight: '100vh', background: T.paper }}>
       <Head>
         <title key="title">{`${live.count} live · Smells Iconic Admin`}</title>
         <link rel="manifest" href="/manifest.json" />
@@ -398,23 +399,28 @@ export default function AdminDashboard() {
       <AdminFonts />
 
       <div className="admin-shell">
+        {/* Sidebar on desktop; a bottom tab bar on phones. */}
         <nav className="admin-nav">
-          <div style={{ fontWeight: 600, fontSize: 18, padding: '4px 12px 18px' }}>Smells Iconic</div>
+          <div className="admin-brand">Smells Iconic<span>Admin</span></div>
           {ADMIN_TABS.map(([key, label]) => (
-            <button key={key} type="button" onClick={() => selectTab(key)} className={`admin-nav-item${tab === key ? ' active' : ''}`}>
-              {label}
+            <button key={key} type="button" onClick={() => selectTab(key)} className={`admin-nav-item${tab === key ? ' active' : ''}`} aria-current={tab === key ? 'page' : undefined}>
+              <AdminNavIcon name={key} />
+              <span className="admin-nav-label">{label}</span>
               {key === 'reviews' && pendingReviews.length > 0 && <span className="admin-nav-badge">{pendingReviews.length}</span>}
               {key === 'inbox' && inboxNew > 0 && <span className="admin-nav-badge">{inboxNew}</span>}
             </button>
           ))}
-          <button type="button" onClick={handleLogout} className="admin-nav-item admin-nav-signout">Sign out</button>
+          <button type="button" onClick={handleLogout} className="admin-nav-item admin-nav-signout">
+            <AdminNavIcon name="signout" />
+            <span className="admin-nav-label">Sign out</span>
+          </button>
         </nav>
 
         <main className="admin-main">
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', margin: '0 0 24px' }}>
-          <h1 style={{ fontWeight: 600, fontSize: 26, margin: 0 }}>{ADMIN_TABS.find(([k]) => k === tab)?.[1]}</h1>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', margin: '4px 0 24px' }}>
+          <h1 className="admin-serif" style={pageTitle}>{ADMIN_TABS.find(([k]) => k === tab)?.[1]}</h1>
           {updatedAt && (
-            <span style={{ fontSize: 12, color: T.soft }}>
+            <span style={{ fontSize: 13, color: T.soft }}>
               Updated {updatedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
             </span>
           )}
@@ -482,8 +488,8 @@ export default function AdminDashboard() {
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 24 }}>
                 {Object.entries(STAGE_LABELS).map(([key, label]) => (
                   <div key={key} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 32 }}>{live.byStage[key] || 0}</div>
-                    <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
+                    <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.02em' }}>{live.byStage[key] || 0}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: T.soft }}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -505,8 +511,8 @@ export default function AdminDashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 18, width: 24, flexShrink: 0 }}>{countryFlag(code)}</span>
                       <span style={{ fontSize: 13, width: 140, flexShrink: 0 }}>{countryName(code)}</span>
-                      <div style={{ flex: 1, height: 8, background: T.paper }}>
-                        <div style={{ height: '100%', width: `${(data.count / live.count) * 100}%`, background: T.ink }} />
+                      <div style={{ flex: 1, height: 8, background: T.paper, borderRadius: 999 }}>
+                        <div style={{ height: '100%', width: `${(data.count / live.count) * 100}%`, background: T.accent, borderRadius: 999 }} />
                       </div>
                       <span style={{ fontSize: 13, color: T.soft, width: 20, textAlign: 'right', flexShrink: 0 }}>{data.count}</span>
                     </div>
@@ -540,7 +546,7 @@ export default function AdminDashboard() {
                     <div style={{ height: barHeight, display: 'flex', flexDirection: 'column-reverse' }}>
                       {bucket.addtocart > 0 && <div style={{ flex: bucket.addtocart, background: 'rgba(21,17,13,0.25)' }} />}
                       {bucket.checkout_start > 0 && <div style={{ flex: bucket.checkout_start, background: 'rgba(21,17,13,0.55)' }} />}
-                      {bucket.purchase > 0 && <div style={{ flex: bucket.purchase, background: T.ink }} />}
+                      {bucket.purchase > 0 && <div style={{ flex: bucket.purchase, background: T.accent }} />}
                     </div>
                   ) : (
                     <div style={{ height: 2, background: T.line }} />
@@ -556,7 +562,7 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', gap: 16, fontSize: 11, color: T.soft, marginBottom: 24 }}>
             <span><span style={{ display: 'inline-block', width: 8, height: 8, background: 'rgba(21,17,13,0.25)', marginRight: 6 }} />Added to cart</span>
             <span><span style={{ display: 'inline-block', width: 8, height: 8, background: 'rgba(21,17,13,0.55)', marginRight: 6 }} />Checkout started</span>
-            <span><span style={{ display: 'inline-block', width: 8, height: 8, background: T.ink, marginRight: 6 }} />Purchased</span>
+            <span><span style={{ display: 'inline-block', width: 8, height: 8, background: T.accent, borderRadius: 2, marginRight: 6 }} />Purchased</span>
           </div>
 
           {live.activity.recent.length === 0 ? (
@@ -588,8 +594,8 @@ export default function AdminDashboard() {
                 return (
                   <div key={method} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span style={{ fontSize: 13, width: 110, flexShrink: 0 }}>{method}</span>
-                    <div style={{ flex: 1, height: 8, background: T.paper }}>
-                      <div style={{ height: '100%', width: `${(count / maxCount) * 100}%`, background: T.ink }} />
+                    <div style={{ flex: 1, height: 8, background: T.paper, borderRadius: 999 }}>
+                      <div style={{ height: '100%', width: `${(count / maxCount) * 100}%`, background: T.accent, borderRadius: 999 }} />
                     </div>
                     <span style={{ fontSize: 13, color: T.soft, width: 90, textAlign: 'right', flexShrink: 0 }}>
                       {count} order{count === 1 ? '' : 's'} · ${revenue.toFixed(2)}
@@ -780,21 +786,6 @@ export default function AdminDashboard() {
       </div>
 
       <style jsx>{`
-        .admin-shell { display: flex; gap: 32px; max-width: 1240px; margin: 0 auto; align-items: flex-start; }
-        .admin-nav { position: sticky; top: 24px; width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
-        .admin-nav-item { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: 10px 12px; border: none; border-radius: 8px; background: none; font-size: 15px; color: ${T.soft}; cursor: pointer; }
-        .admin-nav-item:hover { background: rgba(0, 0, 0, 0.04); color: ${T.ink}; }
-        .admin-nav-item.active { background: ${T.white}; color: ${T.ink}; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
-        .admin-nav-badge { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: ${T.ink}; color: ${T.white}; font-size: 11px; text-align: center; }
-        .admin-nav-signout { margin-top: 16px; }
-        .admin-main { flex: 1; min-width: 0; }
-        @media (max-width: 760px) {
-          .admin-shell { flex-direction: column; gap: 16px; }
-          .admin-nav { position: sticky; top: 0; z-index: 5; width: 100%; flex-direction: row; overflow-x: auto; background: ${T.paper}; padding: 8px 0; }
-          .admin-nav > div:first-child { display: none; }
-          .admin-nav-item { white-space: nowrap; flex-shrink: 0; }
-          .admin-nav-signout { margin-top: 0; }
-        }
         .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         .funnel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
         @media (max-width: 640px) {
@@ -808,9 +799,9 @@ export default function AdminDashboard() {
 
 function StatCard({ label, value, highlight }) {
   return (
-    <div style={{ ...statCard, ...(highlight ? { borderColor: T.ink } : {}) }}>
-      <div style={{ fontWeight: 400, fontSize: 34 }}>{value}</div>
-      <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, marginTop: 4 }}>{label}</div>
+    <div style={{ ...statCard, ...(highlight ? { boxShadow: `inset 0 0 0 2px ${T.accent}, ${T.shadow}` } : {}) }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: T.soft, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', lineHeight: 1.1 }}>{value}</div>
     </div>
   );
 }
@@ -818,9 +809,9 @@ function StatCard({ label, value, highlight }) {
 function FunnelStep({ label, value, rate }) {
   return (
     <div>
-      <div style={{ fontSize: 28 }}>{value ?? 0}</div>
-      <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft }}>{label}</div>
-      {rate && <div style={{ fontSize: 12, color: T.ink, marginTop: 2 }}>{rate}</div>}
+      <div style={{ fontSize: 13, fontWeight: 500, color: T.soft }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em' }}>{value ?? 0}</div>
+      {rate && <div style={{ fontSize: 12, color: T.accent, fontWeight: 500, marginTop: 2 }}>{rate}</div>}
     </div>
   );
 }
@@ -852,8 +843,8 @@ function automationsSent(s) {
 }
 
 function subscriberStatus(s) {
-  if (s.orders?.count) return { kind: 'customer', label: `Customer · ${s.orders.count} order${s.orders.count === 1 ? '' : 's'} · $${s.orders.spent.toFixed(2)}`, color: '#1a7a3c' };
-  if (s.sources?.includes('order')) return { kind: 'customer', label: 'Customer', color: '#1a7a3c' };
+  if (s.orders?.count) return { kind: 'customer', label: `Customer · ${s.orders.count} order${s.orders.count === 1 ? '' : 's'} · $${s.orders.spent.toFixed(2)}`, color: T.ink };
+  if (s.sources?.includes('order')) return { kind: 'customer', label: 'Customer', color: T.ink };
   if (s.lastCheckoutAt) return { kind: 'abandoned', label: 'Abandoned checkout', color: '#a13d2b' };
   return { kind: 'newsletter', label: s.sources?.includes('cart') && !s.sources?.includes('newsletter') ? 'Signed up in cart for 15% off' : 'Newsletter signup', color: T.soft };
 }
@@ -931,11 +922,11 @@ function SubscribersTab({ refreshKey }) {
     >
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {SUB_FILTERS.map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setFilter(key)} style={{ ...chip, cursor: 'pointer', background: filter === key ? T.ink : T.white, color: filter === key ? T.white : T.ink }}>{label} · {counts[key] ?? 0}</button>
+          <button key={key} type="button" onClick={() => setFilter(key)} style={{ ...chip, cursor: 'pointer', background: filter === key ? T.ink : 'rgba(0,0,0,0.05)', color: filter === key ? T.white : T.ink }}>{label} · {counts[key] ?? 0}</button>
         ))}
       </div>
       <input placeholder="Search email, phone, name, city, product…" value={query} onChange={(e) => setQuery(e.target.value)}
-        style={{ width: '100%', boxSizing: 'border-box', height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14, marginBottom: 16 }} />
+        style={{ width: '100%', boxSizing: 'border-box', height: 40, padding: '0 12px', border: '1px solid rgba(0,0,0,0.12)', background: T.white, fontSize: 14, marginBottom: 16 }} />
 
       {list === null && !error && <p style={{ color: T.soft, fontSize: 14 }}>Loading…</p>}
       {error && <p style={{ color: '#a13d2b', fontSize: 14 }}>{error}</p>}
@@ -962,7 +953,7 @@ function SubscribersTab({ refreshKey }) {
               )}
               <span style={{ color: T.soft, fontSize: 13 }}>via {(s.sources || []).join(', ')}</span>
               <button type="button" onClick={() => toggleConsent(s)} title="Whether they agreed to marketing emails"
-                style={{ ...chip, cursor: 'pointer', background: s.consent ? '#e7f4ea' : T.white, color: s.consent ? '#1a7a3c' : T.soft }}>
+                style={{ ...chip, cursor: 'pointer', background: s.consent ? T.blush : T.white, color: s.consent ? T.ink : T.soft }}>
                 {s.consent ? 'Emails OK' : 'Not opted in'}
               </button>
             </div>
@@ -1003,8 +994,8 @@ function orderState(o) {
   if (o.status === 'cancelled') return { label: 'Cancelled', color: T.soft };
   if (o.status === 'archived') return { label: 'Archived', color: T.soft };
   // A tracking number on the order means it has been fulfilled.
-  if (o.trackingNumber) return { label: 'Fulfilled', color: '#1a7a3c', icon: '✓ ' };
-  return { label: 'To ship', color: '#9a6a12' };
+  if (o.trackingNumber) return { label: 'Fulfilled', color: T.soft, icon: '✓ ' };
+  return { label: 'To ship', color: T.ink };
 }
 
 function customerName(o) {
@@ -1160,7 +1151,7 @@ function OrdersTab({ refreshKey }) {
     downloadCsv(header, lines, `selected-orders-${lines.length}`);
   };
 
-  const field = { height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14 };
+  const field = { height: 40, padding: '0 12px', border: '1px solid rgba(0,0,0,0.12)', background: T.white, fontSize: 14 };
 
   return (
     <Section
@@ -1172,7 +1163,7 @@ function OrdersTab({ refreshKey }) {
     >
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {ORDER_STATUSES.map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : T.white, color: statusFilter === key ? T.white : T.ink }}>{label}</button>
+          <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : 'rgba(0,0,0,0.05)', color: statusFilter === key ? T.white : T.ink }}>{label}</button>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -1245,7 +1236,7 @@ function OrdersTab({ refreshKey }) {
               </span>
               <span style={{ flex: '0 0 80px', fontWeight: 600 }}>${Number(o.amount || 0).toFixed(2)}</span>
               <span style={{ flex: '0 0 90px', fontWeight: 600, color: state.color }}>{state.icon}{state.label}</span>
-              <span style={{ flex: '0 0 130px', fontSize: 12, color: o.trackingNumber ? '#1a7a3c' : o.easyship?.lastError ? '#a13d2b' : T.soft, wordBreak: 'break-all' }} title={o.trackingNumber ? 'Tracking number' : undefined}>
+              <span style={{ flex: '0 0 130px', fontSize: 12, color: o.trackingNumber ? T.ink : o.easyship?.lastError ? '#a13d2b' : T.soft, wordBreak: 'break-all' }} title={o.trackingNumber ? 'Tracking number' : undefined}>
                 {o.trackingNumber ? `${o.carrier ? `${o.carrier} ` : ''}${o.trackingNumber}` : o.easyship?.sent ? '✓ In Easyship' : o.easyship?.lastError ? 'Easyship failed' : (o.status || 'paid') === 'paid' && !o.trackingNumber ? (o.shipping?.address ? 'Not in Easyship' : 'No address') : ''}
               </span>
               <span style={{ flex: '0 0 16px', color: T.soft }}>{open ? '−' : '+'}</span>
@@ -1292,7 +1283,7 @@ function OrdersTab({ refreshKey }) {
                     button covers older orders and failures. */}
                 <div>
                   <div style={orderLabel}>Easyship</div>
-                  {o.easyship?.sent ? <div style={{ color: '#1a7a3c', fontWeight: 600 }}>In Easyship</div> : (
+                  {o.easyship?.sent ? <div style={{ color: T.ink, fontWeight: 600 }}>In Easyship</div> : (
                     <>
                       <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'easyship', '/api/admin/orders/easyship', {})} style={{ ...S.btnOutline, height: 34, padding: '0 12px' }}>
                         {busy[o.id] === 'easyship' ? 'Sending…' : 'Send to Easyship'}
@@ -1335,7 +1326,7 @@ function OrdersTab({ refreshKey }) {
                         {!e.ok && e.error && <span style={{ display: 'block', fontSize: 12, color: '#a13d2b' }}>{e.error}</span>}
                       </span>
                       <span style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                        <span style={{ fontWeight: 600, color: e.ok ? '#1a7a3c' : '#a13d2b' }}>{e.ok ? 'Sent' : 'Failed'}</span>
+                        <span style={{ fontWeight: 600, color: e.ok ? T.ink : '#a13d2b' }}>{e.ok ? 'Sent' : 'Failed'}</span>
                         {e.at && <span style={{ display: 'block', fontSize: 11, color: T.soft }}>{new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
                       </span>
                     </div>
@@ -1365,7 +1356,7 @@ function OrdersTab({ refreshKey }) {
                   ) : (
                     <button type="button" disabled={Boolean(busy[o.id])} style={S.btnOutline} onClick={() => act(o, 'status', '/api/admin/orders/status', { status: 'paid' })}>Restore</button>
                   )}
-                  {m && <span style={{ fontSize: 13, color: m.ok ? '#1a7a3c' : '#a13d2b' }}>{m.text}</span>}
+                  {m && <span style={{ fontSize: 13, color: m.ok ? T.ink : '#a13d2b' }}>{m.text}</span>}
                 </div>
               </div>
             )}
@@ -1410,7 +1401,7 @@ function visitorStatus(j) {
   return { kind: 'browse', text: active ? 'Browsing now' : 'Browsed only' };
 }
 
-const STATUS_COLORS = { purchase: '#1a7a3c', checkout: '#a13d2b', cart: '#9a6a12', browse: T.soft };
+const STATUS_COLORS = { purchase: T.ink, checkout: T.ink, cart: T.soft, browse: T.soft };
 const STATUS_FILTERS = [['all', 'All'], ['cart', 'Added to cart'], ['checkout', 'Reached checkout'], ['purchase', 'Purchased']];
 
 // Visitors tab: who came to the site, from where, and with which URL
@@ -1479,7 +1470,7 @@ function VisitorEmailAction({ contact, status }) {
           {state.busy ? 'Sending…' : sentAt ? 'Send again' : 'Send abandoned checkout email'}
         </button>
       )}
-      {sentAt && <span style={{ fontSize: 12, color: '#1a7a3c' }}>Reminder sent {sinceIso(sentAt)}</span>}
+      {sentAt && <span style={{ fontSize: 12, color: T.ink }}>Reminder sent {sinceIso(sentAt)}</span>}
       {state.error && <span style={{ fontSize: 12, color: '#a13d2b' }}>{state.error}</span>}
     </div>
   );
@@ -1544,7 +1535,7 @@ function VisitorsTab({ refreshKey }) {
         {topSources.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {topSources.map(([source, count]) => (
-              <button key={source} type="button" onClick={() => setQuery(source === query ? '' : source)} style={{ ...chip, cursor: 'pointer', background: query === source ? T.ink : T.white, color: query === source ? T.white : T.ink }}>
+              <button key={source} type="button" onClick={() => setQuery(source === query ? '' : source)} style={{ ...chip, cursor: 'pointer', background: query === source ? T.ink : 'rgba(0,0,0,0.05)', color: query === source ? T.white : T.ink }}>
                 {source} · {count}
               </button>
             ))}
@@ -1555,7 +1546,7 @@ function VisitorsTab({ refreshKey }) {
       <Section title={`Recent visitors (${rows.length}${visitors && rows.length !== visitors.length ? ` of ${visitors.length}` : ''})`}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
           {STATUS_FILTERS.map(([key, label]) => (
-            <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : T.white, color: statusFilter === key ? T.white : T.ink }}>
+            <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : 'rgba(0,0,0,0.05)', color: statusFilter === key ? T.white : T.ink }}>
               {label} · {statusCounts[key]}
             </button>
           ))}
@@ -1565,7 +1556,7 @@ function VisitorsTab({ refreshKey }) {
             placeholder="Search source, page, city, utm_campaign=…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            style={{ flex: 1, minWidth: 220, height: 40, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white, fontSize: 14 }}
+            style={{ flex: 1, minWidth: 220, height: 40, padding: '0 12px', border: '1px solid rgba(0,0,0,0.12)', background: T.white, fontSize: 14 }}
           />
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.soft }}>
             <input type="checkbox" checked={onlyTagged} onChange={(e) => setOnlyTagged(e.target.checked)} />
@@ -1683,7 +1674,7 @@ function EasyshipStatus({ status, onSent }) {
     onSent();
   };
   return (
-    <div style={{ border: `1px solid ${T.line}`, padding: '12px 14px', margin: '0 0 16px', fontSize: 13, lineHeight: 1.6 }}>
+    <div style={{ background: T.paper, borderRadius: 12, padding: '12px 14px', margin: '0 0 16px', fontSize: 13, lineHeight: 1.6 }}>
       <div style={{ fontWeight: 600, color: status.configured ? T.ink : '#a13d2b' }}>
         {status.configured ? 'Easyship connected' : 'Easyship is not set up'}
       </div>
@@ -1786,9 +1777,9 @@ function AutobuyLabels({ status, onChange }) {
 
 function Section({ title, action, children }) {
   return (
-    <div style={{ background: T.white, border: `1px solid ${T.line}`, padding: 24, marginBottom: 24 }}>
+    <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
-        <p style={{ margin: 0, fontSize: 19, fontWeight: 500, color: T.ink }}>{title}</p>
+        <p style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: T.ink }}>{title}</p>
         {action}
       </div>
       {children}
@@ -1796,21 +1787,26 @@ function Section({ title, action, children }) {
   );
 }
 
-const tabBar = { display: 'flex', gap: 8, marginBottom: 24, borderBottom: `1px solid ${T.line}` };
-const tabButton = { background: 'none', border: 'none', borderBottom: '2px solid transparent', padding: '10px 14px', fontSize: 15, color: T.soft, cursor: 'pointer', marginBottom: -1 };
-const tabActive = { ...tabButton, color: T.ink, fontWeight: 600, borderBottom: `2px solid ${T.ink}` };
+// Serif title at the top of each screen (.admin-serif sets the font).
+const pageTitle = { fontWeight: 400, fontSize: 36, lineHeight: 1.1, margin: 0, color: T.ink };
+// White rounded card every section sits on.
+const card = { background: T.white, borderRadius: T.radius, boxShadow: T.shadow, padding: 24, marginBottom: 20 };
+// Segmented control (iOS style) for in-screen tabs.
+const tabBar = { display: 'inline-flex', flexWrap: 'wrap', gap: 2, padding: 2, marginBottom: 24, background: 'rgba(118,118,128,0.12)', borderRadius: 9 };
+const tabButton = { background: 'none', border: 'none', borderRadius: 7, padding: '6px 16px', fontSize: 13, fontWeight: 500, color: T.ink, cursor: 'pointer' };
+const tabActive = { ...tabButton, background: T.white, fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 1px rgba(0,0,0,0.04)' };
 const visitorRow = { padding: '14px 0', borderTop: `1px solid ${T.line}`, fontSize: 14 };
-const chip = { display: 'inline-block', border: `1px solid ${T.line}`, background: T.white, padding: '3px 8px', fontSize: 12, borderRadius: 999, wordBreak: 'break-all' };
-const statGrid = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 };
-const statCard = { background: T.white, border: `1px solid ${T.line}`, padding: '24px 20px', textAlign: 'center' };
+const chip = { display: 'inline-block', border: 'none', background: 'rgba(0,0,0,0.05)', padding: '5px 12px', fontSize: 13, fontWeight: 500, borderRadius: 999, wordBreak: 'break-all' };
+const statGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 };
+const statCard = { background: T.white, borderRadius: T.radius, boxShadow: T.shadow, padding: '20px 22px' };
 const funnelGrid = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 };
 const rangeSelect = {
-  height: 34, padding: '0 10px', border: `1px solid ${T.line}`, background: T.white,
+  height: 34, padding: '0 10px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, background: T.white,
   fontFamily: T.sans, fontSize: 12, color: T.ink, outline: 'none',
 };
 const orderHeadRow = {
-  display: 'flex', gap: 12, padding: '0 0 10px', borderBottom: `1px solid ${T.ink}`,
-  fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.soft,
+  display: 'flex', gap: 12, padding: '0 0 10px', borderBottom: `1px solid ${T.line}`,
+  fontSize: 12, fontWeight: 500, color: T.soft,
 };
 const orderRow = {
   display: 'flex', gap: 12, padding: '12px 0', borderBottom: `1px solid ${T.line}`,
@@ -1818,13 +1814,13 @@ const orderRow = {
 };
 const reviewRow = { display: 'flex', gap: 16, alignItems: 'flex-start', padding: '14px 0', borderBottom: `1px solid ${T.line}` };
 const deleteBtn = {
-  fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', border: `1px solid ${T.line}`,
-  background: 'none', padding: '8px 12px', cursor: 'pointer', fontFamily: T.sans, flexShrink: 0, color: '#a13d2b',
+  fontSize: 13, fontWeight: 500, border: 'none', borderRadius: 980,
+  background: 'rgba(255,59,48,0.1)', padding: '7px 14px', cursor: 'pointer', fontFamily: T.sans, flexShrink: 0, color: '#D70015',
 };
 const formInput = {
-  width: '100%', height: 44, padding: '0 12px', border: `1px solid ${T.line}`, background: T.white,
+  width: '100%', height: 40, padding: '0 12px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 10, background: T.white,
   fontFamily: T.sans, fontSize: 14, color: T.ink, outline: 'none', boxSizing: 'border-box',
 };
 const formLabel = {
-  display: 'block', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.soft, marginBottom: 6,
+  display: 'block', fontSize: 12, fontWeight: 500, color: T.soft, marginBottom: 6,
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { T } from '../lib/theme';
+import { T } from '../lib/adminTheme';
 
 // Admin dashboard: this store's Meta ad spend (pages/api/admin/ad-spend.js,
 // lib/metaAds.js) next to the store's own revenue for the same days.
@@ -109,9 +109,9 @@ function Tile({ value, label }) {
   );
 }
 
-const chip = { border: `1px solid ${T.line}`, background: T.white, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: T.sans, color: T.ink };
+const chip = { border: 'none', borderRadius: 980, background: 'rgba(0,0,0,0.05)', padding: '6px 14px', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: T.sans, color: T.ink };
 const chipOn = { background: T.ink, color: T.white, borderColor: T.ink };
-const tile = { border: `1px solid ${T.line}`, padding: '12px 18px', minWidth: 150, background: T.white };
+const tile = { borderRadius: 14, padding: '12px 18px', minWidth: 150, background: T.paper };
 const row = { display: 'flex', gap: 12, alignItems: 'center', fontSize: 13, padding: '9px 0', borderBottom: `1px solid ${T.line}` };
 const headRow = { fontSize: 11, color: T.soft, textTransform: 'uppercase', letterSpacing: '0.06em' };
 const num = { flex: '0 0 100px', textAlign: 'right' };
