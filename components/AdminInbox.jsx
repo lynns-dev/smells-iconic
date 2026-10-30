@@ -6,7 +6,7 @@
 // The list can be searched and filtered by status and kind.
 
 import React from 'react';
-import { T, S } from '../lib/theme';
+import { T, S } from '../lib/adminTheme';
 
 const STATUS_FILTERS = [
   ['new', 'New'],
@@ -167,7 +167,7 @@ export default function AdminInbox({ onCount }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search name, email, order #, words…"
           aria-label="Search messages"
-          style={{ flex: '1 1 220px', height: 34, padding: '0 10px', fontSize: 13, border: `1px solid ${T.line}`, background: T.white, color: T.ink, boxSizing: 'border-box' }}
+          style={{ flex: '1 1 220px', height: 34, padding: '0 10px', fontSize: 14, border: '1px solid rgba(0,0,0,0.12)', borderRadius: 980, background: T.white, color: T.ink, boxSizing: 'border-box' }}
         />
         {STATUS_FILTERS.map(([key, label]) => (
           <button key={key} onClick={() => setFilter(key)} disabled={Boolean(query.trim())}
@@ -226,7 +226,7 @@ export default function AdminInbox({ onCount }) {
       </div>
 
       <style jsx>{`
-        .inbox-shell { display: flex; border: 1px solid ${T.line}; height: min(72vh, 720px); min-height: 420px; }
+        .inbox-shell { display: flex; border: 1px solid ${T.line}; border-radius: 14px; overflow: hidden; height: min(72vh, 720px); min-height: 420px; }
         .inbox-list { width: 300px; flex-shrink: 0; overflow-y: auto; border-right: 1px solid ${T.line}; }
         .inbox-chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .inbox-item { display: block; width: 100%; text-align: left; padding: 12px 14px; border: none; border-bottom: 1px solid ${T.line}; cursor: pointer; color: ${T.ink}; font-family: inherit; }
@@ -255,7 +255,7 @@ function Conversation({ thread, onBack, onStatus, onDelete, onReplied }) {
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: `1px solid ${T.line}`, flexWrap: 'wrap' }}>
-        <button onClick={onBack} className="inbox-back" style={{ ...smallBtn, padding: '6px 10px' }} aria-label="Back to conversations">←</button>
+        <button onClick={onBack} className="inbox-back" style={{ ...smallBtn, padding: '6px 12px' }} aria-label="Back to conversations">←</button>
         <div style={{ flex: 1, minWidth: 160 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{thread.title}</div>
           <div style={{ fontSize: 12, color: T.soft }}>
@@ -285,7 +285,7 @@ function Conversation({ thread, onBack, onStatus, onDelete, onReplied }) {
               <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
                 <div style={{ maxWidth: '78%' }}>
                   <div style={mine ? bubbleUs : bubbleThem}>
-                    {tag && <div style={{ ...tagStyle, color: mine ? T.white : T.soft }}>{tag}</div>}
+                    {tag && <div style={{ ...tagStyle, color: mine ? 'rgba(255,255,255,0.85)' : T.soft }}>{tag}</div>}
                     <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.text}</div>
                   </div>
                   <div style={{ fontSize: 11, color: T.soft, marginTop: 3, textAlign: mine ? 'right' : 'left' }}>
@@ -345,10 +345,10 @@ function Composer({ entry, onReplied }) {
           onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send(); } }}
           placeholder={`Reply to ${entry.name || entry.email}…`}
           rows={2}
-          style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', border: `1px solid ${T.line}`, borderRadius: 18, resize: 'vertical', minHeight: 44, maxHeight: 220, background: T.white, color: T.ink }}
+          style={{ flex: 1, boxSizing: 'border-box', padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 18, resize: 'vertical', minHeight: 44, maxHeight: 220, background: T.white, color: T.ink }}
         />
         <button onClick={send} disabled={sending || !text.trim()}
-          style={{ ...smallBtn, background: T.ink, color: T.white, borderColor: T.ink, borderRadius: 18, height: 40, padding: '0 16px', opacity: sending || !text.trim() ? 0.5 : 1 }}>
+          style={{ ...smallBtn, background: T.accent, color: '#FFFFFF', borderRadius: 18, height: 40, padding: '0 16px', opacity: sending || !text.trim() ? 0.5 : 1 }}>
           {sending ? 'Sending…' : 'Send'}
         </button>
       </div>
@@ -358,13 +358,13 @@ function Composer({ entry, onReplied }) {
   );
 }
 
-const card = { background: T.white, border: `1px solid ${T.line}`, padding: 24, marginBottom: 24 };
+const card = { background: T.white, borderRadius: T.radius, boxShadow: T.shadow, padding: 24, marginBottom: 20 };
 const bubbleBase = { padding: '10px 14px', fontSize: 14, lineHeight: 1.5, borderRadius: 18 };
 const bubbleThem = { ...bubbleBase, background: T.paper, color: T.ink, borderBottomLeftRadius: 4 };
-const bubbleUs = { ...bubbleBase, background: T.ink, color: T.white, borderBottomRightRadius: 4 };
+const bubbleUs = { ...bubbleBase, background: T.accent, color: '#FFFFFF', borderBottomRightRadius: 4 };
 const tagStyle = { fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 };
-const dot = { display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#c0392b', marginRight: 6, verticalAlign: 'middle' };
-const chip = { fontSize: 12, padding: '6px 12px', border: `1px solid ${T.line}`, background: T.white, cursor: 'pointer', color: T.ink };
+const dot = { display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: T.accent, marginRight: 6, verticalAlign: 'middle' };
+const chip = { fontSize: 13, fontWeight: 500, padding: '6px 14px', border: 'none', borderRadius: 980, background: 'rgba(0,0,0,0.05)', cursor: 'pointer', color: T.ink };
 const chipActive = { background: T.ink, color: T.white, borderColor: T.ink };
-const select = { fontSize: 12, padding: '6px 8px', border: `1px solid ${T.line}`, background: T.white, color: T.ink, height: 34 };
-const smallBtn = { fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 12px', border: `1px solid ${T.line}`, background: 'none', cursor: 'pointer', color: T.ink };
+const select = { fontSize: 13, padding: '6px 8px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, background: T.white, color: T.ink, height: 34 };
+const smallBtn = { fontSize: 13, fontWeight: 500, padding: '6px 12px', border: 'none', borderRadius: 980, background: 'rgba(0,0,0,0.05)', cursor: 'pointer', color: T.ink };

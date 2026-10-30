@@ -1,5 +1,5 @@
 import React from 'react';
-import { T } from '../lib/theme';
+import { T } from '../lib/adminTheme';
 
 // Admin → Dashboard: where shoppers stop between adding to cart and paying,
 // and the reasons recorded when they do (lib/cartFunnel.js,
@@ -73,7 +73,7 @@ export default function CartFunnelReport({ refreshKey }) {
                 <div key={s.key} style={stepRow}>
                   <div className="cf-label" style={{ flex: '0 0 200px', fontSize: 13 }}>{s.label}</div>
                   <div style={{ flex: 1, height: 22, background: T.paper, position: 'relative' }}>
-                    <div style={{ height: '100%', width: `${added ? (s.count / added) * 100 : 0}%`, background: i === steps.length - 1 ? '#1a7a3c' : T.ink, transition: 'width .3s' }} />
+                    <div style={{ height: '100%', width: `${added ? (s.count / added) * 100 : 0}%`, background: i === steps.length - 1 ? T.ink : T.ink, transition: 'width .3s' }} />
                   </div>
                   <div style={{ flex: '0 0 44px', textAlign: 'right', fontSize: 14, fontWeight: 600 }}>{s.count}</div>
                   <div style={{ flex: '0 0 130px', textAlign: 'right', fontSize: 12, color: lost > 0 ? '#a13d2b' : T.soft }}>
@@ -131,9 +131,9 @@ export default function CartFunnelReport({ refreshKey }) {
   );
 }
 
-const card = { background: T.white, border: `1px solid ${T.line}`, padding: 24, marginBottom: 24 };
+const card = { background: T.white, borderRadius: T.radius, boxShadow: T.shadow, padding: 24, marginBottom: 20 };
 const head = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 12, flexWrap: 'wrap' };
-const select = { height: 34, padding: '0 10px', border: `1px solid ${T.line}`, background: T.white, fontFamily: T.sans, fontSize: 12, color: T.ink, outline: 'none' };
+const select = { height: 34, padding: '0 10px', border: '1px solid rgba(0,0,0,0.12)', borderRadius: 8, background: T.white, fontFamily: T.sans, fontSize: 12, color: T.ink, outline: 'none' };
 const stepRow = { display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0', flexWrap: 'wrap' };
 const subhead = { fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.soft, margin: '24px 0 8px' };
 const reasonRow = { display: 'flex', justifyContent: 'space-between', gap: 16, padding: '8px 0', borderBottom: `1px solid ${T.line}`, fontSize: 13 };
