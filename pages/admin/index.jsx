@@ -4,6 +4,8 @@ import { useRouter } from 'next/router';
 import { PRODUCTS } from '../../lib/products';
 import { parseCsv } from '../../lib/csv';
 import { T, S } from '../../lib/theme';
+import { orderLabel as orderNo } from '../../lib/orderNumbers';
+import { EMAIL_TYPE_LABELS, orderEmailLog } from '../../lib/emailLog';
 import AdminFonts from '../../components/AdminFonts';
 import CartFunnelReport from '../../components/CartFunnelReport';
 import AdminInbox from '../../components/AdminInbox';
@@ -1025,6 +1027,9 @@ function OrdersTab({ refreshKey }) {
   const [busy, setBusy] = React.useState({});
   const [msg, setMsg] = React.useState({});
   const [tracking, setTracking] = React.useState({});
+  // Address typed into an order's "Send confirmation" box, per order id —
+  // starts as the order's own email.
+  const [confirmTo, setConfirmTo] = React.useState({});
 
   const load = React.useCallback(() => {
     setError('');
@@ -1091,7 +1096,7 @@ function OrdersTab({ refreshKey }) {
       if (data.order) replace(data.order);
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
       if (key === 'easyship') loadEasyship();
-      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'easyship' ? 'Sent to Easyship.' : 'Updated.' } }));
+      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'easyship' ? 'Sent to Easyship.' : key === 'confirm' ? `Confirmation sent to ${body.to}.` : 'Updated.' } }));
     } catch (err) {
       setMsg((m) => ({ ...m, [o.id]: { ok: false, text: err.message } }));
     } finally {
@@ -1112,7 +1117,7 @@ function OrdersTab({ refreshKey }) {
       if (statusFilter === 'shipped' && (st !== 'paid' || !o.trackingNumber)) return false;
       if (['refunded', 'cancelled', 'archived'].includes(statusFilter) && st !== statusFilter) return false;
       if (!q) return true;
-      const hay = [o.id, o.email, customerName(o), o.paymentMethod, o.trackingNumber, o.shipping?.city, o.shipping?.zip,
+      const hay = [o.id, o.orderNumber, o.orderNumber && `#${o.orderNumber}`, o.email, customerName(o), o.paymentMethod, o.trackingNumber, o.shipping?.city, o.shipping?.zip,
         ...(o.items || []).map((i) => i.name), attributionSource(o).source, attributionSource(o).campaign].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
@@ -1133,11 +1138,11 @@ function OrdersTab({ refreshKey }) {
   };
 
   const exportCsv = () => {
-    const header = ['Date', 'Order ID', 'Status', 'Customer', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Amount', 'Payment', 'Source', 'Campaign', 'Carrier', 'Tracking'];
+    const header = ['Date', 'Order #', 'Order ID', 'Status', 'Customer', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Amount', 'Payment', 'Source', 'Campaign', 'Carrier', 'Tracking'];
     const lines = rows.map((o) => {
       const s = o.shipping || {};
       const { source, campaign } = attributionSource(o);
-      return [new Date(o.createdAt).toLocaleString(), o.id, orderState(o).label, customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
+      return [new Date(o.createdAt).toLocaleString(), o.orderNumber || '', o.id, orderState(o).label, customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
         (o.items || []).map((i) => `${i.name} x${i.quantity}`).join('; '), Number(o.amount || 0).toFixed(2), o.paymentMethod, source, campaign, o.carrier, o.trackingNumber];
     });
     downloadCsv(header, lines, 'orders');
@@ -1145,11 +1150,11 @@ function OrdersTab({ refreshKey }) {
 
   // Just the ticked orders: who, where to ship, and what's in the order.
   const exportSelected = () => {
-    const header = ['Order ID', 'Date', 'Name', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Total qty'];
+    const header = ['Order #', 'Order ID', 'Date', 'Name', 'Email', 'Phone', 'Address', 'Apt', 'City', 'State', 'ZIP', 'Items', 'Total qty'];
     const lines = (orders || []).filter((o) => selected.includes(o.id)).map((o) => {
       const s = o.shipping || {};
       const items = o.items || [];
-      return [o.id, new Date(o.createdAt).toLocaleString(), customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
+      return [o.orderNumber || '', o.id, new Date(o.createdAt).toLocaleString(), customerName(o), o.email, s.phone, s.address, s.apt, s.city, s.state, s.zip,
         items.map((i) => `${i.name} x${i.quantity || 1}`).join('; '), items.reduce((n, i) => n + Number(i.quantity || 1), 0)];
     });
     downloadCsv(header, lines, `selected-orders-${lines.length}`);
@@ -1171,7 +1176,7 @@ function OrdersTab({ refreshKey }) {
         ))}
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-        <input placeholder="Search name, email, order ID, product, tracking…" value={query} onChange={(e) => setQuery(e.target.value)} style={{ ...field, flex: 1, minWidth: 220 }} />
+        <input placeholder="Search name, email, order #, product, tracking…" value={query} onChange={(e) => setQuery(e.target.value)} style={{ ...field, flex: 1, minWidth: 220 }} />
         <select value={range} onChange={(e) => setRange(e.target.value)} style={field}>
           {ORDER_RANGES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
         </select>
@@ -1232,6 +1237,7 @@ function OrdersTab({ refreshKey }) {
               <input type="checkbox" aria-label="Select order" checked={selected.includes(o.id)} onChange={() => toggleSelected(o.id)} />
             </span>
             <button type="button" onClick={() => setOpenId(open ? null : o.id)} style={{ display: 'flex', flex: 1, minWidth: 0, gap: 12, alignItems: 'center', padding: '14px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', flexWrap: 'wrap', fontSize: 14, color: T.ink }}>
+              <span style={{ flex: '0 0 56px', fontWeight: 600 }}>{orderNo(o)}</span>
               <span style={{ flex: '0 0 120px', color: T.soft }}>{new Date(o.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
               <span style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <span style={{ fontWeight: 600 }}>{customerName(o) || o.email || 'Customer'}</span>
@@ -1270,7 +1276,8 @@ function OrdersTab({ refreshKey }) {
                 <div>
                   <div style={orderLabel}>Payment</div>
                   <div>{o.paymentMethod || 'Unknown'}{o.processor ? ` (${o.processor})` : ''}</div>
-                  <div style={{ color: T.soft, fontSize: 12, wordBreak: 'break-all' }}>Order ID {o.id}</div>
+                  <div style={{ fontWeight: 600 }}>Order {orderNo(o)}</div>
+                  <div style={{ color: T.soft, fontSize: 12, wordBreak: 'break-all' }} title="The payment company's id for this order">{o.processor || 'Payment'} ID {o.id}</div>
                   {o.refundedAt && <div style={{ color: '#a13d2b' }}>Refunded {new Date(o.refundedAt).toLocaleDateString()}</div>}
                 </div>
                 <div>
@@ -1301,7 +1308,6 @@ function OrdersTab({ refreshKey }) {
                     <div style={{ marginBottom: 8 }}>
                       {o.carrier ? `${o.carrier} · ` : ''}{o.trackingUrl ? <a href={o.trackingUrl} target="_blank" rel="noreferrer" style={{ color: T.ink }}>{o.trackingNumber}</a> : o.trackingNumber}
                       {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}{o.shippedVia === 'easyship' ? ' via Easyship' : ''}</span>}
-                      {o.shippedEmail && <div style={{ fontSize: 12, color: o.shippedEmail.ok ? T.soft : '#a13d2b', marginTop: 2 }}>{o.shippedEmail.ok ? 'Shipped email sent to customer.' : `Shipped email failed — ${o.shippedEmail.error}`}</div>}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1312,6 +1318,34 @@ function OrdersTab({ refreshKey }) {
                     <input placeholder="Tracking link (optional)" value={t.trackingUrl} onChange={(e) => setT('trackingUrl', e.target.value)} style={{ ...field, flex: '1 1 220px' }} />
                     <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'track', '/api/admin/orders/tracking', t)} style={S.btnFill}>
                       {busy[o.id] === 'track' ? 'Saving…' : o.trackingNumber ? 'Update' : 'Mark shipped'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Every email sent about this order (lib/emailLog.js),
+                    and sending the confirmation to them — or anyone. */}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={orderLabel}>Emails sent</div>
+                  {orderEmailLog(o).length === 0 ? (
+                    <div style={{ color: T.soft, marginBottom: 8 }}>None yet.</div>
+                  ) : orderEmailLog(o).map((e, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0', borderBottom: `1px solid ${T.line}` }}>
+                      <span style={{ minWidth: 0, wordBreak: 'break-word' }}>
+                        {EMAIL_TYPE_LABELS[e.type] || e.type} → {e.to || 'no address'}
+                        {!e.ok && e.error && <span style={{ display: 'block', fontSize: 12, color: '#a13d2b' }}>{e.error}</span>}
+                      </span>
+                      <span style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <span style={{ fontWeight: 600, color: e.ok ? '#1a7a3c' : '#a13d2b' }}>{e.ok ? 'Sent' : 'Failed'}</span>
+                        {e.at && <span style={{ display: 'block', fontSize: 11, color: T.soft }}>{new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>}
+                      </span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    <input type="email" placeholder="Email address" aria-label="Send confirmation to" value={confirmTo[o.id] ?? o.email ?? ''}
+                      onChange={(e) => setConfirmTo((prev) => ({ ...prev, [o.id]: e.target.value }))} style={{ ...field, flex: '1 1 220px', maxWidth: 320 }} />
+                    <button type="button" disabled={Boolean(busy[o.id]) || !(confirmTo[o.id] ?? o.email ?? '').trim()} style={S.btnOutline}
+                      onClick={() => act(o, 'confirm', '/api/admin/orders/confirmation', { to: (confirmTo[o.id] ?? o.email ?? '').trim() })}>
+                      {busy[o.id] === 'confirm' ? 'Sending…' : orderEmailLog(o).some((e) => e.type === 'order_confirmation') ? 'Resend confirmation' : 'Send confirmation'}
                     </button>
                   </div>
                 </div>
