@@ -65,6 +65,7 @@ npm run dev
 - `lib/theme.js` — design tokens (colors, fonts, shared styles)
 - `lib/useCart.js` — cart Context provider, persisted to `localStorage` so it survives navigating to `/checkout`
 - `components/` — Header, CartDrawer, ProductVisual
+- `pages/admin/email.jsx` + `lib/email/` — admin → Email: campaigns, templates and automations (welcome, follow-ups, win-back), copied from the Anese repo. `lib/email/leadsSync.js` feeds it from the contact list (`lib/subscribersStore.js`); the abandoned-checkout email keeps running on its own cron (`lib/abandonedCheckout.js`) and is shown there read-only
 
 ## Notes before launch
 

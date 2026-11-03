@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/easyship-labels",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/email-automations",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/email-campaigns",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -410,6 +410,8 @@ export default function AdminDashboard() {
               {key === 'inbox' && inboxNew > 0 && <span className="admin-nav-badge">{inboxNew}</span>}
             </button>
           ))}
+          {/* Email marketing lives on its own page (pages/admin/email.jsx), same as Anese. */}
+          <a href="/admin/email" className="admin-nav-item"><AdminNavIcon name="email" /><span className="admin-nav-label">Email</span></a>
           <button type="button" onClick={handleLogout} className="admin-nav-item admin-nav-signout">
             <AdminNavIcon name="signout" />
             <span className="admin-nav-label">Sign out</span>
