@@ -4,7 +4,11 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const automations = await getAutomations();
-      return res.status(200).json({ automations });
+      // The scheduled sender (pages/api/cron/email-automations.js) refuses
+      // to run without these, so admin warns that "Enabled" flows aren't
+      // actually going out.
+      const sendingReady = { cronSecret: Boolean(process.env.CRON_SECRET), resendKey: Boolean(process.env.RESEND_API_KEY) };
+      return res.status(200).json({ automations, sendingReady });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }

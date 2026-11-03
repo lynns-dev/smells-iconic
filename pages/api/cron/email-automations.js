@@ -26,6 +26,34 @@ import { syncStoreLeads } from '../../../lib/email/leadsSync';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+// Cart emails for a cart or checkout older than this are skipped, not sent
+// late — e.g. the backlog that built up while this cron couldn't run.
+const CART_FLOW_MAX_AGE_MS = 7 * DAY_MS;
+
+// When a cart-flow step is due: its delay after the trigger, but never
+// sooner than the gap between it and the previous step after that one
+// actually went out — so a step that went out late (or a backlog catching
+// up) doesn't have the next step following it minutes later.
+function cartStepDueAt(flow, state, startedAt) {
+  const step = flow.steps[state.step];
+  const dueAt = startedAt + step.delayHours * HOUR_MS;
+  const prev = flow.steps[state.step - 1];
+  if (!prev || !state.sentAt) return dueAt;
+  return Math.max(dueAt, state.sentAt + (step.delayHours - prev.delayHours) * HOUR_MS);
+}
+
+// One subscriber's failed send (a bad address Resend rejects, say) is
+// logged and skipped instead of failing the whole run, which used to leave
+// everyone after them waiting on the same failure every 15 minutes.
+async function trySend(flowId, email, send) {
+  try {
+    await send();
+    return true;
+  } catch (err) {
+    console.error(`Automation ${flowId} send to ${email} failed:`, err.message);
+    return false;
+  }
+}
 
 // A single cron run processes many subscribers who can be at different
 // steps of the same flow, but a step's content (and therefore its
@@ -122,15 +150,17 @@ async function runAbandonedCheckout(flow, subscribers, settings) {
     if (sub.status !== 'subscribed' || !sub.checkoutStartedAt) continue;
     const state = sub.automationState?.abandoned_checkout || { step: 0 };
     if (state.step >= flow.steps.length) continue;
+    if (now - sub.checkoutStartedAt > CART_FLOW_MAX_AGE_MS) continue;
 
     const step = flow.steps[state.step];
-    const dueAt = sub.checkoutStartedAt + step.delayHours * HOUR_MS;
-    if (now < dueAt) continue;
+    if (now < cartStepDueAt(flow, state, sub.checkoutStartedAt)) continue;
 
-    const template = await getTemplate(state.step);
-    await sendStepToSubscriber(flow.id, state.step, template, step.subject, sub);
-    await updateAutomationState(sub.email, 'abandoned_checkout', { step: state.step + 1 });
-    sent += 1;
+    const ok = await trySend(flow.id, sub.email, async () => {
+      const template = await getTemplate(state.step);
+      await sendStepToSubscriber(flow.id, state.step, template, step.subject, sub);
+      await updateAutomationState(sub.email, 'abandoned_checkout', { step: state.step + 1, sentAt: Date.now() });
+    });
+    if (ok) sent += 1;
   }
   return sent;
 }
@@ -145,18 +175,20 @@ async function runAddToCart(flow, subscribers, settings) {
   const getTemplate = makeStepTemplateCache(flow, settings);
 
   for (const sub of subscribers) {
-    if (sub.status !== 'subscribed' || !sub.cartUpdatedAt) continue;
+    if (sub.status !== 'subscribed' || !sub.cartUpdatedAt || !(sub.cartItems || []).length) continue;
     const state = sub.automationState?.add_to_cart || { step: 0 };
     if (state.step >= flow.steps.length) continue;
+    if (now - sub.cartUpdatedAt > CART_FLOW_MAX_AGE_MS) continue;
 
     const step = flow.steps[state.step];
-    const dueAt = sub.cartUpdatedAt + step.delayHours * HOUR_MS;
-    if (now < dueAt) continue;
+    if (now < cartStepDueAt(flow, state, sub.cartUpdatedAt)) continue;
 
-    const template = await getTemplate(state.step);
-    await sendStepToSubscriber(flow.id, state.step, template, step.subject, sub);
-    await updateAutomationState(sub.email, 'add_to_cart', { step: state.step + 1 });
-    sent += 1;
+    const ok = await trySend(flow.id, sub.email, async () => {
+      const template = await getTemplate(state.step);
+      await sendStepToSubscriber(flow.id, state.step, template, step.subject, sub);
+      await updateAutomationState(sub.email, 'add_to_cart', { step: state.step + 1, sentAt: Date.now() });
+    });
+    if (ok) sent += 1;
   }
   return sent;
 }
@@ -190,7 +222,15 @@ async function runOrderReceived(flow, subscribers, settings) {
 
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+  // Without CRON_SECRET, Vercel Cron's calls can't be told apart from
+  // anyone else's, so nothing runs — say so in the logs (and admin → Email
+  // shows a warning) rather than failing silently, which is how abandoned
+  // checkout showed "on" while sending nothing.
+  if (!secret) {
+    console.error('Email automations: CRON_SECRET is not set — refusing to run. No automation emails are being sent.');
+    return res.status(500).json({ error: 'CRON_SECRET is not set.' });
+  }
+  if (req.headers.authorization !== `Bearer ${secret}`) {
     return res.status(401).json({ error: 'Not authorized.' });
   }
 
