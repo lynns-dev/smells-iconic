@@ -13,6 +13,11 @@ import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
+import { useVariant, exposeExperiment } from '../../lib/experiments';
+
+// Split tests on this page (lib/experiments.js).
+const DUO_ID = 'pick-your-role-duo';
+const DUO_PAGES = ['babygirl', 'daddy-is-a-state-of-mind'];
 
 // The bundle offered under each body mist ("Save with sets").
 const SET_ID = 'current-drops-set';
@@ -82,6 +87,14 @@ export default function ProductPage({ product }) {
   const [reviewSubmitting, setReviewSubmitting] = React.useState(false);
   const [reviewError, setReviewError] = React.useState('');
   const [reviewSubmitted, setReviewSubmitted] = React.useState(false);
+  const proofVariant = useVariant('pdp_proof');
+  const duoVariant = useVariant('duo_offer');
+  const inProofTest = Boolean(product && product.category === 'body-mist' && !product.archived);
+  const inDuoTest = Boolean(product && DUO_PAGES.includes(product.id));
+  React.useEffect(() => {
+    if (inProofTest) exposeExperiment('pdp_proof');
+    if (inDuoTest) exposeExperiment('duo_offer');
+  }, [inProofTest, inDuoTest, product?.id]);
 
   React.useEffect(() => {
     setActiveImage(images[0] || '');
@@ -221,6 +234,42 @@ export default function ProductPage({ product }) {
               {product.originalPrice > unitPrice && <s style={{ fontSize: 16, color: T.soft, marginLeft: 8 }}>${product.originalPrice}</s>}
               {' '}<span style={{ fontSize: 14, color: T.soft }}>· {product.size}</span>
             </div>
+
+            {inProofTest && proofVariant === 'proof' && (
+              <div style={proofBox}>
+                {product.notes && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: reviewData.reviews[0] ? 10 : 0 }}>
+                    {Object.values(product.notes).flatMap((v) => String(v).split('·')).map((n) => n.trim()).filter(Boolean).slice(0, 6).map((n) => (
+                      <span key={n} style={noteChip}>{n}</span>
+                    ))}
+                  </div>
+                )}
+                {reviewData.reviews[0] && (
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, color: T.ink }}>
+                    <span style={{ letterSpacing: '1px' }}>{'★'.repeat(Math.round(reviewData.reviews[0].rating || 5))}</span>{' '}
+                    “{String(reviewData.reviews[0].text).slice(0, 140)}{String(reviewData.reviews[0].text).length > 140 ? '…' : ''}”
+                    {reviewData.reviews[0].author && <span style={{ color: T.soft }}> — {reviewData.reviews[0].author}</span>}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {inDuoTest && duoVariant === 'duo' && getProductById(DUO_ID) && !c.cart.some((i) => i.id === DUO_ID) && (
+              <div style={{ ...trioCard, marginTop: 0, marginBottom: 16, borderColor: T.ink }}>
+                <div style={trioVisual}><ProductVisual id={DUO_ID} images={thumbImages(getProductById(DUO_ID))} alt="Pick Your Role Duo" width={54} /></div>
+                <div style={{ flex: 1 }}>
+                  <div style={S.label}>Pick your role · save $8</div>
+                  <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, marginTop: 4 }}>Babygirl + Daddy Is a State of Mind</div>
+                  <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>Two full-size mists, one for each role</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: T.display, fontSize: 17, marginBottom: 8 }}>
+                    ${getProductById(DUO_ID).price}<s style={{ fontSize: 13, color: T.soft, marginLeft: 6 }}>${getProductById(DUO_ID).originalPrice}</s>
+                  </div>
+                  <button onClick={() => c.add(getProductById(DUO_ID), 1)} style={trioAddBtn}>Add duo</button>
+                </div>
+              </div>
+            )}
 
             {product.archived ? (
               <BringBackButton product={product} style={{ marginBottom: 20 }} />
@@ -573,6 +622,8 @@ const pdpPrice = { fontFamily: T.display, fontWeight: 300, fontSize: 28, marginB
 const qtyWrap = { display: 'flex', alignItems: 'center', border: `1px solid ${T.line}`, height: 48 };
 const qtyBtn = { width: 40, height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 15, color: T.ink };
 const qtyValue = { width: 30, textAlign: 'center', fontSize: 13 };
+const proofBox = { border: `1px solid ${T.line}`, background: T.paper, padding: '12px 14px', marginBottom: 16 };
+const noteChip = { fontSize: 11, letterSpacing: '0.06em', border: `1px solid ${T.line}`, background: T.white, padding: '3px 9px', borderRadius: 999 };
 const badgeRow = { fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: T.soft, marginTop: 4 };
 
 const trioCard = {
