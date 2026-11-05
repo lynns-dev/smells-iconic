@@ -89,6 +89,12 @@ function countryName(code) {
 // click id if a platform's utm params weren't present, since fbclid/gclid
 // alone still proves the visit came from a paid click.
 function attributionSource(order) {
+  const { source, campaign } = trackedSource(order);
+  const said = order.attribution?.heardFrom;
+  return { source, campaign: said ? [campaign, `said: ${said}`].filter(Boolean).join(' · ') : campaign };
+}
+
+function trackedSource(order) {
   const attr = order.attribution;
   if (!attr) return { source: 'Direct / organic', campaign: null };
   if (attr.utm_source) return { source: attr.utm_source, campaign: attr.utm_campaign || null };
