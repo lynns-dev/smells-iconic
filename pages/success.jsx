@@ -32,9 +32,11 @@ export default function SuccessPage() {
     const raw = sessionStorage.getItem('si-purchase');
     if (!raw) return;
     sessionStorage.removeItem('si-purchase');
-    trackCart('purchased');
+    let purchase = null;
+    try { purchase = JSON.parse(raw); } catch { /* ignore */ }
+    trackCart('purchased', { subtotal: Number(purchase?.amount) || undefined });
     try {
-      const purchase = JSON.parse(raw);
+      if (!purchase) throw new Error('no purchase');
       fbTrack('Purchase', {
         content_ids: purchase.contentIds,
         content_type: 'product',

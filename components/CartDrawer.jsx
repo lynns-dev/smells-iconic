@@ -8,7 +8,8 @@ import { getVisitorId } from '../lib/session';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import SaleCallout, { useActivePromo } from './SaleCallout';
-import { shippingFor, FREE_SHIPPING_MIN } from '../lib/shipping';
+import { shippingFor, FREE_SHIPPING_MIN, freeOnEveryOrder } from '../lib/shipping';
+import { exposeExperiment } from '../lib/experiments';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
 
@@ -60,7 +61,8 @@ export default function CartDrawer({
   // Flat-rate shipping (lib/shipping.js). Read after mount: the free-
   // shipping perk lives in this browser's storage.
   const [shippingCost, setShippingCost] = React.useState(null);
-  React.useEffect(() => { if (open) setShippingCost(shippingFor(total)); }, [open, total]);
+  const [everyOrderFree, setEveryOrderFree] = React.useState(false);
+  React.useEffect(() => { if (open) { setShippingCost(shippingFor(total)); setEveryOrderFree(freeOnEveryOrder()); } }, [open, total]);
   const freeShipping = shippingCost === 0;
   // Free-shipping progress: how far the bag is from FREE_SHIPPING_MIN.
   const toFreeShipping = Math.max(0, FREE_SHIPPING_MIN - total);
@@ -78,6 +80,8 @@ export default function CartDrawer({
   React.useEffect(() => {
     const { cart: items, freeShipping: free, discountedTotal: due } = latestCartRef.current;
     if (open && items.length > 0) {
+      // Split test: free shipping on every order vs at $50 (lib/experiments.js).
+      exposeExperiment('ship_free_all');
       openedAtRef.current = Date.now();
       checkoutClickedRef.current = false;
       // A beat after the add-to-cart ping (adding opens the cart), so the
@@ -130,12 +134,14 @@ export default function CartDrawer({
         {cart.length > 0 && (
           <div style={{ margin: '0 0 20px', flexShrink: 0 }}>
             <p style={{ fontSize: 12, color: T.ink, margin: '0 0 8px' }}>
-              {toFreeShipping > 0
+              {everyOrderFree
+                ? <><strong>Free shipping on every order.</strong> Ships within 1 business day.</>
+                : toFreeShipping > 0
                 ? <>You're <strong>${toFreeShipping.toFixed(2)}</strong> away from free shipping.</>
                 : <><strong>Free shipping unlocked.</strong> Ships within 1 business day.</>}
             </p>
             <div style={freeShipTrack} aria-hidden="true">
-              <div style={{ ...freeShipFill, width: `${Math.min(100, (total / FREE_SHIPPING_MIN) * 100)}%` }} />
+              <div style={{ ...freeShipFill, width: everyOrderFree ? '100%' : `${Math.min(100, (total / FREE_SHIPPING_MIN) * 100)}%` }} />
             </div>
           </div>
         )}

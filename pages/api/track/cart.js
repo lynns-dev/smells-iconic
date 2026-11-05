@@ -4,6 +4,7 @@
 
 import { recordCartEvent, STEPS, SIGNALS, reasonFor } from '../../../lib/cartFunnel';
 import { updateJourney } from '../../../lib/analyticsStore';
+import { recordExperimentStep } from '../../../lib/experimentsStore';
 import { isExcludedTraffic } from '../../../lib/ipFilter';
 
 const STEP_LABELS = Object.fromEntries(STEPS);
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).end();
   }
-  const { kind, visitorId, sessionId, detail, path, source, device } = req.body || {};
+  const { kind, visitorId, sessionId, detail, path, source, device, exps } = req.body || {};
   const id = [visitorId, sessionId].find((v) => typeof v === 'string' && ID_RE.test(v));
   if (!id || !(STEP_LABELS[kind] || SIGNALS.includes(kind)) || isExcludedTraffic(req)) return res.status(204).end();
 
@@ -38,6 +39,8 @@ export default async function handler(req, res) {
   };
   try {
     await recordCartEvent({ visitorId: id, kind, detail: safeDetail, context: { path, source, device } });
+    // Split tests this visitor has seen (lib/experiments.js).
+    try { await recordExperimentStep(exps, kind, id, safeDetail); } catch (err) { console.error('Experiment step failed:', err.message); }
     // The visitor's own trail in admin → Visitors.
     await updateJourney(id, { cartStep: STEP_LABELS[kind] || reasonFor(kind, safeDetail) });
   } catch (err) {
