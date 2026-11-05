@@ -8,7 +8,7 @@ import { getVisitorId } from '../lib/session';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import SaleCallout, { useActivePromo } from './SaleCallout';
-import { shippingFor } from '../lib/shipping';
+import { shippingFor, FREE_SHIPPING_MIN } from '../lib/shipping';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
 
@@ -60,8 +60,10 @@ export default function CartDrawer({
   // Flat-rate shipping (lib/shipping.js). Read after mount: the free-
   // shipping perk lives in this browser's storage.
   const [shippingCost, setShippingCost] = React.useState(null);
-  React.useEffect(() => { if (open) setShippingCost(shippingFor()); }, [open]);
+  React.useEffect(() => { if (open) setShippingCost(shippingFor(total)); }, [open, total]);
   const freeShipping = shippingCost === 0;
+  // Free-shipping progress: how far the bag is from FREE_SHIPPING_MIN.
+  const toFreeShipping = Math.max(0, FREE_SHIPPING_MIN - total);
   const orderTotal = discountedTotal + (shippingCost || 0);
   const [exitOpen, setExitOpen] = React.useState(false);
 
@@ -72,7 +74,7 @@ export default function CartDrawer({
   const openedAtRef = React.useRef(0);
   const checkoutClickedRef = React.useRef(false);
   const latestCartRef = React.useRef({});
-  latestCartRef.current = { cart, freeShipping, discountedTotal };
+  latestCartRef.current = { cart, freeShipping, discountedTotal, total };
   React.useEffect(() => {
     const { cart: items, freeShipping: free, discountedTotal: due } = latestCartRef.current;
     if (open && items.length > 0) {
@@ -84,7 +86,8 @@ export default function CartDrawer({
     } else if (!open && openedAtRef.current) {
       if (!checkoutClickedRef.current && items.length > 0) {
         trackCart('cart_closed', {
-          shipping: free ? 0 : shippingFor(),
+          shipping: free ? 0 : shippingFor(latestCartRef.current.total),
+          freeAt: FREE_SHIPPING_MIN,
           subtotal: due,
           dwellSec: (Date.now() - openedAtRef.current) / 1000,
           items: items.map((i) => i.name),
@@ -125,7 +128,16 @@ export default function CartDrawer({
         </div>
 
         {cart.length > 0 && (
-          <p style={{ fontSize: 12, color: T.ink, margin: '0 0 20px', flexShrink: 0 }}>Ships within 1 business day.</p>
+          <div style={{ margin: '0 0 20px', flexShrink: 0 }}>
+            <p style={{ fontSize: 12, color: T.ink, margin: '0 0 8px' }}>
+              {toFreeShipping > 0
+                ? <>You're <strong>${toFreeShipping.toFixed(2)}</strong> away from free shipping.</>
+                : <><strong>Free shipping unlocked.</strong> Ships within 1 business day.</>}
+            </p>
+            <div style={freeShipTrack} aria-hidden="true">
+              <div style={{ ...freeShipFill, width: `${Math.min(100, (total / FREE_SHIPPING_MIN) * 100)}%` }} />
+            </div>
+          </div>
         )}
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -262,6 +274,7 @@ export default function CartDrawer({
         discountCode={salePromo ? salePromo.code : 'ICONIC15'}
         discountLabel={salePromo ? `${salePromo.value}% off` : '15% off'}
         payments="card, Apple Pay, Google Pay, PayPal or Venmo"
+        freeShipAt={FREE_SHIPPING_MIN}
       />
     </>
   );
@@ -287,6 +300,8 @@ const discountInput = {
   fontFamily: T.sans, fontSize: 13, color: T.ink, outline: 'none', boxSizing: 'border-box',
 };
 
+const freeShipTrack = { height: 4, background: T.line, overflow: 'hidden' };
+const freeShipFill = { height: '100%', background: T.ink, transition: 'width .3s' };
 const summaryRow = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' };
 const upsellBox = { display: 'flex', alignItems: 'center', gap: 14, border: `1px solid ${T.line}`, padding: 12, marginTop: 16 };
 const upsellImg = { width: 64, height: 64, flexShrink: 0, overflow: 'hidden', background: T.paper };
