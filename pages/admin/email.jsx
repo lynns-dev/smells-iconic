@@ -5,6 +5,7 @@ import { T, S } from '../../lib/adminTheme';
 import Link from 'next/link';
 import { renderEmailHtml, EMAIL_FONTS } from '../../lib/email/emailBlocks';
 import { BRAND } from '../../lib/email/brand';
+import AbandonedSmsButton from '../../components/AbandonedSmsButton';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -1447,7 +1448,7 @@ function EmailHistoryRow({ subscriber: s, onSendAbandoned, sending, message }) {
       <div style={{ color: T.soft }}>
         {history.length === 0 ? 'No emails sent yet.' : (
           <>
-            <span style={{ color: T.ink, fontWeight: 600 }}>Emails sent ({history.length}): </span>
+            <span style={{ color: T.ink, fontWeight: 600 }}>{history.some((h) => h.channel === 'sms') ? 'Emails & texts sent' : 'Emails sent'} ({history.length}): </span>
             {history.map((h, i) => (
               <span key={i}>{i ? ' · ' : ''}{h.label}{h.subject ? ` — "${h.subject}"` : ''}{h.at ? ` (${new Date(h.at).toLocaleDateString()})` : ''}</span>
             ))}
@@ -1468,6 +1469,7 @@ function EmailHistoryRow({ subscriber: s, onSendAbandoned, sending, message }) {
               {sending ? 'Sending…' : oc.emailedAt ? 'Send it again' : 'Send abandoned checkout email'}
             </button>
           ) : <span style={{ color: T.soft }}>Can&rsquo;t email — {s.status}.</span>}
+          <AbandonedSmsButton contactKey={oc.key} phone={oc.phone} smsStatus={oc.smsStatus} sentAt={oc.textedAt} />
           {message && <span style={{ fontSize: 11, color: T.soft }}>{message}</span>}
         </div>
       )}

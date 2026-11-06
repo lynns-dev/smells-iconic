@@ -8,6 +8,7 @@ import { orderLabel as orderNo } from '../../lib/orderNumbers';
 import { EMAIL_TYPE_LABELS, orderEmailLog } from '../../lib/emailLog';
 import AdminFonts from '../../components/AdminFonts';
 import AdminNavIcon from '../../components/AdminNavIcon';
+import AbandonedSmsButton from '../../components/AbandonedSmsButton';
 import CartFunnelReport from '../../components/CartFunnelReport';
 import AdminInbox from '../../components/AdminInbox';
 import PathsTree from '../../components/PathsTree';
@@ -1376,7 +1377,7 @@ function VisitorEmailAction({ contact, status }) {
   const [state, setState] = React.useState({ busy: false, sentAt: null, error: '' });
   if (!contact) {
     if (status.kind !== 'cart' && status.kind !== 'checkout') return null;
-    return <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>No email captured — can’t send a reminder.</div>;
+    return <div style={{ fontSize: 13, color: T.soft, marginTop: 4 }}>No email or phone captured — can’t send a reminder.</div>;
   }
   const sentAt = state.sentAt || contact.abandonedEmailSentAt;
   const blocked = !contact.email ? 'Phone only — no email to send to.'
@@ -1404,7 +1405,8 @@ function VisitorEmailAction({ contact, status }) {
         {!contact.consent && contact.email && <span style={{ color: T.soft }}> · not opted in</span>}
       </span>
       {blocked ? (
-        <span style={{ fontSize: 13, color: T.soft }}>{blocked}</span>
+        // A phone-only shopper still gets the text button below.
+        !contact.email && contact.phone ? null : <span style={{ fontSize: 13, color: T.soft }}>{blocked}</span>
       ) : (
         <button type="button" onClick={send} disabled={state.busy} style={{ ...S.btnOutline, height: 32, padding: '0 12px', fontSize: 12, opacity: state.busy ? 0.6 : 1 }}>
           {state.busy ? 'Sending…' : sentAt ? 'Send again' : 'Send abandoned checkout email'}
@@ -1412,6 +1414,7 @@ function VisitorEmailAction({ contact, status }) {
       )}
       {sentAt && <span style={{ fontSize: 12, color: T.ink }}>Reminder sent {sinceIso(sentAt)}</span>}
       {state.error && <span style={{ fontSize: 12, color: '#a13d2b' }}>{state.error}</span>}
+      <AbandonedSmsButton contactKey={contact.key} phone={contact.phone} smsStatus={contact.smsStatus} sentAt={contact.abandonedSmsSentAt} hasCart={Boolean(contact.cartCount)} />
     </div>
   );
 }

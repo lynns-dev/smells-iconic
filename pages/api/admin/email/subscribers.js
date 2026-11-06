@@ -3,6 +3,7 @@ import { engagementTier } from '../../../../lib/email/emailEngagement';
 import { computeGrade, gradeSummary } from '../../../../lib/email/listGrading';
 import { getAutomations } from '../../../../lib/email/automationsStore';
 import { getSubscribers as getContacts } from '../../../../lib/subscribersStore';
+import { getSmsSubscribers, normalizeUsPhone } from '../../../../lib/email/smsStore';
 
 const SUPERSEDED_STEP = 999;
 
@@ -20,14 +21,14 @@ function emailHistory(s, contact, flows) {
     }
   }
   for (const e of contact?.automationsSent || []) {
-    out.push({ label: e.flow || 'Abandoned checkout', subject: e.subject || '', at: e.sentAt || null });
+    out.push({ label: e.flow || 'Abandoned checkout', subject: e.subject || '', at: e.sentAt || null, channel: e.channel || 'email' });
   }
   return out.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
 }
 
 // A checkout this person left without ordering, from the store contact —
 // the one the abandoned-checkout email (and its manual send) works from.
-function openCheckout(contact) {
+function openCheckout(contact, smsByPhone = new Map()) {
   if (!contact?.lastCheckoutAt || !contact.cart?.length) return null;
   const at = Date.parse(contact.lastCheckoutAt);
   if (contact.lastOrderAt && Date.parse(contact.lastOrderAt) >= at - 60 * 60 * 1000) return null;
@@ -37,6 +38,10 @@ function openCheckout(contact) {
     items: contact.cart.map((i) => ({ name: i.name || i.id, quantity: i.quantity || 1, price: i.price ?? null })),
     value: contact.cart.reduce((t, i) => t + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0),
     emailedAt: contact.abandonedEmailFor === contact.lastCheckoutAt ? contact.abandonedEmailSentAt : null,
+    // For the "Send abandoned checkout text" button.
+    phone: normalizeUsPhone(contact.phone),
+    smsStatus: smsByPhone.get(normalizeUsPhone(contact.phone))?.status || null,
+    textedAt: contact.abandonedSmsSentAt && Date.parse(contact.abandonedSmsSentAt) >= at ? contact.abandonedSmsSentAt : null,
   };
 }
 
@@ -64,11 +69,12 @@ export default async function handler(req, res) {
         return res.status(200).send(toCsv(subscribers));
       }
 
-      const [flows, contacts] = await Promise.all([getAutomations().catch(() => []), getContacts().catch(() => [])]);
+      const [flows, contacts, smsList] = await Promise.all([getAutomations().catch(() => []), getContacts().catch(() => []), getSmsSubscribers().catch(() => [])]);
+      const smsByPhone = new Map(smsList.map((x) => [x.phone, x]));
       const contactByEmail = new Map(contacts.filter((c) => c.email).map((c) => [String(c.email).trim().toLowerCase(), c]));
       const withTiers = subscribers.map((s) => {
         const contact = contactByEmail.get(String(s.email).toLowerCase());
-        return { ...s, tier: engagementTier(s), grade: computeGrade(s).grade, emailHistory: emailHistory(s, contact, flows), openCheckout: openCheckout(contact) };
+        return { ...s, tier: engagementTier(s), grade: computeGrade(s).grade, emailHistory: emailHistory(s, contact, flows), openCheckout: openCheckout(contact, smsByPhone) };
       });
       return res.status(200).json({ subscribers: withTiers, gradeSummary: gradeSummary(subscribers) });
     } catch (err) {
