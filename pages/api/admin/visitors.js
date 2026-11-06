@@ -3,6 +3,13 @@
 // Behind the admin session check in middleware.js like every /api/admin route.
 import { getRecentVisitors, getJourneys } from '../../../lib/analyticsStore';
 import { getSubscribers } from '../../../lib/subscribersStore';
+import { getSmsSubscribers, normalizeUsPhone } from '../../../lib/email/smsStore';
+
+function smsFields(s, smsByPhone) {
+  const phone = normalizeUsPhone(s.phone);
+  const listed = phone ? smsByPhone.get(phone) : null;
+  return { phone, smsStatus: listed?.status || null, abandonedSmsSentAt: s.abandonedSmsSentAt || null };
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -18,6 +25,8 @@ export default async function handler(req, res) {
     // in the cart — what the "Send abandoned checkout email" button needs.
     const linked = Object.values(journeys).some((j) => j.contactKey);
     const contacts = new Map(linked ? (await getSubscribers()).map((s) => [s.key, s]) : []);
+    // Text-list status per number, for the "Send abandoned checkout text" button.
+    const smsByPhone = new Map(linked ? (await getSmsSubscribers().catch(() => [])).map((x) => [x.phone, x]) : []);
     return res.status(200).json({
       visitors: visitors.map((v) => {
         const journey = journeys[v.visitorId || v.sessionId] || null;
@@ -25,6 +34,7 @@ export default async function handler(req, res) {
         const contact = s ? {
           key: s.key, email: s.email, name: s.name, consent: Boolean(s.consent), unsubscribed: Boolean(s.unsubscribedAt && !s.consent),
           cartCount: (s.cart || []).reduce((n, i) => n + (Number(i.quantity) || 1), 0), abandonedEmailSentAt: s.abandonedEmailSentAt || null,
+          ...smsFields(s, smsByPhone),
         } : null;
         return { ...v, journey, contact };
       }),
