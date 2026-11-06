@@ -1039,51 +1039,12 @@ function OrdersTab({ refreshKey }) {
   }, []);
   React.useEffect(() => { load(); }, [load, refreshKey]);
 
-  // Easyship setup, tracking webhook + latest label (pages/api/admin/orders/easyship.js).
-  const [easyshipStatus, setEasyshipStatus] = React.useState(null);
-  const loadEasyship = React.useCallback(() => {
-    fetch('/api/admin/orders/easyship').then((r) => r.json()).then(setEasyshipStatus).catch(() => {});
-  }, []);
-  React.useEffect(() => { loadEasyship(); }, [loadEasyship, refreshKey]);
-
   const replace = (order) => setOrders((prev) => prev.map((o) => (o.id === order.id ? order : o)));
 
-  // Orders ticked in the list, for "Export selected" and "Send to Easyship"
-  // (only the ticked orders that can go to Easyship are sent).
+  // Orders ticked in the list, for "Export selected".
   const [selected, setSelected] = React.useState([]);
-  const [selectedSending, setSelectedSending] = React.useState(false);
   const [selectedMessage, setSelectedMessage] = React.useState('');
-  const canSendToEasyship = (o) => (o.status || 'paid') === 'paid' && !o.trackingNumber && !o.easyship?.sent && Boolean(o.shipping?.address);
   const toggleSelected = (id) => setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  const sendSelected = async () => {
-    setSelectedSending(true);
-    setSelectedMessage('');
-    let sent = 0;
-    const problems = [];
-    try {
-      // 40 per request (the endpoint's batch size).
-      const toSend = (orders || []).filter((o) => selected.includes(o.id) && canSendToEasyship(o)).map((o) => o.id);
-      for (let i = 0; i < toSend.length; i += 40) {
-        const res = await fetch('/api/admin/orders/easyship', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderIds: toSend.slice(i, i + 40) }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not send.');
-        sent += data.sent;
-        problems.push(...data.failed.map((f) => `${f.id}: ${f.error}`), ...data.skipped.map((k) => `${k.id}: ${k.reason}`));
-      }
-      setSelectedMessage(`Sent ${sent} to Easyship.${problems.length ? ` Not sent — ${problems.slice(0, 3).join(' · ')}${problems.length > 3 ? ` (+${problems.length - 3} more)` : ''}` : ''}`);
-      setSelected((prev) => prev.filter((id) => !toSend.includes(id)));
-    } catch (err) {
-      setSelectedMessage(err.message);
-    } finally {
-      setSelectedSending(false);
-      load();
-      loadEasyship();
-    }
-  };
 
   const act = async (o, key, url, body, confirmText) => {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -1094,8 +1055,7 @@ function OrdersTab({ refreshKey }) {
       const data = await res.json();
       if (data.order) replace(data.order);
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      if (key === 'easyship') loadEasyship();
-      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'easyship' ? 'Sent to Easyship.' : key === 'confirm' ? `Confirmation sent to ${body.to}.` : 'Updated.' } }));
+      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'confirm' ? `Confirmation sent to ${body.to}.` : 'Updated.' } }));
     } catch (err) {
       setMsg((m) => ({ ...m, [o.id]: { ok: false, text: err.message } }));
     } finally {
@@ -1181,12 +1141,9 @@ function OrdersTab({ refreshKey }) {
         </select>
       </div>
 
-      {easyshipStatus && <EasyshipStatus status={easyshipStatus} onSent={() => { load(); loadEasyship(); }} />}
       {(() => {
         const shown = rows.map((o) => o.id);
-        const eligible = rows.filter(canSendToEasyship).map((o) => o.id);
         const all = shown.length > 0 && shown.every((id) => selected.includes(id));
-        const sendable = (orders || []).filter((o) => selected.includes(o.id) && canSendToEasyship(o)).length;
         if (!shown.length && !selected.length && !selectedMessage) return null;
         return (
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', margin: '0 0 12px', fontSize: 13 }}>
@@ -1194,21 +1151,11 @@ function OrdersTab({ refreshKey }) {
               <input type="checkbox" checked={all} disabled={!shown.length} onChange={() => setSelected(all ? selected.filter((id) => !shown.includes(id)) : [...new Set([...selected, ...shown])])} />
               Select all shown ({shown.length})
             </label>
-            {eligible.length > 0 && (
-              <button type="button" onClick={() => setSelected(eligible)} style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, color: T.ink, textDecoration: 'underline', cursor: 'pointer' }}>
-                Select not in Easyship ({eligible.length})
-              </button>
-            )}
             {selected.length > 0 && (
               <>
                 <button type="button" onClick={exportSelected} style={{ ...S.btnFill, height: 36, padding: '0 16px', fontSize: 13 }}>
                   Export {selected.length} selected to CSV
                 </button>
-                {sendable > 0 && (
-                  <button type="button" onClick={sendSelected} disabled={selectedSending} style={{ ...S.btnOutline, height: 36, padding: '0 16px', fontSize: 13, opacity: selectedSending ? 0.6 : 1 }}>
-                    {selectedSending ? 'Sending…' : `Send ${sendable} to Easyship`}
-                  </button>
-                )}
                 <button type="button" onClick={() => setSelected([])} style={{ ...S.btnOutline, height: 36, padding: '0 14px', fontSize: 12 }}>Clear</button>
               </>
             )}
@@ -1244,8 +1191,8 @@ function OrdersTab({ refreshKey }) {
               </span>
               <span style={{ flex: '0 0 80px', fontWeight: 600 }}>${Number(o.amount || 0).toFixed(2)}</span>
               <span style={{ flex: '0 0 90px', fontWeight: 600, color: state.color }}>{state.icon}{state.label}</span>
-              <span style={{ flex: '0 0 130px', fontSize: 12, color: o.trackingNumber ? T.ink : o.easyship?.lastError ? '#a13d2b' : T.soft, wordBreak: 'break-all' }} title={o.trackingNumber ? 'Tracking number' : undefined}>
-                {o.trackingNumber ? `${o.carrier ? `${o.carrier} ` : ''}${o.trackingNumber}` : o.easyship?.sent ? '✓ In Easyship' : o.easyship?.lastError ? 'Easyship failed' : (o.status || 'paid') === 'paid' && !o.trackingNumber ? (o.shipping?.address ? 'Not in Easyship' : 'No address') : ''}
+              <span style={{ flex: '0 0 130px', fontSize: 12, color: o.trackingNumber ? T.ink : T.soft, wordBreak: 'break-all' }} title={o.trackingNumber ? 'Tracking number' : undefined}>
+                {o.trackingNumber ? `${o.carrier ? `${o.carrier} ` : ''}${o.trackingNumber}` : (o.status || 'paid') === 'paid' && !o.trackingNumber ? (o.shipping?.address ? 'Not shipped' : 'No address') : ''}
               </span>
               <span style={{ flex: '0 0 16px', color: T.soft }}>{open ? '−' : '+'}</span>
             </button>
@@ -1286,27 +1233,12 @@ function OrdersTab({ refreshKey }) {
                   {(attr.utm_term || attr.ad_name) && <div style={{ color: T.soft }}>Ad: {attr.ad_name || attr.utm_term}</div>}
                   {attr.landingPage && <div style={{ color: T.soft }}>Landed on {attr.landingPage}</div>}
                 </div>
-                {/* Whether Easyship has this order (lib/easyship.js) —
-                    sent automatically at checkout and retried hourly; the
-                    button covers older orders and failures. */}
-                <div>
-                  <div style={orderLabel}>Easyship</div>
-                  {o.easyship?.sent ? <div style={{ color: T.ink, fontWeight: 600 }}>In Easyship</div> : (
-                    <>
-                      <button type="button" disabled={Boolean(busy[o.id])} onClick={() => act(o, 'easyship', '/api/admin/orders/easyship', {})} style={{ ...S.btnOutline, height: 34, padding: '0 12px' }}>
-                        {busy[o.id] === 'easyship' ? 'Sending…' : 'Send to Easyship'}
-                      </button>
-                      {o.easyship?.lastError && <div style={{ color: '#a13d2b', fontSize: 12, marginTop: 4 }}>{o.easyship.lastError}</div>}
-                    </>
-                  )}
-                </div>
-
                 <div style={{ gridColumn: '1 / -1' }}>
                   <div style={orderLabel}>Tracking</div>
                   {o.trackingNumber && (
                     <div style={{ marginBottom: 8 }}>
                       {o.carrier ? `${o.carrier} · ` : ''}{o.trackingUrl ? <a href={o.trackingUrl} target="_blank" rel="noreferrer" style={{ color: T.ink }}>{o.trackingNumber}</a> : o.trackingNumber}
-                      {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}{o.shippedVia === 'easyship' ? ' via Easyship' : ''}</span>}
+                      {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}</span>}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1633,154 +1565,6 @@ function sinceIso(iso) {
   const hrs = Math.round(mins / 60);
   if (hrs < 48) return `${hrs} hr ago`;
   return `${Math.round(hrs / 24)} days ago`;
-}
-
-
-// Panel above the Orders list: whether Easyship is set up, whether the
-// tracking webhook is connected (with a button to connect it), how many
-// orders still need sending (with a button to send them all), and what
-// happened with the latest label webhook (tracking coming back).
-function EasyshipStatus({ status, onSent }) {
-  const [busy, setBusy] = React.useState('');
-  const [message, setMessage] = React.useState('');
-  const fmt = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const last = status.lastWebhook;
-  let lastText = 'No labels bought yet.';
-  if (last) {
-    lastText = last.ok
-      ? `Last label: ${last.carrier ? `${last.carrier} ` : ''}${last.trackingNumber} · ${fmt(last.at)}`
-      : `Last webhook ${fmt(last.at)} didn't ship an order — ${last.error}`;
-  }
-  const post = async (kind, body) => {
-    setBusy(kind);
-    setMessage('');
-    try {
-      const res = await fetch('/api/admin/orders/easyship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      return data;
-    } catch (err) {
-      setMessage(err.message);
-      return null;
-    } finally {
-      setBusy('');
-    }
-  };
-  const sendAll = async () => {
-    const data = await post('send', { all: true });
-    if (!data) return;
-    const parts = [`Sent ${data.sent} order${data.sent === 1 ? '' : 's'} to Easyship.`];
-    if (data.failed?.length) parts.push(`${data.failed.length} failed — ${data.failed[0].error}`);
-    if (data.more) parts.push('More are waiting — click again.');
-    setMessage(parts.join(' '));
-    onSent();
-  };
-  const connect = async () => {
-    const data = await post('connect', { action: 'connect-webhook' });
-    if (!data) return;
-    setMessage('Tracking connected — buying a label in Easyship will now mark the order shipped and email the customer.');
-    onSent();
-  };
-  return (
-    <div style={{ background: T.paper, borderRadius: 12, padding: '12px 14px', margin: '0 0 16px', fontSize: 13, lineHeight: 1.6 }}>
-      <div style={{ fontWeight: 600, color: status.configured ? T.ink : '#a13d2b' }}>
-        {status.configured ? 'Easyship connected' : 'Easyship is not set up'}
-      </div>
-      <div style={{ color: T.soft }}>
-        {status.configured
-          ? `New orders are created in Easyship automatically. ${status.webhook ? `Tracking comes back when you buy a label. ${lastText}` : 'Tracking isn’t connected yet — connect it so labels mark orders shipped.'}`
-          : 'Add EASYSHIP_API_TOKEN (Easyship → Connect → API) to this site in Vercel, then redeploy.'}
-      </div>
-      {status.configured && (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
-          {!status.webhook && (
-            <button type="button" onClick={connect} disabled={Boolean(busy)} style={{ ...S.btnFill, height: 38, padding: '0 16px', fontSize: 13, opacity: busy ? 0.6 : 1 }}>
-              {busy === 'connect' ? 'Connecting…' : 'Connect tracking'}
-            </button>
-          )}
-          {status.unsent > 0 ? (
-            <button type="button" onClick={sendAll} disabled={Boolean(busy)} style={{ ...(status.webhook ? S.btnFill : S.btnOutline), height: 38, padding: '0 16px', fontSize: 13, opacity: busy ? 0.6 : 1 }}>
-              {busy === 'send' ? 'Sending…' : `Send ${status.unsent} unsent order${status.unsent === 1 ? '' : 's'} to Easyship`}
-            </button>
-          ) : (
-            <span style={{ color: T.soft }}>Every order that needs shipping is in Easyship.</span>
-          )}
-          {message && <span>{message}</span>}
-        </div>
-      )}
-      {status.configured && status.noAddress > 0 && (
-        <div style={{ color: T.soft, marginTop: 6 }}>
-          {status.noAddress} paid order{status.noAddress === 1 ? ' has' : 's have'} no shipping address saved here, so {status.noAddress === 1 ? 'it' : 'they'} can’t be sent to Easyship from this page.
-        </div>
-      )}
-      {status.configured && status.autobuy && <AutobuyLabels status={status} onChange={onSent} />}
-    </div>
-  );
-}
-
-// Daily label auto-buy (lib/easyshipLabels.js): on/off, "Buy 1 now" to try a
-// single label first, and the latest purchases / skips with their cost.
-function AutobuyLabels({ status, onChange }) {
-  const [busy, setBusy] = React.useState('');
-  const [message, setMessage] = React.useState('');
-  const { autobuy } = status;
-  const post = async (kind, body) => {
-    setBusy(kind);
-    setMessage('');
-    try {
-      const res = await fetch('/api/admin/orders/easyship', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      return data;
-    } catch (err) {
-      setMessage(err.message);
-      return null;
-    } finally {
-      setBusy('');
-    }
-  };
-  const toggle = async () => {
-    if (!autobuy.enabled && !confirm(`Turn on auto-buy? Every morning Easyship labels are bought for the ${autobuy.dailyLimit} oldest orders in the queue, each only if it costs $${autobuy.capUsd.toFixed(2)} or less. Your Easyship account is charged for each label.`)) return;
-    if (await post('toggle', { action: 'autobuy', enabled: !autobuy.enabled })) onChange();
-  };
-  const buyOne = async () => {
-    if (!confirm(`Buy the label for the oldest order in the queue now (only if it's $${autobuy.capUsd.toFixed(2)} or less)? Your Easyship account is charged.`)) return;
-    const data = await post('buy', { action: 'buy-one' });
-    if (!data) return;
-    if (data.bought?.length) setMessage(`Bought a label for order ${data.bought[0].id} — $${Number(data.bought[0].cost).toFixed(2)}${data.bought[0].courier ? ` (${data.bought[0].courier})` : ''}.`);
-    else if (data.failed) setMessage(`Not bought — ${data.failed}`);
-    else if (data.skipped?.length) setMessage(`Skipped ${data.skipped.length} — ${data.skipped[0].reason}`);
-    else setMessage('No orders waiting for a label.');
-    onChange();
-  };
-  const fmt = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  return (
-    <div style={{ borderTop: `1px solid ${T.line}`, marginTop: 12, paddingTop: 12 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600 }}>Auto-buy labels: {autobuy.enabled ? 'On' : 'Off'}</span>
-        <button type="button" onClick={toggle} disabled={Boolean(busy)} style={{ ...(autobuy.enabled ? S.btnOutline : S.btnFill), height: 34, padding: '0 14px', fontSize: 12, opacity: busy ? 0.6 : 1 }}>
-          {busy === 'toggle' ? 'Saving…' : autobuy.enabled ? 'Turn off' : 'Turn on'}
-        </button>
-        <button type="button" onClick={buyOne} disabled={Boolean(busy) || !status.labelQueue} style={{ ...S.btnOutline, height: 34, padding: '0 14px', fontSize: 12, opacity: busy || !status.labelQueue ? 0.5 : 1 }}>
-          {busy === 'buy' ? 'Buying…' : 'Buy 1 now'}
-        </button>
-        {message && <span>{message}</span>}
-      </div>
-      <div style={{ color: T.soft, marginTop: 4 }}>
-        Every morning (7 am Pacific): the {autobuy.dailyLimit} oldest orders in Easyship without a label, using the service your Easyship account selects, each only if it's ${autobuy.capUsd.toFixed(2)} or less — anything over is skipped for you to buy by hand.
-        {' '}{status.labelQueue} waiting · {status.boughtToday} of {autobuy.dailyLimit} bought automatically today.
-      </div>
-      {status.labelLog?.length > 0 && (
-        <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.7 }}>
-          {status.labelLog.map((e, i) => (
-            <div key={i} style={{ color: e.outcome === 'bought' ? T.ink : e.outcome === 'failed' ? '#a13d2b' : T.soft }}>
-              {fmt(e.at)} · order {e.orderId} · {e.outcome === 'bought' ? `bought $${Number(e.price).toFixed(2)}${e.courier ? ` ${e.courier}` : ''}` : e.outcome === 'skipped' ? `skipped — ${e.reason}` : `failed — ${e.error}`}{e.trigger === 'manual' ? ' (Buy 1 now)' : ''}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function Section({ title, action, children }) {

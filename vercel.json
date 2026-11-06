@@ -9,14 +9,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/easyship-retry",
-      "schedule": "20 * * * *"
-    },
-    {
-      "path": "/api/cron/easyship-labels",
-      "schedule": "0 14 * * *"
-    },
-    {
       "path": "/api/cron/email-automations",
       "schedule": "*/15 * * * *"
     },
