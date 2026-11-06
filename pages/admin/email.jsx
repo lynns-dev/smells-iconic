@@ -58,7 +58,7 @@ export default function EmailAdmin() {
   const [newSubscriberEmail, setNewSubscriberEmail] = React.useState('');
   const [addingSubscriber, setAddingSubscriber] = React.useState(false);
   const [addSubscriberMessage, setAddSubscriberMessage] = React.useState('');
-  const [emailAnalytics, setEmailAnalytics] = React.useState({ campaigns: {}, automations: {}, aggregate: null });
+  const [emailAnalytics, setEmailAnalytics] = React.useState({ campaigns: {}, automations: {}, flows: [], thresholds: null, aggregate: null });
 
   // New subscribers over the last 7 / 30 days, by where they came from —
   // the quickest way to see the popup, checkout and orders feeding the list.
@@ -128,7 +128,7 @@ export default function EmailAdmin() {
   const loadEmailAnalytics = React.useCallback(() => {
     fetch('/api/admin/email/analytics')
       .then((r) => r.json())
-      .then((data) => setEmailAnalytics({ campaigns: data.campaigns || {}, automations: data.automations || {}, aggregate: data.aggregate || null }))
+      .then((data) => setEmailAnalytics({ campaigns: data.campaigns || {}, automations: data.automations || {}, flows: data.flows || [], thresholds: data.thresholds || null, aggregate: data.aggregate || null }))
       .catch(() => {});
   }, []);
 
@@ -1020,6 +1020,7 @@ export default function EmailAdmin() {
             {!sendingReady.cronSecret && !sendingReady.resendKey ? 'are' : 'is'} set in Vercel (Project → Settings → Environment Variables), followed by a redeploy.
           </div>
         )}
+        <FlowPerformance flows={emailAnalytics.flows} thresholds={emailAnalytics.thresholds} onSelect={(id) => setActiveAutomationId(id === 'abandoned_checkout' ? LEGACY_ABANDONED_ID : id)} />
         <Section
           title="Automations"
           action={
@@ -1058,7 +1059,7 @@ export default function EmailAdmin() {
             </nav>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              {activeAutomationId === LEGACY_ABANDONED_ID && <LegacyAbandonedCheckout />}
+              {activeAutomationId === LEGACY_ABANDONED_ID && <LegacyAbandonedCheckout perf={emailAnalytics.flows.find((f) => f.id === 'abandoned_checkout')} />}
               {automations.filter((a) => a.id === (activeAutomationId || automations[0]?.id)).map((a) => (
             <div key={a.id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -1091,14 +1092,18 @@ export default function EmailAdmin() {
                       )}
                     </div>
 
-                    {!isSuppress && step.stats?.sent > 0 && (
-                      <div style={{ fontSize: 12, color: T.soft, marginBottom: 12 }}>
-                        Sent {step.stats.sent} · Click rate {Math.round((step.stats.clicked / step.stats.sent) * 1000) / 10}%
-                        {emailAnalytics.automations?.[a.id]?.[i] && (
-                          <span> · Conversion rate {emailAnalytics.automations[a.id][i].conversionRate}% ({emailAnalytics.automations[a.id][i].converted}/{emailAnalytics.automations[a.id][i].uniqueClickers} clickers ordered within 7d)</span>
-                        )}
-                      </div>
-                    )}
+                    {!isSuppress && (() => {
+                      const perf = emailAnalytics.flows.find((f) => f.id === a.id)?.steps.find((r) => r.index === i);
+                      const conv = emailAnalytics.automations?.[a.id]?.[i];
+                      if (!perf || perf.sent === 0) return null;
+                      return (
+                        <div style={{ fontSize: 12, color: T.soft, marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span>Sent {perf.sent} · Open rate {perf.trackedSent ? `${perf.openRate}%` : '—'} · Click rate {perf.clickRate}% ({perf.clickers} clicked)</span>
+                          {conv && <span>· Conversion {conv.conversionRate}% ({conv.converted}/{conv.uniqueClickers} clickers ordered within 7d)</span>}
+                          <HealthBadge health={perf.health} />
+                        </div>
+                      );
+                    })()}
 
                     {!isSuppress && (
                       <>
@@ -1131,6 +1136,18 @@ export default function EmailAdmin() {
                             style={{ width: '100%', height: 320, border: `1px solid ${T.line}`, marginTop: 10, background: T.paper }}
                           />
                         )}
+
+                        <AbTestPanel
+                          automation={a}
+                          stepIndex={i}
+                          step={step}
+                          perf={emailAnalytics.flows.find((f) => f.id === a.id)?.steps.find((r) => r.index === i)}
+                          onChangeB={(patch) => updateAutomationStep(a.id, i, { abTest: { ...step.abTest, ...patch } })}
+                          onUpdated={(automation) => {
+                            setAutomations((prev) => prev.map((x) => (x.id === automation.id ? automation : x)));
+                            loadEmailAnalytics();
+                          }}
+                        />
                       </>
                     )}
                   </div>
@@ -1159,7 +1176,7 @@ export default function EmailAdmin() {
 // here read-only with its send numbers (pages/api/admin/email/abandoned-checkout.js).
 const LEGACY_ABANDONED_ID = 'legacy_abandoned_checkout';
 
-function LegacyAbandonedCheckout() {
+function LegacyAbandonedCheckout({ perf }) {
   const [data, setData] = React.useState(null);
   React.useEffect(() => {
     fetch('/api/admin/email/abandoned-checkout').then((r) => r.json()).then(setData).catch(() => setData({ error: 'Could not load.' }));
@@ -1183,6 +1200,12 @@ function LegacyAbandonedCheckout() {
           <div style={{ fontSize: 12, color: T.ink, marginTop: 4 }}>
             Recovered {data.recovered ?? 0} order{data.recovered === 1 ? '' : 's'} ({data.recoveryRate ?? 0}%) · ${Number(data.recoveredRevenue || 0).toFixed(2)} — ordered within 7 days of the email
           </div>
+          <div style={{ fontSize: 12, color: T.soft, marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {perf?.sent
+              ? <span>Since click tracking: {perf.sent} sent · Open rate {perf.openRate}% · Click rate {perf.clickRate}% ({perf.clickers} clicked)</span>
+              : <span>Open and click tracking starts with the next abandoned-checkout email.</span>}
+            {perf?.sent > 0 && <HealthBadge health={perf.health} />}
+          </div>
         </div>
       )}
     </div>
@@ -1196,6 +1219,198 @@ function ChecklistRow({ ok, label, busy }) {
     <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', fontSize: 13 }}>
       <span style={{ color, fontWeight: 700, width: 16 }}>{icon}</span>
       <span>{label}</span>
+    </div>
+  );
+}
+
+// Per-automation open/click rates (pages/api/admin/email/analytics.js →
+// lib/email/flowPerformance.js), so a flow that isn't working stands out.
+function FlowPerformance({ flows, thresholds, onSelect }) {
+  if (!flows?.length) return null;
+  const cell = { padding: '10px 8px', borderBottom: `1px solid ${T.line}`, fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap' };
+  const head = { ...cell, fontSize: 11, fontWeight: 600, color: T.soft, textTransform: 'uppercase', letterSpacing: '0.06em' };
+  const pct = (v, has = true) => (has ? `${v}%` : '—');
+  return (
+    <Section title="Automation performance">
+      <p style={{ fontSize: 12, color: T.soft, margin: '0 0 12px', lineHeight: 1.5 }}>
+        Click rate = people who clicked ÷ emails sent. Open rate counts from when open tracking went live and reads high because Apple Mail preloads images, so treat it as a spam-folder warning and judge emails on clicks.
+        {thresholds && <> Flagged when a flow has {thresholds.minSent}+ sends and click rate is under {thresholds.clickRateFloor}% or open rate is under {thresholds.openRateFloor}%.</>}
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+          <thead>
+            <tr>
+              <th style={{ ...head, textAlign: 'left' }}>Automation</th>
+              <th style={head}>Sent</th>
+              <th style={head}>Open rate</th>
+              <th style={head}>Click rate</th>
+              <th style={head}>Click-to-open</th>
+              <th style={{ ...head, textAlign: 'left' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {flows.map((f) => (
+              <React.Fragment key={f.id}>
+                <tr>
+                  <td style={{ ...cell, textAlign: 'left' }}>
+                    <button type="button" onClick={() => onSelect(f.id)} style={{ background: 'none', border: 0, padding: 0, font: 'inherit', fontWeight: 600, color: T.ink, cursor: 'pointer', textDecoration: 'underline' }}>{f.name}</button>
+                    {!f.enabled && <span style={{ fontSize: 11, color: T.soft, marginLeft: 6 }}>off</span>}
+                  </td>
+                  <td style={cell}>{f.sent}</td>
+                  <td style={cell}>{pct(f.openRate, f.trackedSent > 0)}</td>
+                  <td style={{ ...cell, fontWeight: 600 }}>{pct(f.clickRate, f.sent > 0)}</td>
+                  <td style={cell}>{pct(f.clickToOpenRate, f.opened > 0)}</td>
+                  <td style={{ ...cell, textAlign: 'left' }}><HealthBadge health={f.health} /></td>
+                </tr>
+                {f.steps.length > 1 && f.steps.map((st) => (
+                  <tr key={st.index}>
+                    <td style={{ ...cell, textAlign: 'left', paddingLeft: 20, color: T.soft, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>Step {st.index + 1}: {st.subject}{st.abTest && ' · A/B running'}</td>
+                    <td style={{ ...cell, color: T.soft }}>{st.sent}</td>
+                    <td style={{ ...cell, color: T.soft }}>{pct(st.openRate, st.trackedSent > 0)}</td>
+                    <td style={{ ...cell, color: T.soft }}>{pct(st.clickRate, st.sent > 0)}</td>
+                    <td style={{ ...cell, color: T.soft }}>{pct(st.clickToOpenRate, st.opened > 0)}</td>
+                    <td style={{ ...cell, textAlign: 'left' }}><HealthBadge health={st.health} /></td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+function HealthBadge({ health }) {
+  if (!health) return null;
+  const styles = {
+    failing: { background: '#FDECEA', color: '#8A1F11', label: 'Failing' },
+    ok: { background: '#E7F4EA', color: '#1E5B2E', label: 'Healthy' },
+    learning: { background: T.paper, color: T.soft, label: 'Not enough data' },
+  };
+  const st = styles[health.status] || styles.learning;
+  return (
+    <span title={health.note || ''} style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: st.background, color: st.color }}>
+      {st.label}{health.status === 'failing' && health.note ? `: ${health.note}` : ''}
+    </span>
+  );
+}
+
+// A/B test for one automation step: variant B gets its own subject and/or
+// HTML, subscribers are split 50/50 (stable per person), and the results
+// compare click rate with a confidence figure. Ending the test with B as
+// the winner copies B into the step (lib/email/automationsStore.js).
+function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated }) {
+  const [open, setOpen] = React.useState(Boolean(step.abTest?.enabled));
+  const [draft, setDraft] = React.useState({ subject: '', html: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState('');
+  const running = step.abTest?.enabled ? step.abTest : null;
+  const results = perf?.abTest?.results;
+
+  const call = async (body) => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const res = await fetch('/api/admin/email/automations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: automation.id, stepIndex, ...body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed.');
+      onUpdated(data.automation);
+      return true;
+    } catch (err) {
+      setMsg(err.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const box = { marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` };
+  if (!open && !running) {
+    return (
+      <div style={box}>
+        <button type="button" onClick={() => setOpen(true)} style={S.btnOutline}>A/B test this email</button>
+        {step.abHistory?.length > 0 && <span style={{ fontSize: 12, color: T.soft, marginLeft: 10 }}>{step.abHistory.length} past test{step.abHistory.length === 1 ? '' : 's'} · last winner: {step.abHistory[step.abHistory.length - 1].winner.toUpperCase()}</span>}
+      </div>
+    );
+  }
+
+  const row = (label, m) => (
+    <tr>
+      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{label}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{m?.sent ?? 0}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{m?.sent ? `${m.openRate}%` : '—'}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>{m?.sent ? `${m.clickRate}%` : '—'}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{m?.clickers ?? 0}</td>
+    </tr>
+  );
+
+  return (
+    <div style={box}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <strong style={{ fontSize: 13 }}>A/B test {running ? '· running' : ''}</strong>
+        {!running && <button type="button" onClick={() => setOpen(false)} style={{ ...S.btnOutline, height: 28, fontSize: 12 }}>Cancel</button>}
+      </div>
+      <p style={{ fontSize: 12, color: T.soft, margin: '0 0 10px', lineHeight: 1.5 }}>
+        Variant A is the email above. Half of the people who reach this step get variant B (each person always gets the same one). Leave B&rsquo;s HTML blank to test only the subject line. Pick a winner once each side has a few hundred sends.
+      </p>
+      <label style={formLabel}>Variant B subject</label>
+      <input
+        value={running ? running.subject || '' : draft.subject}
+        onChange={(e) => (running ? onChangeB({ subject: e.target.value }) : setDraft({ ...draft, subject: e.target.value }))}
+        placeholder={step.subject}
+        style={{ ...formInput, marginBottom: 10 }}
+      />
+      <label style={formLabel}>Variant B HTML (optional)</label>
+      <textarea
+        value={running ? running.html || '' : draft.html}
+        onChange={(e) => (running ? onChangeB({ html: e.target.value }) : setDraft({ ...draft, html: e.target.value }))}
+        placeholder="Blank = same HTML as variant A"
+        style={{ ...formInput, height: 140, padding: 12, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5 }}
+      />
+      {running && <p style={{ fontSize: 11, color: T.soft, margin: '6px 0 0' }}>Edits to B are saved with &ldquo;Save changes&rdquo; below.</p>}
+
+      {running ? (
+        <>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+            <thead>
+              <tr style={{ color: T.soft, textAlign: 'right' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left' }}>Variant</th><th style={{ padding: '6px 8px' }}>Sent</th><th style={{ padding: '6px 8px' }}>Open rate</th><th style={{ padding: '6px 8px' }}>Click rate</th><th style={{ padding: '6px 8px' }}>Clicked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {row('A', results?.a)}
+              {row('B', results?.b)}
+            </tbody>
+          </table>
+          <p style={{ fontSize: 12, color: T.ink, margin: '8px 0' }}>
+            {perf?.abTest?.leader
+              ? `${perf.abTest.leader.toUpperCase()} is ahead on click rate · ${perf.abTest.confidence}% confidence${perf.abTest.confidence < 95 ? ' (wait for 95%+ before calling it)' : ' — safe to pick a winner'}`
+              : 'No clicks to compare yet.'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="button" disabled={busy} onClick={() => window.confirm('End the test and keep variant A?') && call({ action: 'ab-end', winner: 'a' })} style={S.btnOutline}>Keep A, end test</button>
+            <button type="button" disabled={busy} onClick={() => window.confirm('End the test and replace this step with variant B?') && call({ action: 'ab-end', winner: 'b' })} style={S.btnFill}>B wins, use B</button>
+            {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+          <button
+            type="button"
+            disabled={busy || (!draft.subject.trim() && !draft.html.trim())}
+            onClick={async () => { if (await call({ action: 'ab-start', subject: draft.subject, html: draft.html })) setDraft({ subject: '', html: '' }); }}
+            style={S.btnFill}
+          >
+            {busy ? 'Starting…' : 'Start A/B test'}
+          </button>
+          {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
+        </div>
+      )}
     </div>
   );
 }

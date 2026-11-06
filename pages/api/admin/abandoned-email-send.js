@@ -4,7 +4,9 @@
 // someone who unsubscribed. Recorded like an automatic send, so the cron
 // won't email the same checkout again.
 
+import { randomUUID } from 'crypto';
 import { renderAbandonedEmail, sendViaResend } from '../../../lib/abandonedCheckout';
+import { bumpFlowStat } from '../../../lib/email/flowStats';
 import { getSubscriber, markAbandonedEmailSent, claimOnce } from '../../../lib/subscribersStore';
 
 export default async function handler(req, res) {
@@ -22,8 +24,9 @@ export default async function handler(req, res) {
     if (!(await claimOnce(`abandoned_email_manual:${s.key}`, 60))) {
       return res.status(429).json({ error: 'Already sending — try again in a minute.' });
     }
-    const email = renderAbandonedEmail({ key: s.key, name: s.name, cart: s.cart });
+    const email = renderAbandonedEmail({ key: s.key, name: s.name, cart: s.cart, sendId: randomUUID() });
     await sendViaResend({ to: s.email, ...email });
+    await bumpFlowStat('abandoned_checkout', 0, 'sent').catch(() => {});
     const saved = await markAbandonedEmailSent(s.key, s.lastCheckoutAt || s.abandonedEmailFor || null, email.subject, 'Abandoned checkout (sent manually)');
     return res.status(200).json({ ok: true, sentAt: saved?.abandonedEmailSentAt || new Date().toISOString() });
   } catch (err) {
