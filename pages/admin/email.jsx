@@ -12,6 +12,7 @@ const TABS = [
   { id: 'subscribers', label: 'Subscribers' },
   { id: 'campaigns', label: 'Campaigns' },
   { id: 'automations', label: 'Automations' },
+  { id: 'texts', label: 'Texts (SMS)' },
 ];
 const FLOW_DESCRIPTIONS = {
   welcome_series: 'Fires when someone signs up or ticks the email box at checkout — step 1 goes out within 15 minutes, later steps on schedule. People already on the list when this launched are skipped.',
@@ -726,7 +727,6 @@ export default function EmailAdmin() {
 
         {activeTab === 'subscribers' && (
         <>
-        <SmsSubscribers />
         <Section
           title={`Subscribers (${visibleSubscribers.length}${visibleSubscribers.length !== subscribers.length ? ` of ${subscribers.length}` : ''})`}
           action={<a href="/api/admin/email/subscribers?format=csv" style={S.btnOutline}>Export CSV</a>}
@@ -1010,6 +1010,8 @@ export default function EmailAdmin() {
         </Section>
         </>
         )}
+
+        {activeTab === 'texts' && <TextsTab />}
 
         {activeTab === 'automations' && (
         <>
@@ -1548,29 +1550,224 @@ const sidebarLink = {
 const sidebarLinkActive = { background: T.accent, color: '#FFFFFF', fontWeight: 600 };
 
 
-// Text-alert opt-ins from the signup popup (lib/email/smsStore.js). Nothing
-// here sends texts — export the CSV into an SMS provider to message them.
-function SmsSubscribers() {
+// Admin → Texts: automated texts and broadcasts through ResendSMS
+// (pages/api/admin/sms.js, lib/sms/). Every send costs ResendSMS credits.
+function TextsTab() {
+  const [data, setData] = React.useState(null);
+  const [edits, setEdits] = React.useState({});
+  const [msg, setMsg] = React.useState({});
+  const [busy, setBusy] = React.useState('');
+  const [testPhone, setTestPhone] = React.useState('');
+  const [broadcast, setBroadcast] = React.useState({ message: 'Smells Iconic: new drop is live {{LINK}} Reply STOP to opt out', link: '/shop' });
+
+  const load = React.useCallback(() => {
+    fetch('/api/admin/sms').then((r) => r.json()).then(setData).catch(() => setData({ error: 'Could not load.' }));
+  }, []);
+  React.useEffect(load, [load]);
+
+  const api = async (key, method, body) => {
+    setBusy(key);
+    setMsg((m) => ({ ...m, [key]: '' }));
+    try {
+      const res = await fetch('/api/admin/sms', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || 'Failed.');
+      return out;
+    } catch (err) {
+      setMsg((m) => ({ ...m, [key]: err.message }));
+      return null;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  if (!data) return <Section title="Texts (SMS)"><p style={{ fontSize: 13, color: T.soft }}>Loading…</p></Section>;
+  if (data.error) return <Section title="Texts (SMS)"><p style={{ fontSize: 13, color: T.soft }}>{data.error}</p></Section>;
+
+  const tile = (value, label) => (
+    <div style={gradeTile}>
+      <div style={{ fontSize: 22, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: 11, color: T.soft, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+  const segInfo = (text) => {
+    const len = [...String(text || '')].length;
+    const unicode = /[^\x00-\x7F£¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ¡ÄÖÑÜ§¿äöñüà€]/.test(text || '');
+    const single = unicode ? 70 : 160;
+    const multi = unicode ? 67 : 153;
+    const segs = len === 0 ? 0 : len <= single ? 1 : Math.ceil(len / multi);
+    return `${len} characters · ${segs} credit${segs === 1 ? '' : 's'} per text${unicode ? ' (emoji/special characters make texts cost more)' : ''} · {{LINK}} adds ~30`;
+  };
+
+  return (
+    <>
+      {!data.configured && (
+        <div style={{ background: '#FDECEA', color: '#8A1F11', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
+          <strong>ResendSMS isn&rsquo;t connected.</strong> Add <code>RESENDSMS_API_KEY</code> (resendsms.com → API Keys) in Vercel → Project → Settings → Environment Variables, then redeploy.
+        </div>
+      )}
+      {data.configured && data.balance && data.balance.credits < Math.max(10, data.subscribed) && (
+        <div style={{ background: '#FFF4E5', color: '#7A4A00', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
+          <strong>Low on credits: {data.balance.credits} left.</strong> Nothing sends at 0. Top up at resendsms.com (credits never expire).
+        </div>
+      )}
+
+      <Section title="Texts (SMS)">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {tile(data.configured ? (data.balance ? data.balance.credits : '—') : 'Off', data.balanceError ? `Credits (error: ${data.balanceError})` : 'ResendSMS credits')}
+          {tile(data.subscribed, 'On the text list')}
+          {tile(data.unsubscribed, 'Opted out')}
+          {tile(data.inSendWindow ? 'Open' : 'Closed', 'Send window (11am–8pm ET)')}
+        </div>
+        <p style={{ fontSize: 12, color: T.soft, margin: '14px 0 0', lineHeight: 1.5 }}>
+          Numbers join from the &ldquo;Text me new drops and offers&rdquo; box at checkout (unticked by default; the consent wording is saved with each number). Texts only go to numbers on that list, only between 11am and 8pm Eastern. ResendSMS doesn&rsquo;t pass replies back to the store, so when someone replies STOP, mark them opted out below.
+        </p>
+      </Section>
+
+      <Section title="Automated texts">
+        {data.flows.map((f) => {
+          const e = edits[f.id] || {};
+          const message = e.message ?? f.message;
+          const delay = e.delayMinutes ?? f.delayMinutes;
+          const st = f.stats;
+          return (
+            <div key={f.id} style={stepCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <strong style={{ fontSize: 14 }}>{f.name}</strong>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.soft }}>
+                  <input
+                    type="checkbox"
+                    checked={f.enabled}
+                    disabled={busy === f.id || (!f.enabled && !data.configured)}
+                    onChange={async () => { if (await api(f.id, 'PUT', { id: f.id, enabled: !f.enabled })) load(); }}
+                  />
+                  {f.enabled ? 'On' : 'Off'}
+                </label>
+              </div>
+              <p style={{ fontSize: 12, color: T.soft, margin: '0 0 10px' }}>{f.description}</p>
+              {st?.sent > 0 && (
+                <p style={{ fontSize: 12, color: T.soft, margin: '0 0 10px' }}>Sent {st.sent} · Clicked {st.clickers} · Click rate {st.clickRate}%</p>
+              )}
+              <label style={formLabel}>Message ({'{{LINK}}'} = tracked link{f.id === 'sms_abandoned_checkout' ? ', {{PRODUCT}} = first item in their bag' : ''})</label>
+              <textarea
+                value={message}
+                onChange={(ev) => setEdits((x) => ({ ...x, [f.id]: { ...e, message: ev.target.value } }))}
+                style={{ ...formInput, height: 80, padding: 12, fontSize: 13, lineHeight: 1.5 }}
+              />
+              <div style={{ fontSize: 11, color: T.soft, margin: '4px 0 10px' }}>{segInfo(message)}</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 12, color: T.soft }}>
+                  Send after{' '}
+                  <input type="number" min="0" max="1440" value={delay} onChange={(ev) => setEdits((x) => ({ ...x, [f.id]: { ...e, delayMinutes: ev.target.value } }))} style={{ ...formInput, width: 80, display: 'inline-block' }} />
+                  {' '}minutes
+                </label>
+                <button
+                  type="button"
+                  disabled={busy === f.id}
+                  onClick={async () => { if (await api(f.id, 'PUT', { id: f.id, message, delayMinutes: Number(delay) })) { setEdits((x) => ({ ...x, [f.id]: undefined })); setMsg((m) => ({ ...m, [f.id]: 'Saved.' })); load(); } }}
+                  style={S.btnFill}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === `test-${f.id}` || !data.configured || !testPhone}
+                  onClick={async () => { if (await api(`test-${f.id}`, 'POST', { action: 'test', phone: testPhone, message })) { setMsg((m) => ({ ...m, [`test-${f.id}`]: `Sent to ${testPhone} (1 credit).` })); load(); } }}
+                  style={S.btnOutline}
+                >
+                  Send test
+                </button>
+                {msg[f.id] && <span style={{ fontSize: 12 }}>{msg[f.id]}</span>}
+                {msg[`test-${f.id}`] && <span style={{ fontSize: 12 }}>{msg[`test-${f.id}`]}</span>}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+          <input type="tel" placeholder="Your mobile, for test texts" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} style={{ ...formInput, width: 240, maxWidth: '100%' }} />
+          <span style={{ fontSize: 12, color: T.soft }}>Test texts use 1 credit each.</span>
+        </div>
+      </Section>
+
+      <Section title="Send a text to everyone">
+        <label style={formLabel}>Message</label>
+        <textarea value={broadcast.message} onChange={(e) => setBroadcast({ ...broadcast, message: e.target.value })} style={{ ...formInput, height: 80, padding: 12, fontSize: 13, lineHeight: 1.5 }} />
+        <div style={{ fontSize: 11, color: T.soft, margin: '4px 0 10px' }}>{segInfo(broadcast.message)}</div>
+        <label style={formLabel}>{'{{LINK}}'} goes to</label>
+        <input value={broadcast.link} onChange={(e) => setBroadcast({ ...broadcast, link: e.target.value })} placeholder="/shop" style={{ ...formInput, width: 280, maxWidth: '100%', marginBottom: 12 }} />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            disabled={busy === 'broadcast' || !data.configured || !data.subscribed}
+            onClick={async () => {
+              if (!window.confirm(`Text ${data.subscribed} number${data.subscribed === 1 ? '' : 's'} now? This uses at least ${data.subscribed} ResendSMS credits and can't be undone.`)) return;
+              const out = await api('broadcast', 'POST', { action: 'broadcast', message: broadcast.message, link: broadcast.link, confirmCount: data.subscribed });
+              if (out) { setMsg((m) => ({ ...m, broadcast: `Sent to ${out.sent}.${out.errors?.length ? ` Errors: ${out.errors.join('; ')}` : ''}` })); load(); }
+            }}
+            style={S.btnFill}
+          >
+            {busy === 'broadcast' ? 'Sending…' : `Send to ${data.subscribed}`}
+          </button>
+          {msg.broadcast && <span style={{ fontSize: 12 }}>{msg.broadcast}</span>}
+        </div>
+        {data.broadcasts.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            {data.broadcasts.map((b) => (
+              <div key={b.broadcastId} style={{ fontSize: 12, padding: '8px 0', borderBottom: `1px solid ${T.line}` }}>
+                <div>{b.message}</div>
+                <div style={{ color: T.soft, marginTop: 2 }}>
+                  {new Date(b.at).toLocaleString()} · sent {b.sent}/{b.recipients}{b.stats ? ` · ${b.stats.clicks} clicks` : ''}{b.errors?.length ? ` · ${b.errors[0]}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <SmsSubscribers onChange={load} />
+    </>
+  );
+}
+
+// The text list (lib/email/smsStore.js), with each number's consent record.
+function SmsSubscribers({ onChange }) {
   const [list, setList] = React.useState(null);
-  React.useEffect(() => {
+  const [busy, setBusy] = React.useState('');
+  const load = React.useCallback(() => {
     fetch('/api/admin/email/sms').then((r) => r.json()).then((d) => setList(d.subscribers || [])).catch(() => setList([]));
   }, []);
-  if (!list || list.length === 0) return null;
+  React.useEffect(load, [load]);
+  const setStatus = async (phone, status) => {
+    if (status === 'unsubscribed' && !window.confirm(`Mark ${phone} as opted out? They won't get any more texts.`)) return;
+    setBusy(phone);
+    const res = await fetch('/api/admin/sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status', phone, status }) });
+    const out = await res.json().catch(() => ({}));
+    setBusy('');
+    if (!res.ok) { alert(out.error || 'Failed.'); return; }
+    load();
+    onChange?.();
+  };
+  if (!list) return null;
   return (
     <Section
-      title={`Text alerts (${list.length})`}
-      action={<a href="/api/admin/email/sms?format=csv" style={S.btnOutline}>Export CSV</a>}
+      title={`Text list (${list.length})`}
+      action={list.length > 0 && <a href="/api/admin/email/sms?format=csv" style={S.btnOutline}>Export CSV</a>}
     >
-      <p style={{ color: T.soft, fontSize: 13, margin: '0 0 12px' }}>
-        Mobile numbers opted in to text alerts, with the consent each person agreed to. This store doesn&rsquo;t send texts — export these into an SMS provider.
-      </p>
+      {list.length === 0 && <p style={{ color: T.soft, fontSize: 13, margin: 0 }}>No one has opted in to texts yet. New opt-ins from checkout show up here.</p>}
       <div className="table-scroll">
-        <div style={{ minWidth: 520 }}>
-          {list.slice().reverse().slice(0, 50).map((s) => (
-            <div key={s.phone} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: `1px solid ${T.line}` }}>
-              <div style={{ flex: '0 0 140px' }}>{s.phone}</div>
-              <div style={{ flex: 1, color: T.soft }}>{s.email || '—'}</div>
-              <div style={{ flex: '0 0 110px', color: T.soft }}>{new Date(s.consentAt).toLocaleDateString()}</div>
+        <div style={{ minWidth: 560 }}>
+          {list.slice().reverse().slice(0, 100).map((s) => (
+            <div key={s.phone} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: `1px solid ${T.line}`, alignItems: 'center' }}>
+              <div style={{ flex: '0 0 130px' }}>{s.phone}</div>
+              <div style={{ flex: 1, color: T.soft, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.email || '—'}</div>
+              <div style={{ flex: '0 0 90px', color: T.soft }}>{s.consentAt ? new Date(s.consentAt).toLocaleDateString() : '—'}</div>
+              <div style={{ flex: '0 0 150px', textAlign: 'right' }}>
+                {s.status === 'subscribed' ? (
+                  <button type="button" disabled={busy === s.phone} onClick={() => setStatus(s.phone, 'unsubscribed')} style={{ ...S.btnOutline, height: 28, fontSize: 12 }}>Mark opted out (STOP)</button>
+                ) : (
+                  <span style={{ fontSize: 12, color: T.soft }}>Opted out</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

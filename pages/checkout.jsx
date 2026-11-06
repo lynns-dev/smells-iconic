@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import ProductVisual from '../components/ProductVisual';
 import PopularBadge from '../components/PopularBadge';
 import AddressFields from '../components/AddressFields';
+import { SMS_CONSENT_TEXT } from '../lib/sms/consent';
 import PayPalButton from '../components/PayPalButton';
 import TopBanner from '../components/TopBanner';
 import SaleCallout from '../components/SaleCallout';
@@ -298,6 +299,8 @@ export default function CheckoutPage() {
 
   const [email, setEmail] = React.useState(savedProgress?.email ?? '');
   const [newsletter, setNewsletter] = React.useState(savedProgress?.newsletter ?? true);
+  // Text opt-in: unticked by default — SMS marketing needs a clear yes.
+  const [smsOptIn, setSmsOptIn] = React.useState(false);
   const [shipping, setShipping] = React.useState(savedProgress?.shipping ?? EMPTY_ADDRESS);
   const [step, setStep] = React.useState(savedProgress?.step === 2 && addressComplete(savedProgress?.shipping) && savedProgress?.email ? 2 : 1);
   const [card, setCard] = React.useState({ number: '', expiry: '', cvc: '' });
@@ -487,15 +490,15 @@ export default function CheckoutPage() {
   // after they actually leave, not 10 minutes after their last keystroke.
   const lastSavedContactRef = React.useRef('');
   const contactRef = React.useRef({});
-  contactRef.current = { email, shipping, newsletter, cart };
+  contactRef.current = { email, shipping, newsletter, smsOptIn, cart };
   const saveContact = React.useCallback((force = false) => {
-    const { email, shipping, newsletter, cart } = contactRef.current;
+    const { email, shipping, newsletter, smsOptIn, cart } = contactRef.current;
     const cleanEmail = email.trim();
     const emailOk = EMAIL_RE.test(cleanEmail);
     const phoneOk = String(shipping.phone || '').replace(/\D/g, '').length >= 10;
     if (!emailOk && !phoneOk) return;
     const name = String(shipping.name || '').trim();
-    const sig = JSON.stringify([emailOk ? cleanEmail.toLowerCase() : '', shipping.phone, name, shipping.city, shipping.state, newsletter, cartSignature(cart)]);
+    const sig = JSON.stringify([emailOk ? cleanEmail.toLowerCase() : '', shipping.phone, name, shipping.city, shipping.state, newsletter, smsOptIn, cartSignature(cart)]);
     if (sig === lastSavedContactRef.current && !force) return;
     lastSavedContactRef.current = sig;
     rememberIdentity({ email: emailOk ? cleanEmail : '', phone: shipping.phone });
@@ -503,7 +506,7 @@ export default function CheckoutPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: emailOk ? cleanEmail : '', phone: shipping.phone, name, consent: newsletter, source: 'checkout', journeyId: getVisitorId(),
+        email: emailOk ? cleanEmail : '', phone: shipping.phone, name, consent: newsletter, smsConsent: smsOptIn && phoneOk, source: 'checkout', journeyId: getVisitorId(),
         address: { city: shipping.city, state: shipping.state },
         cart: cart.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
       }),
@@ -521,7 +524,7 @@ export default function CheckoutPage() {
   React.useEffect(() => {
     const t = setTimeout(saveContact, 1500);
     return () => clearTimeout(t);
-  }, [email, shipping.phone, shipping.name, shipping.city, shipping.state, newsletter, saveContact]);
+  }, [email, shipping.phone, shipping.name, shipping.city, shipping.state, newsletter, smsOptIn, saveContact]);
 
   React.useEffect(() => {
     const onHide = () => { if (document.visibilityState === 'hidden') saveContact(true); };
@@ -795,6 +798,15 @@ export default function CheckoutPage() {
                     <input type="checkbox" checked={newsletter} onChange={(e) => setNewsletter(e.target.checked)} />
                     Email me with news and offers
                   </label>
+                  {String(shipping.phone || '').replace(/\D/g, '').length >= 10 && (
+                    <>
+                      <label style={checkboxLabel}>
+                        <input type="checkbox" checked={smsOptIn} onChange={(e) => setSmsOptIn(e.target.checked)} />
+                        Text me new drops and offers
+                      </label>
+                      <p style={{ margin: '6px 0 0 26px', fontSize: 11, lineHeight: 1.5, color: T.soft }}>{SMS_CONSENT_TEXT}</p>
+                    </>
+                  )}
                 </div>
 
                 {error && <p ref={errorRef} style={errorText}>{error}</p>}

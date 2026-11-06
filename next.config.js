@@ -37,6 +37,8 @@ const nextConfig = {
         source: '/.well-known/apple-developer-merchantid-domain-association',
         destination: '/api/apple-pay-domain-verification',
       },
+      // Short tracked links in texts (lib/sms/smsAutomations.js).
+      { source: '/t/:id', destination: '/api/sms/click?id=:id' },
     ];
   },
   images: {
