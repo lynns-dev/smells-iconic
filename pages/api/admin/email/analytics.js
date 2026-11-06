@@ -9,6 +9,7 @@ import { getCampaigns } from '../../../../lib/email/campaignsStore';
 import { getAutomations } from '../../../../lib/email/automationsStore';
 import { getSubscribers } from '../../../../lib/email/subscribersStore';
 import { computeCampaignConversion, computeAutomationStepConversion } from '../../../../lib/email/campaignAnalytics';
+import { getAbandonedStats } from '../../../../lib/abandonedStats';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -55,6 +56,11 @@ export default async function handler(req, res) {
       if (Object.keys(perStep).length > 0) perAutomation[flow.id] = perStep;
     }
 
+    // The abandoned-checkout email runs on its own cron (lib/abandonedCheckout.js),
+    // outside the flows above; fold its sends in so the totals are complete.
+    const abandonedCheckout = await getAbandonedStats().catch(() => null);
+    if (abandonedCheckout) totalSent += abandonedCheckout.sentTotal;
+
     const aggregate = {
       sent: totalSent,
       clicked: totalClicked,
@@ -64,7 +70,7 @@ export default async function handler(req, res) {
       conversionRate: totalUniqueClickers > 0 ? Math.round((totalConverted / totalUniqueClickers) * 1000) / 10 : 0,
     };
 
-    return res.status(200).json({ campaigns: perCampaign, automations: perAutomation, aggregate });
+    return res.status(200).json({ campaigns: perCampaign, automations: perAutomation, aggregate, abandonedCheckout });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

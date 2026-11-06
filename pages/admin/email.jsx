@@ -563,7 +563,7 @@ export default function EmailAdmin() {
             </div>
             <div style={gradeTile}>
               <div style={{ fontSize: 22, fontWeight: 700 }}>{emailAnalytics.aggregate?.sent ?? analytics.totalSent}</div>
-              <div style={{ fontSize: 11, color: T.soft, marginTop: 2 }}>Emails sent (all-time, campaigns + automations)</div>
+              <div style={{ fontSize: 11, color: T.soft, marginTop: 2 }}>Emails sent (all-time, campaigns + automations + abandoned checkout)</div>
             </div>
             <div style={gradeTile}>
               <div style={{ fontSize: 22, fontWeight: 700 }}>{emailAnalytics.aggregate?.clickRate ?? analytics.clickRate}%</div>
@@ -1153,6 +1153,9 @@ function LegacyAbandonedCheckout() {
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{data.subject}</div>
           <div style={{ fontSize: 12, color: T.soft }}>
             Sent {data.sent7d} in the last 7 days · {data.sentTotal} in all{data.lastSentAt ? ` · last ${new Date(data.lastSentAt).toLocaleString()}` : ''}
+          </div>
+          <div style={{ fontSize: 12, color: T.ink, marginTop: 4 }}>
+            Recovered {data.recovered ?? 0} order{data.recovered === 1 ? '' : 's'} ({data.recoveryRate ?? 0}%) · ${Number(data.recoveredRevenue || 0).toFixed(2)} — ordered within 7 days of the email
           </div>
         </div>
       )}
