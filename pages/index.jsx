@@ -46,7 +46,6 @@ export default function HomePage() {
   React.useEffect(() => { exposeExperiment('hero_babygirl'); }, []);
   const babygirl = getProductById('babygirl');
   const babygirlHero = heroVariant === 'babygirl' && babygirl;
-  const babygirl = getProductById('babygirl');
   const reviewsByProduct = useAllReviews();
   const siteReviews = React.useMemo(() => {
     const all = Object.values(reviewsByProduct).flatMap((r) => r.reviews || []);
