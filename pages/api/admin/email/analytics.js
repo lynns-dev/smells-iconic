@@ -10,6 +10,7 @@ import { getAutomations } from '../../../../lib/email/automationsStore';
 import { getSubscribers } from '../../../../lib/email/subscribersStore';
 import { computeCampaignConversion, computeAutomationStepConversion } from '../../../../lib/email/campaignAnalytics';
 import { getAbandonedStats } from '../../../../lib/abandonedStats';
+import { computeFlowPerformance, ABANDONED_FLOW, MIN_SENT, CLICK_RATE_FLOOR, OPEN_RATE_FLOOR } from '../../../../lib/email/flowPerformance';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -37,32 +38,38 @@ export default async function handler(req, res) {
       totalClicked += campaign.stats.clicked || 0;
     }
 
+    // Per-automation open/click performance (lib/email/flowPerformance.js),
+    // including the abandoned-checkout email, which runs on its own cron.
+    const flows = await computeFlowPerformance([...automations, { ...ABANDONED_FLOW, enabled: true }]);
+
     const perAutomation = {};
     for (const flow of automations) {
       const perStep = {};
       for (let stepIndex = 0; stepIndex < flow.steps.length; stepIndex += 1) {
-        const step = flow.steps[stepIndex];
-        const stepSent = step.stats?.sent || 0;
-        const stepClicked = step.stats?.clicked || 0;
-        if (stepSent === 0) continue; // never sent — nothing to report, keeps the response small
-
+        const row = flows.find((f) => f.id === flow.id)?.steps.find((s) => s.index === stepIndex);
+        if (!row || row.sent === 0) continue; // never sent — nothing to report, keeps the response small
         const result = await computeAutomationStepConversion(flow.id, stepIndex, subscribersByEmail);
-        perStep[stepIndex] = { ...result, sent: stepSent, clicked: stepClicked };
+        perStep[stepIndex] = { ...result, sent: row.sent, clicked: row.clickers };
         totalConverted += result.converted;
         totalUniqueClickers += result.uniqueClickers;
-        totalSent += stepSent;
-        totalClicked += stepClicked;
       }
       if (Object.keys(perStep).length > 0) perAutomation[flow.id] = perStep;
     }
+    for (const f of flows) {
+      totalSent += f.sent;
+      totalClicked += f.clickers;
+    }
 
-    // The abandoned-checkout email runs on its own cron (lib/abandonedCheckout.js),
-    // outside the flows above; fold its sends in so the totals are complete.
+    // Abandoned-checkout emails sent before click tracking was added can't
+    // have clicks, so they're reported but left out of the click-rate
+    // denominator (they used to be counted in it, dragging the rate to ~0%).
     const abandonedCheckout = await getAbandonedStats().catch(() => null);
-    if (abandonedCheckout) totalSent += abandonedCheckout.sentTotal;
+    const abandonedRow = flows.find((f) => f.id === 'abandoned_checkout');
+    const untrackedAbandoned = abandonedCheckout ? Math.max(0, abandonedCheckout.sentTotal - (abandonedRow?.sent || 0)) : 0;
 
     const aggregate = {
-      sent: totalSent,
+      sent: totalSent + untrackedAbandoned,
+      trackedSent: totalSent,
       clicked: totalClicked,
       clickRate: totalSent > 0 ? Math.round((totalClicked / totalSent) * 1000) / 10 : 0,
       converted: totalConverted,
@@ -70,7 +77,7 @@ export default async function handler(req, res) {
       conversionRate: totalUniqueClickers > 0 ? Math.round((totalConverted / totalUniqueClickers) * 1000) / 10 : 0,
     };
 
-    return res.status(200).json({ campaigns: perCampaign, automations: perAutomation, aggregate, abandonedCheckout });
+    return res.status(200).json({ campaigns: perCampaign, automations: perAutomation, flows, thresholds: { minSent: MIN_SENT, clickRateFloor: CLICK_RATE_FLOOR, openRateFloor: OPEN_RATE_FLOOR }, aggregate, abandonedCheckout });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

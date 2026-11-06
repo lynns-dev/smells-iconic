@@ -12,6 +12,7 @@ const TABS = [
   { id: 'subscribers', label: 'Subscribers' },
   { id: 'campaigns', label: 'Campaigns' },
   { id: 'automations', label: 'Automations' },
+  { id: 'texts', label: 'Texts (SMS)' },
 ];
 const FLOW_DESCRIPTIONS = {
   welcome_series: 'Fires when someone signs up or ticks the email box at checkout — step 1 goes out within 15 minutes, later steps on schedule. People already on the list when this launched are skipped.',
@@ -58,7 +59,7 @@ export default function EmailAdmin() {
   const [newSubscriberEmail, setNewSubscriberEmail] = React.useState('');
   const [addingSubscriber, setAddingSubscriber] = React.useState(false);
   const [addSubscriberMessage, setAddSubscriberMessage] = React.useState('');
-  const [emailAnalytics, setEmailAnalytics] = React.useState({ campaigns: {}, automations: {}, aggregate: null });
+  const [emailAnalytics, setEmailAnalytics] = React.useState({ campaigns: {}, automations: {}, flows: [], thresholds: null, aggregate: null });
 
   // New subscribers over the last 7 / 30 days, by where they came from —
   // the quickest way to see the popup, checkout and orders feeding the list.
@@ -128,7 +129,7 @@ export default function EmailAdmin() {
   const loadEmailAnalytics = React.useCallback(() => {
     fetch('/api/admin/email/analytics')
       .then((r) => r.json())
-      .then((data) => setEmailAnalytics({ campaigns: data.campaigns || {}, automations: data.automations || {}, aggregate: data.aggregate || null }))
+      .then((data) => setEmailAnalytics({ campaigns: data.campaigns || {}, automations: data.automations || {}, flows: data.flows || [], thresholds: data.thresholds || null, aggregate: data.aggregate || null }))
       .catch(() => {});
   }, []);
 
@@ -726,7 +727,6 @@ export default function EmailAdmin() {
 
         {activeTab === 'subscribers' && (
         <>
-        <SmsSubscribers />
         <Section
           title={`Subscribers (${visibleSubscribers.length}${visibleSubscribers.length !== subscribers.length ? ` of ${subscribers.length}` : ''})`}
           action={<a href="/api/admin/email/subscribers?format=csv" style={S.btnOutline}>Export CSV</a>}
@@ -1011,6 +1011,8 @@ export default function EmailAdmin() {
         </>
         )}
 
+        {activeTab === 'texts' && <TextsTab />}
+
         {activeTab === 'automations' && (
         <>
         {sendingReady && (!sendingReady.cronSecret || !sendingReady.resendKey) && (
@@ -1020,6 +1022,7 @@ export default function EmailAdmin() {
             {!sendingReady.cronSecret && !sendingReady.resendKey ? 'are' : 'is'} set in Vercel (Project → Settings → Environment Variables), followed by a redeploy.
           </div>
         )}
+        <FlowPerformance flows={emailAnalytics.flows} thresholds={emailAnalytics.thresholds} onSelect={(id) => setActiveAutomationId(id === 'abandoned_checkout' ? LEGACY_ABANDONED_ID : id)} />
         <Section
           title="Automations"
           action={
@@ -1058,7 +1061,7 @@ export default function EmailAdmin() {
             </nav>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              {activeAutomationId === LEGACY_ABANDONED_ID && <LegacyAbandonedCheckout />}
+              {activeAutomationId === LEGACY_ABANDONED_ID && <LegacyAbandonedCheckout perf={emailAnalytics.flows.find((f) => f.id === 'abandoned_checkout')} />}
               {automations.filter((a) => a.id === (activeAutomationId || automations[0]?.id)).map((a) => (
             <div key={a.id}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -1091,14 +1094,18 @@ export default function EmailAdmin() {
                       )}
                     </div>
 
-                    {!isSuppress && step.stats?.sent > 0 && (
-                      <div style={{ fontSize: 12, color: T.soft, marginBottom: 12 }}>
-                        Sent {step.stats.sent} · Click rate {Math.round((step.stats.clicked / step.stats.sent) * 1000) / 10}%
-                        {emailAnalytics.automations?.[a.id]?.[i] && (
-                          <span> · Conversion rate {emailAnalytics.automations[a.id][i].conversionRate}% ({emailAnalytics.automations[a.id][i].converted}/{emailAnalytics.automations[a.id][i].uniqueClickers} clickers ordered within 7d)</span>
-                        )}
-                      </div>
-                    )}
+                    {!isSuppress && (() => {
+                      const perf = emailAnalytics.flows.find((f) => f.id === a.id)?.steps.find((r) => r.index === i);
+                      const conv = emailAnalytics.automations?.[a.id]?.[i];
+                      if (!perf || perf.sent === 0) return null;
+                      return (
+                        <div style={{ fontSize: 12, color: T.soft, marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <span>Sent {perf.sent} · Open rate {perf.trackedSent ? `${perf.openRate}%` : '—'} · Click rate {perf.clickRate}% ({perf.clickers} clicked)</span>
+                          {conv && <span>· Conversion {conv.conversionRate}% ({conv.converted}/{conv.uniqueClickers} clickers ordered within 7d)</span>}
+                          <HealthBadge health={perf.health} />
+                        </div>
+                      );
+                    })()}
 
                     {!isSuppress && (
                       <>
@@ -1131,6 +1138,18 @@ export default function EmailAdmin() {
                             style={{ width: '100%', height: 320, border: `1px solid ${T.line}`, marginTop: 10, background: T.paper }}
                           />
                         )}
+
+                        <AbTestPanel
+                          automation={a}
+                          stepIndex={i}
+                          step={step}
+                          perf={emailAnalytics.flows.find((f) => f.id === a.id)?.steps.find((r) => r.index === i)}
+                          onChangeB={(patch) => updateAutomationStep(a.id, i, { abTest: { ...step.abTest, ...patch } })}
+                          onUpdated={(automation) => {
+                            setAutomations((prev) => prev.map((x) => (x.id === automation.id ? automation : x)));
+                            loadEmailAnalytics();
+                          }}
+                        />
                       </>
                     )}
                   </div>
@@ -1159,7 +1178,7 @@ export default function EmailAdmin() {
 // here read-only with its send numbers (pages/api/admin/email/abandoned-checkout.js).
 const LEGACY_ABANDONED_ID = 'legacy_abandoned_checkout';
 
-function LegacyAbandonedCheckout() {
+function LegacyAbandonedCheckout({ perf }) {
   const [data, setData] = React.useState(null);
   React.useEffect(() => {
     fetch('/api/admin/email/abandoned-checkout').then((r) => r.json()).then(setData).catch(() => setData({ error: 'Could not load.' }));
@@ -1183,6 +1202,12 @@ function LegacyAbandonedCheckout() {
           <div style={{ fontSize: 12, color: T.ink, marginTop: 4 }}>
             Recovered {data.recovered ?? 0} order{data.recovered === 1 ? '' : 's'} ({data.recoveryRate ?? 0}%) · ${Number(data.recoveredRevenue || 0).toFixed(2)} — ordered within 7 days of the email
           </div>
+          <div style={{ fontSize: 12, color: T.soft, marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {perf?.sent
+              ? <span>Since click tracking: {perf.sent} sent · Open rate {perf.openRate}% · Click rate {perf.clickRate}% ({perf.clickers} clicked)</span>
+              : <span>Open and click tracking starts with the next abandoned-checkout email.</span>}
+            {perf?.sent > 0 && <HealthBadge health={perf.health} />}
+          </div>
         </div>
       )}
     </div>
@@ -1196,6 +1221,198 @@ function ChecklistRow({ ok, label, busy }) {
     <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', fontSize: 13 }}>
       <span style={{ color, fontWeight: 700, width: 16 }}>{icon}</span>
       <span>{label}</span>
+    </div>
+  );
+}
+
+// Per-automation open/click rates (pages/api/admin/email/analytics.js →
+// lib/email/flowPerformance.js), so a flow that isn't working stands out.
+function FlowPerformance({ flows, thresholds, onSelect }) {
+  if (!flows?.length) return null;
+  const cell = { padding: '10px 8px', borderBottom: `1px solid ${T.line}`, fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap' };
+  const head = { ...cell, fontSize: 11, fontWeight: 600, color: T.soft, textTransform: 'uppercase', letterSpacing: '0.06em' };
+  const pct = (v, has = true) => (has ? `${v}%` : '—');
+  return (
+    <Section title="Automation performance">
+      <p style={{ fontSize: 12, color: T.soft, margin: '0 0 12px', lineHeight: 1.5 }}>
+        Click rate = people who clicked ÷ emails sent. Open rate counts from when open tracking went live and reads high because Apple Mail preloads images, so treat it as a spam-folder warning and judge emails on clicks.
+        {thresholds && <> Flagged when a flow has {thresholds.minSent}+ sends and click rate is under {thresholds.clickRateFloor}% or open rate is under {thresholds.openRateFloor}%.</>}
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+          <thead>
+            <tr>
+              <th style={{ ...head, textAlign: 'left' }}>Automation</th>
+              <th style={head}>Sent</th>
+              <th style={head}>Open rate</th>
+              <th style={head}>Click rate</th>
+              <th style={head}>Click-to-open</th>
+              <th style={{ ...head, textAlign: 'left' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {flows.map((f) => (
+              <React.Fragment key={f.id}>
+                <tr>
+                  <td style={{ ...cell, textAlign: 'left' }}>
+                    <button type="button" onClick={() => onSelect(f.id)} style={{ background: 'none', border: 0, padding: 0, font: 'inherit', fontWeight: 600, color: T.ink, cursor: 'pointer', textDecoration: 'underline' }}>{f.name}</button>
+                    {!f.enabled && <span style={{ fontSize: 11, color: T.soft, marginLeft: 6 }}>off</span>}
+                  </td>
+                  <td style={cell}>{f.sent}</td>
+                  <td style={cell}>{pct(f.openRate, f.trackedSent > 0)}</td>
+                  <td style={{ ...cell, fontWeight: 600 }}>{pct(f.clickRate, f.sent > 0)}</td>
+                  <td style={cell}>{pct(f.clickToOpenRate, f.opened > 0)}</td>
+                  <td style={{ ...cell, textAlign: 'left' }}><HealthBadge health={f.health} /></td>
+                </tr>
+                {f.steps.length > 1 && f.steps.map((st) => (
+                  <tr key={st.index}>
+                    <td style={{ ...cell, textAlign: 'left', paddingLeft: 20, color: T.soft, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>Step {st.index + 1}: {st.subject}{st.abTest && ' · A/B running'}</td>
+                    <td style={{ ...cell, color: T.soft }}>{st.sent}</td>
+                    <td style={{ ...cell, color: T.soft }}>{pct(st.openRate, st.trackedSent > 0)}</td>
+                    <td style={{ ...cell, color: T.soft }}>{pct(st.clickRate, st.sent > 0)}</td>
+                    <td style={{ ...cell, color: T.soft }}>{pct(st.clickToOpenRate, st.opened > 0)}</td>
+                    <td style={{ ...cell, textAlign: 'left' }}><HealthBadge health={st.health} /></td>
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Section>
+  );
+}
+
+function HealthBadge({ health }) {
+  if (!health) return null;
+  const styles = {
+    failing: { background: '#FDECEA', color: '#8A1F11', label: 'Failing' },
+    ok: { background: '#E7F4EA', color: '#1E5B2E', label: 'Healthy' },
+    learning: { background: T.paper, color: T.soft, label: 'Not enough data' },
+  };
+  const st = styles[health.status] || styles.learning;
+  return (
+    <span title={health.note || ''} style={{ display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: st.background, color: st.color }}>
+      {st.label}{health.status === 'failing' && health.note ? `: ${health.note}` : ''}
+    </span>
+  );
+}
+
+// A/B test for one automation step: variant B gets its own subject and/or
+// HTML, subscribers are split 50/50 (stable per person), and the results
+// compare click rate with a confidence figure. Ending the test with B as
+// the winner copies B into the step (lib/email/automationsStore.js).
+function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated }) {
+  const [open, setOpen] = React.useState(Boolean(step.abTest?.enabled));
+  const [draft, setDraft] = React.useState({ subject: '', html: '' });
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState('');
+  const running = step.abTest?.enabled ? step.abTest : null;
+  const results = perf?.abTest?.results;
+
+  const call = async (body) => {
+    setBusy(true);
+    setMsg('');
+    try {
+      const res = await fetch('/api/admin/email/automations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: automation.id, stepIndex, ...body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed.');
+      onUpdated(data.automation);
+      return true;
+    } catch (err) {
+      setMsg(err.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const box = { marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` };
+  if (!open && !running) {
+    return (
+      <div style={box}>
+        <button type="button" onClick={() => setOpen(true)} style={S.btnOutline}>A/B test this email</button>
+        {step.abHistory?.length > 0 && <span style={{ fontSize: 12, color: T.soft, marginLeft: 10 }}>{step.abHistory.length} past test{step.abHistory.length === 1 ? '' : 's'} · last winner: {step.abHistory[step.abHistory.length - 1].winner.toUpperCase()}</span>}
+      </div>
+    );
+  }
+
+  const row = (label, m) => (
+    <tr>
+      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{label}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{m?.sent ?? 0}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{m?.sent ? `${m.openRate}%` : '—'}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600 }}>{m?.sent ? `${m.clickRate}%` : '—'}</td>
+      <td style={{ padding: '6px 8px', textAlign: 'right' }}>{m?.clickers ?? 0}</td>
+    </tr>
+  );
+
+  return (
+    <div style={box}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <strong style={{ fontSize: 13 }}>A/B test {running ? '· running' : ''}</strong>
+        {!running && <button type="button" onClick={() => setOpen(false)} style={{ ...S.btnOutline, height: 28, fontSize: 12 }}>Cancel</button>}
+      </div>
+      <p style={{ fontSize: 12, color: T.soft, margin: '0 0 10px', lineHeight: 1.5 }}>
+        Variant A is the email above. Half of the people who reach this step get variant B (each person always gets the same one). Leave B&rsquo;s HTML blank to test only the subject line. Pick a winner once each side has a few hundred sends.
+      </p>
+      <label style={formLabel}>Variant B subject</label>
+      <input
+        value={running ? running.subject || '' : draft.subject}
+        onChange={(e) => (running ? onChangeB({ subject: e.target.value }) : setDraft({ ...draft, subject: e.target.value }))}
+        placeholder={step.subject}
+        style={{ ...formInput, marginBottom: 10 }}
+      />
+      <label style={formLabel}>Variant B HTML (optional)</label>
+      <textarea
+        value={running ? running.html || '' : draft.html}
+        onChange={(e) => (running ? onChangeB({ html: e.target.value }) : setDraft({ ...draft, html: e.target.value }))}
+        placeholder="Blank = same HTML as variant A"
+        style={{ ...formInput, height: 140, padding: 12, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5 }}
+      />
+      {running && <p style={{ fontSize: 11, color: T.soft, margin: '6px 0 0' }}>Edits to B are saved with &ldquo;Save changes&rdquo; below.</p>}
+
+      {running ? (
+        <>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+            <thead>
+              <tr style={{ color: T.soft, textAlign: 'right' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left' }}>Variant</th><th style={{ padding: '6px 8px' }}>Sent</th><th style={{ padding: '6px 8px' }}>Open rate</th><th style={{ padding: '6px 8px' }}>Click rate</th><th style={{ padding: '6px 8px' }}>Clicked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {row('A', results?.a)}
+              {row('B', results?.b)}
+            </tbody>
+          </table>
+          <p style={{ fontSize: 12, color: T.ink, margin: '8px 0' }}>
+            {perf?.abTest?.leader
+              ? `${perf.abTest.leader.toUpperCase()} is ahead on click rate · ${perf.abTest.confidence}% confidence${perf.abTest.confidence < 95 ? ' (wait for 95%+ before calling it)' : ' — safe to pick a winner'}`
+              : 'No clicks to compare yet.'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="button" disabled={busy} onClick={() => window.confirm('End the test and keep variant A?') && call({ action: 'ab-end', winner: 'a' })} style={S.btnOutline}>Keep A, end test</button>
+            <button type="button" disabled={busy} onClick={() => window.confirm('End the test and replace this step with variant B?') && call({ action: 'ab-end', winner: 'b' })} style={S.btnFill}>B wins, use B</button>
+            {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+          <button
+            type="button"
+            disabled={busy || (!draft.subject.trim() && !draft.html.trim())}
+            onClick={async () => { if (await call({ action: 'ab-start', subject: draft.subject, html: draft.html })) setDraft({ subject: '', html: '' }); }}
+            style={S.btnFill}
+          >
+            {busy ? 'Starting…' : 'Start A/B test'}
+          </button>
+          {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -1333,29 +1550,224 @@ const sidebarLink = {
 const sidebarLinkActive = { background: T.accent, color: '#FFFFFF', fontWeight: 600 };
 
 
-// Text-alert opt-ins from the signup popup (lib/email/smsStore.js). Nothing
-// here sends texts — export the CSV into an SMS provider to message them.
-function SmsSubscribers() {
+// Admin → Texts: automated texts and broadcasts through ResendSMS
+// (pages/api/admin/sms.js, lib/sms/). Every send costs ResendSMS credits.
+function TextsTab() {
+  const [data, setData] = React.useState(null);
+  const [edits, setEdits] = React.useState({});
+  const [msg, setMsg] = React.useState({});
+  const [busy, setBusy] = React.useState('');
+  const [testPhone, setTestPhone] = React.useState('');
+  const [broadcast, setBroadcast] = React.useState({ message: 'Smells Iconic: new drop is live {{LINK}} Reply STOP to opt out', link: '/shop' });
+
+  const load = React.useCallback(() => {
+    fetch('/api/admin/sms').then((r) => r.json()).then(setData).catch(() => setData({ error: 'Could not load.' }));
+  }, []);
+  React.useEffect(load, [load]);
+
+  const api = async (key, method, body) => {
+    setBusy(key);
+    setMsg((m) => ({ ...m, [key]: '' }));
+    try {
+      const res = await fetch('/api/admin/sms', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error || 'Failed.');
+      return out;
+    } catch (err) {
+      setMsg((m) => ({ ...m, [key]: err.message }));
+      return null;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  if (!data) return <Section title="Texts (SMS)"><p style={{ fontSize: 13, color: T.soft }}>Loading…</p></Section>;
+  if (data.error) return <Section title="Texts (SMS)"><p style={{ fontSize: 13, color: T.soft }}>{data.error}</p></Section>;
+
+  const tile = (value, label) => (
+    <div style={gradeTile}>
+      <div style={{ fontSize: 22, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: 11, color: T.soft, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+  const segInfo = (text) => {
+    const len = [...String(text || '')].length;
+    const unicode = /[^\x00-\x7F£¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ¡ÄÖÑÜ§¿äöñüà€]/.test(text || '');
+    const single = unicode ? 70 : 160;
+    const multi = unicode ? 67 : 153;
+    const segs = len === 0 ? 0 : len <= single ? 1 : Math.ceil(len / multi);
+    return `${len} characters · ${segs} credit${segs === 1 ? '' : 's'} per text${unicode ? ' (emoji/special characters make texts cost more)' : ''} · {{LINK}} adds ~30`;
+  };
+
+  return (
+    <>
+      {!data.configured && (
+        <div style={{ background: '#FDECEA', color: '#8A1F11', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
+          <strong>ResendSMS isn&rsquo;t connected.</strong> Add <code>RESENDSMS_API_KEY</code> (resendsms.com → API Keys) in Vercel → Project → Settings → Environment Variables, then redeploy.
+        </div>
+      )}
+      {data.configured && data.balance && data.balance.credits < Math.max(10, data.subscribed) && (
+        <div style={{ background: '#FFF4E5', color: '#7A4A00', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
+          <strong>Low on credits: {data.balance.credits} left.</strong> Nothing sends at 0. Top up at resendsms.com (credits never expire).
+        </div>
+      )}
+
+      <Section title="Texts (SMS)">
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {tile(data.configured ? (data.balance ? data.balance.credits : '—') : 'Off', data.balanceError ? `Credits (error: ${data.balanceError})` : 'ResendSMS credits')}
+          {tile(data.subscribed, 'On the text list')}
+          {tile(data.unsubscribed, 'Opted out')}
+          {tile(data.inSendWindow ? 'Open' : 'Closed', 'Send window (11am–8pm ET)')}
+        </div>
+        <p style={{ fontSize: 12, color: T.soft, margin: '14px 0 0', lineHeight: 1.5 }}>
+          Numbers join from the &ldquo;Text me new drops and offers&rdquo; box at checkout (unticked by default; the consent wording is saved with each number). Texts only go to numbers on that list, only between 11am and 8pm Eastern. ResendSMS doesn&rsquo;t pass replies back to the store, so when someone replies STOP, mark them opted out below.
+        </p>
+      </Section>
+
+      <Section title="Automated texts">
+        {data.flows.map((f) => {
+          const e = edits[f.id] || {};
+          const message = e.message ?? f.message;
+          const delay = e.delayMinutes ?? f.delayMinutes;
+          const st = f.stats;
+          return (
+            <div key={f.id} style={stepCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <strong style={{ fontSize: 14 }}>{f.name}</strong>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: T.soft }}>
+                  <input
+                    type="checkbox"
+                    checked={f.enabled}
+                    disabled={busy === f.id || (!f.enabled && !data.configured)}
+                    onChange={async () => { if (await api(f.id, 'PUT', { id: f.id, enabled: !f.enabled })) load(); }}
+                  />
+                  {f.enabled ? 'On' : 'Off'}
+                </label>
+              </div>
+              <p style={{ fontSize: 12, color: T.soft, margin: '0 0 10px' }}>{f.description}</p>
+              {st?.sent > 0 && (
+                <p style={{ fontSize: 12, color: T.soft, margin: '0 0 10px' }}>Sent {st.sent} · Clicked {st.clickers} · Click rate {st.clickRate}%</p>
+              )}
+              <label style={formLabel}>Message ({'{{LINK}}'} = tracked link{f.id === 'sms_abandoned_checkout' ? ', {{PRODUCT}} = first item in their bag' : ''})</label>
+              <textarea
+                value={message}
+                onChange={(ev) => setEdits((x) => ({ ...x, [f.id]: { ...e, message: ev.target.value } }))}
+                style={{ ...formInput, height: 80, padding: 12, fontSize: 13, lineHeight: 1.5 }}
+              />
+              <div style={{ fontSize: 11, color: T.soft, margin: '4px 0 10px' }}>{segInfo(message)}</div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: 12, color: T.soft }}>
+                  Send after{' '}
+                  <input type="number" min="0" max="1440" value={delay} onChange={(ev) => setEdits((x) => ({ ...x, [f.id]: { ...e, delayMinutes: ev.target.value } }))} style={{ ...formInput, width: 80, display: 'inline-block' }} />
+                  {' '}minutes
+                </label>
+                <button
+                  type="button"
+                  disabled={busy === f.id}
+                  onClick={async () => { if (await api(f.id, 'PUT', { id: f.id, message, delayMinutes: Number(delay) })) { setEdits((x) => ({ ...x, [f.id]: undefined })); setMsg((m) => ({ ...m, [f.id]: 'Saved.' })); load(); } }}
+                  style={S.btnFill}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  disabled={busy === `test-${f.id}` || !data.configured || !testPhone}
+                  onClick={async () => { if (await api(`test-${f.id}`, 'POST', { action: 'test', phone: testPhone, message })) { setMsg((m) => ({ ...m, [`test-${f.id}`]: `Sent to ${testPhone} (1 credit).` })); load(); } }}
+                  style={S.btnOutline}
+                >
+                  Send test
+                </button>
+                {msg[f.id] && <span style={{ fontSize: 12 }}>{msg[f.id]}</span>}
+                {msg[`test-${f.id}`] && <span style={{ fontSize: 12 }}>{msg[`test-${f.id}`]}</span>}
+              </div>
+            </div>
+          );
+        })}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+          <input type="tel" placeholder="Your mobile, for test texts" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} style={{ ...formInput, width: 240, maxWidth: '100%' }} />
+          <span style={{ fontSize: 12, color: T.soft }}>Test texts use 1 credit each.</span>
+        </div>
+      </Section>
+
+      <Section title="Send a text to everyone">
+        <label style={formLabel}>Message</label>
+        <textarea value={broadcast.message} onChange={(e) => setBroadcast({ ...broadcast, message: e.target.value })} style={{ ...formInput, height: 80, padding: 12, fontSize: 13, lineHeight: 1.5 }} />
+        <div style={{ fontSize: 11, color: T.soft, margin: '4px 0 10px' }}>{segInfo(broadcast.message)}</div>
+        <label style={formLabel}>{'{{LINK}}'} goes to</label>
+        <input value={broadcast.link} onChange={(e) => setBroadcast({ ...broadcast, link: e.target.value })} placeholder="/shop" style={{ ...formInput, width: 280, maxWidth: '100%', marginBottom: 12 }} />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            disabled={busy === 'broadcast' || !data.configured || !data.subscribed}
+            onClick={async () => {
+              if (!window.confirm(`Text ${data.subscribed} number${data.subscribed === 1 ? '' : 's'} now? This uses at least ${data.subscribed} ResendSMS credits and can't be undone.`)) return;
+              const out = await api('broadcast', 'POST', { action: 'broadcast', message: broadcast.message, link: broadcast.link, confirmCount: data.subscribed });
+              if (out) { setMsg((m) => ({ ...m, broadcast: `Sent to ${out.sent}.${out.errors?.length ? ` Errors: ${out.errors.join('; ')}` : ''}` })); load(); }
+            }}
+            style={S.btnFill}
+          >
+            {busy === 'broadcast' ? 'Sending…' : `Send to ${data.subscribed}`}
+          </button>
+          {msg.broadcast && <span style={{ fontSize: 12 }}>{msg.broadcast}</span>}
+        </div>
+        {data.broadcasts.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            {data.broadcasts.map((b) => (
+              <div key={b.broadcastId} style={{ fontSize: 12, padding: '8px 0', borderBottom: `1px solid ${T.line}` }}>
+                <div>{b.message}</div>
+                <div style={{ color: T.soft, marginTop: 2 }}>
+                  {new Date(b.at).toLocaleString()} · sent {b.sent}/{b.recipients}{b.stats ? ` · ${b.stats.clicks} clicks` : ''}{b.errors?.length ? ` · ${b.errors[0]}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <SmsSubscribers onChange={load} />
+    </>
+  );
+}
+
+// The text list (lib/email/smsStore.js), with each number's consent record.
+function SmsSubscribers({ onChange }) {
   const [list, setList] = React.useState(null);
-  React.useEffect(() => {
+  const [busy, setBusy] = React.useState('');
+  const load = React.useCallback(() => {
     fetch('/api/admin/email/sms').then((r) => r.json()).then((d) => setList(d.subscribers || [])).catch(() => setList([]));
   }, []);
-  if (!list || list.length === 0) return null;
+  React.useEffect(load, [load]);
+  const setStatus = async (phone, status) => {
+    if (status === 'unsubscribed' && !window.confirm(`Mark ${phone} as opted out? They won't get any more texts.`)) return;
+    setBusy(phone);
+    const res = await fetch('/api/admin/sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status', phone, status }) });
+    const out = await res.json().catch(() => ({}));
+    setBusy('');
+    if (!res.ok) { alert(out.error || 'Failed.'); return; }
+    load();
+    onChange?.();
+  };
+  if (!list) return null;
   return (
     <Section
-      title={`Text alerts (${list.length})`}
-      action={<a href="/api/admin/email/sms?format=csv" style={S.btnOutline}>Export CSV</a>}
+      title={`Text list (${list.length})`}
+      action={list.length > 0 && <a href="/api/admin/email/sms?format=csv" style={S.btnOutline}>Export CSV</a>}
     >
-      <p style={{ color: T.soft, fontSize: 13, margin: '0 0 12px' }}>
-        Mobile numbers opted in to text alerts, with the consent each person agreed to. This store doesn&rsquo;t send texts — export these into an SMS provider.
-      </p>
+      {list.length === 0 && <p style={{ color: T.soft, fontSize: 13, margin: 0 }}>No one has opted in to texts yet. New opt-ins from checkout show up here.</p>}
       <div className="table-scroll">
-        <div style={{ minWidth: 520 }}>
-          {list.slice().reverse().slice(0, 50).map((s) => (
-            <div key={s.phone} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: `1px solid ${T.line}` }}>
-              <div style={{ flex: '0 0 140px' }}>{s.phone}</div>
-              <div style={{ flex: 1, color: T.soft }}>{s.email || '—'}</div>
-              <div style={{ flex: '0 0 110px', color: T.soft }}>{new Date(s.consentAt).toLocaleDateString()}</div>
+        <div style={{ minWidth: 560 }}>
+          {list.slice().reverse().slice(0, 100).map((s) => (
+            <div key={s.phone} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: `1px solid ${T.line}`, alignItems: 'center' }}>
+              <div style={{ flex: '0 0 130px' }}>{s.phone}</div>
+              <div style={{ flex: 1, color: T.soft, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.email || '—'}</div>
+              <div style={{ flex: '0 0 90px', color: T.soft }}>{s.consentAt ? new Date(s.consentAt).toLocaleDateString() : '—'}</div>
+              <div style={{ flex: '0 0 150px', textAlign: 'right' }}>
+                {s.status === 'subscribed' ? (
+                  <button type="button" disabled={busy === s.phone} onClick={() => setStatus(s.phone, 'unsubscribed')} style={{ ...S.btnOutline, height: 28, fontSize: 12 }}>Mark opted out (STOP)</button>
+                ) : (
+                  <span style={{ fontSize: 12, color: T.soft }}>Opted out</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

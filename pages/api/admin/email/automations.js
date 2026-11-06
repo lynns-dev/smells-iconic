@@ -1,4 +1,5 @@
-import { getAutomations, updateAutomation, syncAutomationDesign } from '../../../../lib/email/automationsStore';
+import { getAutomations, updateAutomation, updateStepContent, setStepAbTest, syncAutomationDesign } from '../../../../lib/email/automationsStore';
+import { getFlowStats } from '../../../../lib/email/flowStats';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -18,10 +19,13 @@ export default async function handler(req, res) {
     const { id, enabled, steps } = req.body || {};
     if (!id) return res.status(400).json({ error: 'Automation id is required.' });
     try {
-      const patch = {};
-      if (enabled !== undefined) patch.enabled = enabled;
-      if (steps !== undefined) patch.steps = steps;
-      const automation = await updateAutomation(id, patch);
+      // Steps go through updateStepContent, which only takes the editable
+      // fields and keeps the stored stats/link targets — posting the page's
+      // (possibly hours-old) copy back used to wipe click counts.
+      let automation = null;
+      if (steps !== undefined) automation = await updateStepContent(id, steps);
+      if (enabled !== undefined) automation = await updateAutomation(id, { enabled: Boolean(enabled) });
+      if (!automation) return res.status(400).json({ error: 'Nothing to update.' });
       return res.status(200).json({ automation });
     } catch (err) {
       return res.status(400).json({ error: err.message });
@@ -29,7 +33,24 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { action } = req.body || {};
+    const { action, id, stepIndex, subject, html, winner } = req.body || {};
+    // A/B tests: { action: 'ab-start', id, stepIndex, subject, html } and
+    // { action: 'ab-end', id, stepIndex, winner: 'a'|'b' }.
+    if (action === 'ab-start' || action === 'ab-end') {
+      try {
+        const idx = Number(stepIndex);
+        let results = null;
+        if (action === 'ab-end') {
+          const flow = (await getAutomations()).find((a) => a.id === id);
+          const testId = flow?.steps?.[idx]?.abTest?.testId;
+          if (testId) results = (await getFlowStats([{ flowId: id, stepIndex: idx }])).get(`${id}:${idx}`)?.tests?.[testId] || null;
+        }
+        const automation = await setStepAbTest(String(id), idx, action === 'ab-start' ? 'start' : 'end', { subject, html, winner, results });
+        return res.status(200).json({ automation });
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+    }
     if (action !== 'sync-design') return res.status(400).json({ error: 'Unknown action.' });
     try {
       const automations = await syncAutomationDesign();

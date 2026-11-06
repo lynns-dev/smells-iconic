@@ -7,19 +7,33 @@
 import { upsertSubscriber } from '../../lib/subscribersStore';
 import { updateJourney } from '../../lib/analyticsStore';
 import { isExcludedTraffic } from '../../lib/ipFilter';
+import { addSmsSubscriber, SMS_CONSENT_TEXT } from '../../lib/email/smsStore';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end();
   }
-  const { email, phone, name, consent, source, cart, address, journeyId } = req.body || {};
+  const { email, phone, name, consent, smsConsent, source, cart, address, journeyId } = req.body || {};
   if (isExcludedTraffic(req)) return res.status(200).json({ ok: true });
   try {
     const saved = await upsertSubscriber({
       email, phone, name, consent: consent === true, source: ['newsletter', 'cart'].includes(source) ? source : 'checkout', cart, address,
     });
     if (saved && typeof journeyId === 'string') await updateJourney(journeyId, { contactKey: saved.key });
+    // Checkout's "Text me" box (unticked by default). Saved with the exact
+    // disclosure shown next to it, the time, IP and browser — the consent
+    // record SMS law expects (lib/email/smsStore.js).
+    if (smsConsent === true && phone) {
+      await addSmsSubscriber({
+        phone,
+        email,
+        source: 'checkout',
+        consentText: SMS_CONSENT_TEXT,
+        ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      }).catch((err) => console.error('SMS opt-in failed:', err.message));
+    }
     return res.status(200).json({ ok: Boolean(saved) });
   } catch (err) {
     console.error('Subscribe failed:', err.message);
