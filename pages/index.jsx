@@ -11,6 +11,7 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 import { activePromo } from '../lib/promos';
+import { useVariant, exposeExperiment } from '../lib/experiments';
 
 const DEFAULT_MESSAGES = ['15% off with code ICONIC15'];
 
@@ -39,7 +40,12 @@ export default function HomePage() {
 
   const featured = getFeaturedProducts();
   const heroProduct = getProductById('daddy-is-a-state-of-mind');
+  // Split test hero_babygirl (lib/experiments.js): the Babygirl campaign hero
+  // that matches the current ads, vs the Daddy hero.
+  const heroVariant = useVariant('hero_babygirl');
+  React.useEffect(() => { exposeExperiment('hero_babygirl'); }, []);
   const babygirl = getProductById('babygirl');
+  const babygirlHero = heroVariant === 'babygirl' && babygirl;
   const reviewsByProduct = useAllReviews();
   const siteReviews = React.useMemo(() => {
     const all = Object.values(reviewsByProduct).flatMap((r) => r.reviews || []);
@@ -82,6 +88,28 @@ export default function HomePage() {
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
       {/* HERO */}
       <section style={heroWrap}>
+        {babygirlHero ? (
+        <div className="hero-grid" style={heroBg}>
+          <div className="hero-text" style={heroContent}>
+            <div>
+              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · No. 01 · Babygirl</span>
+              <h1 style={heroH1}>they&rsquo;ll <span style={S.it}>lean in.</span></h1>
+              <p style={heroSub}>Milk, skin musk, marshmallow. The scent people come closer to figure out.</p>
+              {siteReviews.count > 0 && (
+                <div style={hrate}>
+                  <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
+                  {' '}{siteReviews.average.toFixed(1)} · {siteReviews.count} review{siteReviews.count === 1 ? '' : 's'}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Link href={`/product/${babygirl.id}`} style={heroBtn}>Shop Babygirl — ${babygirl.price}</Link>
+                <a href="#notes" style={heroLink}>The scents</a>
+              </div>
+            </div>
+          </div>
+          <div className="hero-img hero-campaign" role="img" aria-label="Woman in golden sunlight holding Smells Iconic Babygirl body mist" />
+        </div>
+        ) : (
         <div className="hero-grid" style={heroBg}>
           <div className="hero-text" style={heroContent}>
             <div>
@@ -106,6 +134,7 @@ export default function HomePage() {
             <div style={{ ...heroImg, backgroundImage: 'url(/images/si-daddy-hero-glove.webp)' }} role="img" aria-label="A black leather glove over the eyes" />
           </div>
         </div>
+        )}
       </section>
 
       {/* COLLECTION */}
@@ -270,6 +299,7 @@ export default function HomePage() {
 
       <style jsx>{`
         .hero-grid { grid-template-columns: minmax(0, 42fr) minmax(0, 58fr); height: 82vh; min-height: 560px; }
+        .hero-campaign { background: url(/images/si-babygirl-hero-sun.webp) 70% 30% / cover no-repeat; }
         .hero-text { padding: 0 40px 72px; }
         .hm-grid { grid-template-columns: 1fr 1fr; }
         .hm-cell + .hm-cell { border-left: 1px solid ${T.line}; }
@@ -284,6 +314,7 @@ export default function HomePage() {
         @media (max-width: 960px) {
           .hero-grid { grid-template-columns: 1fr; height: auto; min-height: 0; }
           .hero-img { order: -1; aspect-ratio: 2174 / 1449; }
+          .hero-campaign { aspect-ratio: 4 / 5; background-image: url(/images/si-babygirl-hero-sun-mobile.webp); background-position: center; }
           .hero-text { padding: 40px 24px 48px; }
           .col-grid { grid-template-columns: repeat(2, 1fr); }
         }
