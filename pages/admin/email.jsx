@@ -103,12 +103,12 @@ export default function EmailAdmin() {
     const query = subscriberSearch.trim().toLowerCase();
     const filtered = subscribers.filter((s) => (
       (!query || s.email.toLowerCase().includes(query))
-      && (subscriberFilter !== 'abandoned' || s.checkoutStartedAt)
+      && (subscriberFilter !== 'abandoned' || s.checkoutStartedAt || s.openCheckout)
     ));
     const direction = subscriberSort === 'date-asc' ? 1 : -1;
     return [...filtered].sort((a, b) => direction * ((a.createdAt || 0) - (b.createdAt || 0)));
   }, [subscribers, subscriberSearch, subscriberSort, subscriberFilter]);
-  const abandonedCount = React.useMemo(() => subscribers.filter((s) => s.checkoutStartedAt).length, [subscribers]);
+  const abandonedCount = React.useMemo(() => subscribers.filter((s) => s.checkoutStartedAt || s.openCheckout).length, [subscribers]);
   const abandonedFlow = automations.find((a) => a.id === 'abandoned_checkout');
 
   const loadSubscribers = React.useCallback(() => {
@@ -226,6 +226,26 @@ export default function EmailAdmin() {
       });
       const data = await res.json();
       setStepMessage((prev) => ({ ...prev, [key]: res.ok ? `Sent: "${data.subject}"` : data.error || 'Failed to send.' }));
+      if (res.ok) loadSubscribers();
+    } finally {
+      setStepSending(null);
+    }
+  };
+
+  // This store's abandoned-checkout email (lib/abandonedCheckout.js) for one
+  // subscriber, right now, with the cart they left (/api/admin/abandoned-email-send).
+  const handleSendStoreAbandoned = async (s) => {
+    const key = `${s.email}:store_abandoned`;
+    setStepSending(key);
+    setStepMessage((prev) => ({ ...prev, [key]: '' }));
+    try {
+      const res = await fetch('/api/admin/abandoned-email-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: s.openCheckout?.key }),
+      });
+      const data = await res.json();
+      setStepMessage((prev) => ({ ...prev, [key]: res.ok ? 'Sent: "You left something behind"' : data.error || 'Failed to send.' }));
       if (res.ok) loadSubscribers();
     } finally {
       setStepSending(null);
@@ -776,7 +796,7 @@ export default function EmailAdmin() {
               ) : (
               visibleSubscribers.map((s) => (
                 <React.Fragment key={s.email}>
-                <div style={{ ...row, ...(s.checkoutStartedAt ? { borderBottom: 'none' } : {}) }}>
+                <div style={{ ...row, borderBottom: 'none' }}>
                   <div style={{ flex: 2 }}>{s.email}</div>
                   <div style={{ flex: 1 }}>{s.status}</div>
                   <div style={{ flex: 1 }}>{s.tier}</div>
@@ -800,6 +820,12 @@ export default function EmailAdmin() {
                     )}
                   </div>
                 </div>
+                <EmailHistoryRow
+                  subscriber={s}
+                  onSendAbandoned={() => handleSendStoreAbandoned(s)}
+                  sending={stepSending === `${s.email}:store_abandoned`}
+                  message={stepMessage[`${s.email}:store_abandoned`]}
+                />
                 {s.checkoutStartedAt && (
                   <AbandonedCheckoutPanel
                     subscriber={s}
@@ -1191,6 +1217,46 @@ const filterChip = {
   fontFamily: T.sans, color: T.ink, cursor: 'pointer', borderRadius: 999,
 };
 const filterChipActive = { background: T.ink, color: T.white, fontWeight: 600 };
+
+// Under every subscriber: the emails they've had (flows + this store's
+// abandoned-checkout email), and, when they left a checkout without
+// ordering, what they left plus a button to send the abandoned-checkout
+// email now.
+function EmailHistoryRow({ subscriber: s, onSendAbandoned, sending, message }) {
+  const history = s.emailHistory || [];
+  const oc = s.openCheckout;
+  return (
+    <div style={{ padding: '0 0 12px 16px', borderBottom: `1px solid ${T.line}`, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ color: T.soft }}>
+        {history.length === 0 ? 'No emails sent yet.' : (
+          <>
+            <span style={{ color: T.ink, fontWeight: 600 }}>Emails sent ({history.length}): </span>
+            {history.map((h, i) => (
+              <span key={i}>{i ? ' · ' : ''}{h.label}{h.subject ? ` — "${h.subject}"` : ''}{h.at ? ` (${new Date(h.at).toLocaleDateString()})` : ''}</span>
+            ))}
+          </>
+        )}
+      </div>
+      {oc && (
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 320px', background: T.paper, borderRadius: 12, padding: '10px 12px' }}>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>
+              Left checkout · {new Date(oc.at).toLocaleString()}{oc.value ? ` · $${Number(oc.value).toFixed(2)}` : ''}
+            </div>
+            <div>{oc.items.map((i) => `${i.name} × ${i.quantity}`).join(', ')}</div>
+            <div style={{ color: T.soft, marginTop: 2 }}>{oc.emailedAt ? `Abandoned-checkout email sent ${new Date(oc.emailedAt).toLocaleString()}` : 'No abandoned-checkout email for this checkout yet'}</div>
+          </div>
+          {s.status === 'subscribed' ? (
+            <button type="button" onClick={onSendAbandoned} disabled={sending} style={S.btnOutline}>
+              {sending ? 'Sending…' : oc.emailedAt ? 'Send it again' : 'Send abandoned checkout email'}
+            </button>
+          ) : <span style={{ color: T.soft }}>Can&rsquo;t email — {s.status}.</span>}
+          {message && <span style={{ fontSize: 11, color: T.soft }}>{message}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Shown under a subscriber who started a checkout and hasn't ordered since
 // (touchLastOrder clears checkoutStartedAt on purchase): what they left,
