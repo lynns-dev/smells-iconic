@@ -42,7 +42,12 @@ const BENEFITS = [
 // Drop video files into public/videos and list them here (or per-product, if
 // you'd rather curate which reels show on which page) to populate the reel
 // carousel below. Section hides while empty.
-const REEL_VIDEOS = [];
+const REEL_VIDEOS = [
+  {
+    src: '/Agent%20Video%20-%20Animated%20product%20film_%20single%20continuous%20take_%20no%20cuts_%20The%20bottle%20from%20the%20start%20fram.mp4',
+    poster: '/images/si-babygirl-main.png',
+  },
+];
 
 const FAQS = [
   ['Will it stain clothing?', 'No — it’s a fine, quick-drying mist that won’t mark fabric.'],
@@ -377,7 +382,7 @@ export default function ProductPage({ product }) {
       </section>
 
       {/* REEL */}
-      {REEL_VIDEOS.length > 0 && (
+      {product.id === 'babygirl' && REEL_VIDEOS.length > 0 && (
         <section style={{ ...band, borderTop: `1px solid ${T.line}` }}>
           <div style={{ ...S.wrap, textAlign: 'center' }}>
             <p style={S.label}>As worn</p>
