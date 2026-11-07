@@ -125,7 +125,7 @@ export default function CartDrawer({
       >
         {/* The page's banner sits under the overlay, so the drawer carries
             its own copy and the banner stays visible while it's open. */}
-        <div style={{ margin: '-32px -30px 24px', flexShrink: 0 }}><TopBanner /></div>
+        <div style={{ margin: '-32px -30px 24px', flexShrink: 0 }}><TopBanner forcePromo /></div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexShrink: 0 }}>
           <span style={S.label}>Your cart</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: T.ink }}>×</button>
