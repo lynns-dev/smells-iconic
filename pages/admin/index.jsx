@@ -419,6 +419,7 @@ export default function AdminDashboard() {
           ))}
           {/* Email marketing lives on its own page (pages/admin/email.jsx), same as Anese. */}
           <a href="/admin/email" className="admin-nav-item"><AdminNavIcon name="email" /><span className="admin-nav-label">Email</span></a>
+          <a href="/admin/integrations" className="admin-nav-item"><span className="admin-nav-label">ChatGPT connection</span></a>
           <button type="button" onClick={handleLogout} className="admin-nav-item admin-nav-signout">
             <AdminNavIcon name="signout" />
             <span className="admin-nav-label">Sign out</span>
