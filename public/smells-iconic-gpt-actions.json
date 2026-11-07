@@ -1,0 +1,83 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Smells Iconic Inbox",
+    "version": "1.0.0",
+    "description": "Private admin inbox access for an owner-operated custom GPT."
+  },
+  "servers": [
+    {
+      "url": "https://www.smellsiconic.com"
+    }
+  ],
+  "paths": {
+    "/api/gpt/inbox": {
+      "get": {
+        "operationId": "getCustomerInbox",
+        "summary": "Read customer inbox messages and previous replies",
+        "responses": {
+          "200": {
+            "description": "Inbox entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "sendCustomerInboxReply",
+        "summary": "Send a real email reply to a customer inbox message; obtain explicit user approval before calling",
+        "x-openai-isConsequential": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Exact inbox entry ID"
+                  },
+                  "reply": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000,
+                    "description": "Full customer-facing email reply"
+                  }
+                },
+                "required": [
+                  "id",
+                  "reply"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email sent and message updated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  }
+}
