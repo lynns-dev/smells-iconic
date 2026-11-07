@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { createSession, deleteSession } from '../../../lib/adminAuth';
+import { createSession, deleteSession } from '../../lib/adminAuth';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
