@@ -11,7 +11,6 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 import { activePromo } from '../lib/promos';
-import { useVariant, exposeExperiment } from '../lib/experiments';
 
 const DEFAULT_MESSAGES = ['15% off with code ICONIC15'];
 
@@ -39,13 +38,8 @@ export default function HomePage() {
   };
 
   const featured = getFeaturedProducts();
-  const heroProduct = getProductById('daddy-is-a-state-of-mind');
-  // Split test hero_babygirl (lib/experiments.js): the Babygirl campaign hero
-  // that matches the current ads, vs the Daddy hero.
-  const heroVariant = useVariant('hero_babygirl');
-  React.useEffect(() => { exposeExperiment('hero_babygirl'); }, []);
+  // Permanent homepage hero: Babygirl campaign creative.
   const babygirl = getProductById('babygirl');
-  const babygirlHero = heroVariant === 'babygirl' && babygirl;
   const reviewsByProduct = useAllReviews();
   const siteReviews = React.useMemo(() => {
     const all = Object.values(reviewsByProduct).flatMap((r) => r.reviews || []);
@@ -86,58 +80,33 @@ export default function HomePage() {
         </div>
       </div>
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
-      {/* HERO */}
+      {/* HERO — permanent Babygirl campaign creative */}
       <section style={heroWrap}>
-        {babygirlHero ? (
-        <div className="hero-grid" style={heroBg}>
-          <div className="hero-text" style={heroContent}>
-            <div>
-              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · No. 01 · Babygirl</span>
-              <h1 style={heroH1}>they&rsquo;ll <span style={S.it}>lean in.</span></h1>
-              <p style={heroSub}>Milk, skin musk, marshmallow. The scent people come closer to figure out.</p>
-              {siteReviews.count > 0 && (
-                <div style={hrate}>
-                  <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
-                  {' '}{siteReviews.average.toFixed(1)} · {siteReviews.count} review{siteReviews.count === 1 ? '' : 's'}
+        {babygirl && (
+          <div className="hero-grid" style={heroBg}>
+            <div className="hero-text" style={heroContent}>
+              <div>
+                <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · No. 01 · Babygirl</span>
+                <h1 style={heroH1}>they&rsquo;ll <span style={S.it}>lean in.</span></h1>
+                <p style={heroSub}>Milk, skin musk, marshmallow. The scent people come closer to figure out.</p>
+                {siteReviews.count > 0 && (
+                  <div style={hrate}>
+                    <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
+                    {' '}{siteReviews.average.toFixed(1)} · {siteReviews.count} review{siteReviews.count === 1 ? '' : 's'}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Link href={`/product/${babygirl.id}`} style={heroBtn}>Shop Babygirl — ${babygirl.price}</Link>
+                  <a href="#notes" style={heroLink}>The scents</a>
                 </div>
-              )}
-              <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Link href={`/product/${babygirl.id}`} style={heroBtn}>Shop Babygirl — ${babygirl.price}</Link>
-                <a href="#notes" style={heroLink}>The scents</a>
               </div>
             </div>
+            <div className="hero-img hero-campaign" role="img" aria-label="Woman in golden sunlight holding Smells Iconic Babygirl body mist" />
           </div>
-          <div className="hero-img hero-campaign" role="img" aria-label="Woman in golden sunlight holding Smells Iconic Babygirl body mist" />
-        </div>
-        ) : (
-        <div className="hero-grid" style={heroBg}>
-          <div className="hero-text" style={heroContent}>
-            <div>
-              <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>New · Body mist · Scent 04</span>
-              <h1 style={heroH1}>Daddy is a <span style={S.it}>state of mind.</span></h1>
-              <p style={heroSub}>Saffron, tobacco, burnt vanilla. Made in small batches — when this batch sells out, it&rsquo;s gone.</p>
-              {siteReviews.count > 0 && (
-                <div style={hrate}>
-                  <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
-                  {' '}{siteReviews.average.toFixed(1)} · {siteReviews.count} review{siteReviews.count === 1 ? '' : 's'}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* The hero photos are Daddy Is a State of Mind, so the button goes there. */}
-                {heroProduct && <Link href={`/product/${heroProduct.id}`} style={heroBtn}>Shop — ${heroProduct.price}</Link>}
-                <a href="#notes" style={heroLink}>The scents</a>
-              </div>
-            </div>
-          </div>
-          <div className="hero-img" style={heroImgs}>
-            <div style={{ ...heroImg, backgroundImage: 'url(/images/si-daddy-hero-spray.webp)' }} role="img" aria-label="Spraying Daddy Is a State of Mind Body Mist on the neck" />
-            <div style={{ ...heroImg, backgroundImage: 'url(/images/si-daddy-hero-glove.webp)' }} role="img" aria-label="A black leather glove over the eyes" />
-          </div>
-        </div>
         )}
       </section>
 
-      {/* COLLECTION */}
+
       <section id="shop" style={band}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <p style={S.label}>The archive</p>
