@@ -726,7 +726,7 @@ export default function CheckoutPage() {
 
   return (
     <div>
-      <TopBanner />
+      <TopBanner forcePromo />
       <header className="desktop-topbar" style={topbar}>
         <div style={{ ...S.wrap, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 112 }}>
           <Link href="/" style={{ textDecoration: 'none' }}>
