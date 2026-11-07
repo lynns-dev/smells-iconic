@@ -9,7 +9,7 @@ import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import SaleCallout, { useActivePromo } from './SaleCallout';
 import { shippingFor, FREE_SHIPPING_MIN, freeOnEveryOrder } from '../lib/shipping';
-import { exposeExperiment } from '../lib/experiments';
+import { useVariant, exposeExperiment } from '../lib/experiments';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
 
@@ -68,6 +68,10 @@ export default function CartDrawer({
   const toFreeShipping = Math.max(0, FREE_SHIPPING_MIN - total);
   const orderTotal = discountedTotal + (shippingCost || 0);
   const [exitOpen, setExitOpen] = React.useState(false);
+  const checkoutCtaVariant = useVariant('cart_checkout_cta');
+  const discountVisibilityVariant = useVariant('cart_discount_visibility');
+  const totalReassuranceVariant = useVariant('cart_total_reassurance');
+  const [discountExpanded, setDiscountExpanded] = React.useState(false);
 
 
   // Cart drop-off report (lib/cartFunnel.js): opening the cart, and closing
@@ -82,6 +86,9 @@ export default function CartDrawer({
     if (open && items.length > 0) {
       // Split test: free shipping on every order vs at $50 (lib/experiments.js).
       exposeExperiment('ship_free_all');
+      exposeExperiment('cart_checkout_cta');
+      exposeExperiment('cart_discount_visibility');
+      exposeExperiment('cart_total_reassurance');
       openedAtRef.current = Date.now();
       checkoutClickedRef.current = false;
       // A beat after the add-to-cart ping (adding opens the cart), so the
@@ -198,36 +205,29 @@ export default function CartDrawer({
           </div>
         )}
 
-        {salePromo && cart.length > 0 && (
-          <SaleCallout appliedDiscount={appliedDiscount} onApply={applyDiscount} style={{ marginTop: 16, flexShrink: 0 }} />
-        )}
-
-        {showUnlock && (
-          <div style={unlockBox}>
-            {unlockState === 'done' ? (
-              <p style={{ margin: 0, fontSize: 13, color: T.ink }}>
-                You're in — <strong>{UNLOCK_CODE}</strong> {appliedDiscount ? 'is applied to your bag (15% off).' : 'gets you 15% off at checkout.'}
-              </p>
-            ) : (
-              <form onSubmit={handleUnlock}>
-                <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: T.ink }}>Unlock 15% off your order</p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    aria-label="Email for 15% off"
-                    autoComplete="email"
-                    value={unlockEmail}
-                    onChange={(e) => { setUnlockEmail(e.target.value); if (unlockState === 'error') setUnlockState('idle'); }}
-                    style={discountInput}
-                  />
-                  <button type="submit" style={{ ...S.btnFill, flexShrink: 0, padding: '0 18px' }} disabled={unlockState === 'busy'}>{unlockState === 'busy' ? '…' : 'Reveal code'}</button>
-                </div>
-                {unlockState === 'error' && <p style={{ fontSize: 12, color: '#a13d2b', margin: '6px 0 0' }}>Enter a valid email address.</p>}
-                <p style={{ fontSize: 10, color: T.soft, margin: '6px 0 0' }}>By signing up you agree to receive emails from Smells Iconic. Unsubscribe anytime.</p>
-              </form>
+        {(discountVisibilityVariant === 'control' || discountExpanded || appliedDiscount) ? (
+          <>
+            {salePromo && cart.length > 0 && <SaleCallout appliedDiscount={appliedDiscount} onApply={applyDiscount} style={{ marginTop: 16, flexShrink: 0 }} />}
+            {showUnlock && (
+              <div style={unlockBox}>
+                {unlockState === 'done' ? (
+                  <p style={{ margin: 0, fontSize: 13, color: T.ink }}>You're in — <strong>{UNLOCK_CODE}</strong> {appliedDiscount ? 'is applied to your bag (15% off).' : 'gets you 15% off at checkout.'}</p>
+                ) : (
+                  <form onSubmit={handleUnlock}>
+                    <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600, color: T.ink }}>Unlock 15% off your order</p>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <input type="email" placeholder="Enter your email" aria-label="Email for 15% off" autoComplete="email" value={unlockEmail} onChange={(e) => { setUnlockEmail(e.target.value); if (unlockState === 'error') setUnlockState('idle'); }} style={discountInput} />
+                      <button type="submit" style={{ ...S.btnFill, flexShrink: 0, padding: '0 18px' }} disabled={unlockState === 'busy'}>{unlockState === 'busy' ? '…' : 'Reveal code'}</button>
+                    </div>
+                    {unlockState === 'error' && <p style={{ fontSize: 12, color: '#a13d2b', margin: '6px 0 0' }}>Enter a valid email address.</p>}
+                    <p style={{ fontSize: 10, color: T.soft, margin: '6px 0 0' }}>By signing up you agree to receive emails from Smells Iconic. Unsubscribe anytime.</p>
+                  </form>
+                )}
+              </div>
             )}
-          </div>
+          </>
+        ) : (
+          <button type="button" onClick={() => setDiscountExpanded(true)} style={{ background: 'none', border: 'none', padding: '10px 0', color: T.ink, fontSize: 12, textDecoration: 'underline', cursor: 'pointer' }}>Have a discount code or want 15% off? Reveal offer</button>
         )}
 
         </div>
@@ -255,8 +255,9 @@ export default function CartDrawer({
               <span>{freeShipping ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
             </div>
           )}
+          {totalReassuranceVariant === 'reassurance' && <p style={{ fontSize: 11, color: T.soft, margin: '8px 0 0' }}>Shipping is shown above. No shipping surprise at checkout.</p>}
           <div style={{ display: 'flex', justifyContent: 'space-between', margin: '14px 0 18px' }}>
-            <span style={S.label}>Total</span>
+            <span style={S.label}>{totalReassuranceVariant === 'reassurance' ? 'Order total' : 'Total'}</span>
             <span style={{ fontFamily: T.display, fontWeight: 300, fontSize: 24 }}>${orderTotal.toFixed(2)}</span>
           </div>
           <Link
@@ -268,7 +269,7 @@ export default function CartDrawer({
             }}
             style={{ ...S.btnFill, width: '100%', justifyContent: 'center', opacity: cart.length === 0 ? 0.4 : 1, textAlign: 'center' }}
           >
-            Secure Checkout
+            {checkoutCtaVariant === 'continue' ? 'Continue to secure checkout →' : 'Secure Checkout'}
           </Link>
         </div>
       </aside>
