@@ -23,7 +23,7 @@ function ReturnIcon() {
   );
 }
 
-export default function TopBanner() {
+export default function TopBanner({ forcePromo = false } = {}) {
   // Checked after mount rather than during render: storefront pages are
   // statically built, so a render-time check would freeze whatever was
   // running at build time into the HTML.
@@ -34,7 +34,7 @@ export default function TopBanner() {
 
   return (
     <>
-    {promo && pathname !== '/' && <div style={styles.promo}>{promo.banner}</div>}
+    {promo && (forcePromo || pathname !== '/') && <div style={styles.promo}>{promo.banner}</div>}
     <div className="top-banner" style={styles.bar}>
       <div className="top-banner-item" style={styles.item}><ShipIcon /><span>Fast Shipping</span></div>
       <div className="top-banner-item" style={styles.item}><ReturnIcon /><span>45-Day Money-Back Guarantee</span></div>
