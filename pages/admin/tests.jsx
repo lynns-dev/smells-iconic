@@ -44,7 +44,7 @@ export default function Tests() {
       </p>
       {error && <p style={{ color: '#d93025' }}>{error}</p>}
       {!data && !error && <p>Loading…</p>}
-      {data && data.map((t) => {
+      {data && data.filter((t) => !t.winner).map((t) => {
         const [a, b] = t.variants;
         const key = (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
         const conf = b ? confidence(a, b, key) : null;
