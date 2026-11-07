@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { createSession } from '../../../lib/adminAuth';
+import { createSession, deleteSession } from '../../../lib/adminAuth';
 
 const KV_URL = process.env.KV_REST_API_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
@@ -61,18 +61,22 @@ async function authorized(req) {
 
 async function callAdmin(req, spec) {
   const session = await createSession();
-  const base = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-  if (!base) throw new Error('Set NEXT_PUBLIC_SITE_URL to the production site URL.');
-  const url = new URL(spec.path, base);
-  for (const [k, v] of Object.entries(spec.query || {})) url.searchParams.set(k, v);
-  const response = await fetch(url, {
-    method: spec.method || 'GET',
-    headers: { Cookie: `admin_session=${session}`, ...(spec.body ? { 'Content-Type': 'application/json' } : {}) },
-    ...(spec.body ? { body: JSON.stringify(spec.body) } : {})
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Admin API returned ${response.status}`);
-  return payload;
+  try {
+    const base = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+    if (!base) throw new Error('Set NEXT_PUBLIC_SITE_URL to the production site URL.');
+    const url = new URL(spec.path, base);
+    for (const [k, v] of Object.entries(spec.query || {})) url.searchParams.set(k, v);
+    const response = await fetch(url, {
+      method: spec.method || 'GET',
+      headers: { Cookie: `admin_session=${session}`, ...(spec.body ? { 'Content-Type': 'application/json' } : {}) },
+      ...(spec.body ? { body: JSON.stringify(spec.body) } : {})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Admin API returned ${response.status}`);
+    return payload;
+  } finally {
+    await deleteSession(session).catch(() => {});
+  }
 }
 
 function jsonRpc(id, result) {
