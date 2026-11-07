@@ -124,7 +124,7 @@ export default function CartDrawer({
       />
       <aside
         style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0, width: '100%', zIndex: 201,
+          position: 'fixed', top: 0, right: 0, bottom: 0, width: 'min(420px, 100%)', zIndex: 201,
           background: T.white, borderLeft: `1px solid ${T.line}`, padding: '32px 30px',
           transform: open ? 'translateX(0)' : 'translateX(100%)', transition: 'transform .35s ease',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
