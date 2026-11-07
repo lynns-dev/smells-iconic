@@ -39,15 +39,9 @@ const BENEFITS = [
   ['Vegan-friendly formula', 'Cruelty-free, made without animal-derived ingredients.'],
 ];
 
-// Drop video files into public/videos and list them here (or per-product, if
-// you'd rather curate which reels show on which page) to populate the reel
-// carousel below. Section hides while empty.
-const REEL_VIDEOS = [
-  {
-    src: '/Agent%20Video%20-%20Animated%20product%20film_%20single%20continuous%20take_%20no%20cuts_%20The%20bottle%20from%20the%20start%20fram.mp4',
-    poster: '/images/si-babygirl-main.png',
-  },
-];
+// Babygirl product film, shown as a selectable item in the main gallery.
+const BABYGIRL_VIDEO = '/Agent%20Video%20-%20Animated%20product%20film_%20single%20continuous%20take_%20no%20cuts_%20The%20bottle%20from%20the%20start%20fram.mp4';
+const BABYGIRL_VIDEO_POSTER = '/images/si-babygirl-main.png';
 
 const FAQS = [
   ['Will it stain clothing?', 'No — it’s a fine, quick-drying mist that won’t mark fabric.'],
@@ -194,14 +188,26 @@ export default function ProductPage({ product }) {
           <div className="pdp-gallery" style={gallery}>
             <div style={imgSide}>
               {product.badge && !product.archived && <span style={imageBadge}>{product.badge}</span>}
-              {activeImage ? (
+              {product.id === 'babygirl' && activeImage === BABYGIRL_VIDEO ? (
+                <video
+                  key={BABYGIRL_VIDEO}
+                  src={BABYGIRL_VIDEO}
+                  poster={BABYGIRL_VIDEO_POSTER}
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                />
+              ) : activeImage ? (
                 <img src={activeImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               ) : (
                 <ProductVisual id={product.id} width={230} />
               )}
               {product.archived && <ArchivedX />}
             </div>
-            {images.length > 1 && (
+            {(images.length > 1 || product.id === 'babygirl') && (
               <div className="thumb-col" style={thumbCol}>
                 {images.map((src, i) => (
                   <button
@@ -214,6 +220,18 @@ export default function ProductPage({ product }) {
                     <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </button>
                 ))}
+                {product.id === 'babygirl' && (
+                  <button
+                    key="babygirl-product-film"
+                    onClick={() => setActiveImage(BABYGIRL_VIDEO)}
+                    style={{ ...thumbBtn, borderColor: activeImage === BABYGIRL_VIDEO ? T.ink : T.line, position: 'relative' }}
+                    aria-label="Play Babygirl product video"
+                    aria-current={activeImage === BABYGIRL_VIDEO}
+                  >
+                    <img src={BABYGIRL_VIDEO_POSTER} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.2)', color: '#fff', fontSize: 22 }}>▶</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -380,32 +398,6 @@ export default function ProductPage({ product }) {
           </div>
         </div>
       </section>
-
-      {/* REEL */}
-      {product.id === 'babygirl' && REEL_VIDEOS.length > 0 && (
-        <section style={{ ...band, borderTop: `1px solid ${T.line}` }}>
-          <div style={{ ...S.wrap, textAlign: 'center' }}>
-            <p style={S.label}>As worn</p>
-            <h2 style={{ ...S.h2, marginTop: 12 }}>Real women, <span style={S.it}>smelling incredible.</span></h2>
-            <div className="reel-track" style={reelTrack}>
-              {REEL_VIDEOS.map((v, i) => (
-                <video
-                  key={i}
-                  className="reel-item"
-                  style={reelItem}
-                  src={v.src}
-                  poster={v.poster}
-                  muted
-                  loop
-                  playsInline
-                  autoPlay
-                  controls
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* BENEFITS */}
       <section style={{ ...narrowBand, background: T.paper, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}` }}>
