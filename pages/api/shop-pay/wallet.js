@@ -1,9 +1,22 @@
 import { enrollWalletTest } from '../../../lib/shopPayExperiment';
-import { walletConfigured, createCheckout, loadCheckout, paymentRequest, submitCheckout, reconcileCheckout, redis } from '../../../lib/shopPayWallet';
+import { walletConfigured, shopify, SHOP_ID, createCheckout, loadCheckout, paymentRequest, submitCheckout, reconcileCheckout, redis } from '../../../lib/shopPayWallet';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
-  if (req.method === 'GET') return res.status(200).json({ enabled: walletConfigured() });
+  if (req.method === 'GET') {
+    if (req.query?.health === '1') {
+      if (!walletConfigured()) return res.status(200).json({ ready: false });
+      try {
+        const data = await shopify(`query WalletReadiness {
+          shop { id }
+          shopPayPaymentRequestReceipts(first: 1, query: "source_identifier:'wallet-readiness-probe'") { nodes { sourceIdentifier } }
+        }`, {}, true);
+        res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=60');
+        return res.status(200).json({ ready: data.shop?.id === `gid://shopify/Shop/${SHOP_ID}` && Array.isArray(data.shopPayPaymentRequestReceipts?.nodes) });
+      } catch { return res.status(502).json({ ready: false, error: 'Shopify order verification API is unavailable.' }); }
+    }
+    return res.status(200).json({ enabled: walletConfigured() });
+  }
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).end(); }
   if (!walletConfigured() && req.body?.action !== 'status') return res.status(503).json({ error: 'Shop Pay is not available yet.' });
   // Requests are same-origin; no third-party script can submit a payment.
