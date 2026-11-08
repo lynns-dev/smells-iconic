@@ -1,3 +1,4 @@
+import { refundWalletOrder } from '../../../../lib/shopPayWallet';
 // Admin's Refund button: issues a full refund through whichever company took
 // the payment, then marks the order refunded. Admin-only (middleware.js
 // guards /api/admin/*). The order is looked up server-side, so the amount
@@ -37,6 +38,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'This PayPal order was saved before refunds were supported — refund it in your PayPal account instead.' });
       }
       await refundPaypalCapture(order.captureId);
+    } else if (processor === 'shopify') {
+      await refundWalletOrder(order.id, order.amount);
     } else if (processor === 'stripe') {
       await getStripe().refunds.create({ payment_intent: order.id });
     } else if (processor === 'quickbooks') {

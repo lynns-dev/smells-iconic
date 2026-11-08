@@ -1,3 +1,4 @@
+import { syncWalletTracking } from '../../../../lib/shopPayWallet';
 // Saves a shipment (carrier, tracking number, optional link) on an order
 // from the Orders tab, which then shows it as shipped. Saving again
 // replaces it; an empty tracking number clears it.
@@ -23,6 +24,7 @@ export default async function handler(req, res) {
       ? { trackingNumber: number, carrier: clip(carrier, 40), trackingUrl: url, shippedAt: new Date().toISOString() }
       : { trackingNumber: null, carrier: null, trackingUrl: null, shippedAt: null });
     if (!updated) return res.status(404).json({ error: 'Order not found' });
+    if (updated.trackingNumber) await syncWalletTracking(updated);
     return res.status(200).json({ order: updated });
   } catch (err) {
     return res.status(500).json({ error: err.message });
