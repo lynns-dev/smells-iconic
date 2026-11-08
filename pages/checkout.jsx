@@ -1,3 +1,4 @@
+import ShopPayWallet from '../components/ShopPayWallet';
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -885,6 +886,8 @@ export default function CheckoutPage() {
                     Google Pay's container stays in the DOM (hidden) because
                     Square's attach() needs it by id. */}
                 <div style={{ marginTop: 20 }}>
+                  <ShopPayWallet email={email} shippingCost={shippingCost} grandTotal={grandTotal}
+                    purchaseKey="si-purchase" onBusy={setSubmitting} onError={setError} />
                   <div style={{ display: (appleAvailable || googleAvailable) ? 'grid' : 'none', gridTemplateColumns: (appleAvailable && googleAvailable) ? '1fr 1fr' : '1fr', gap: 10, marginBottom: 10 }}>
                     <div style={{ display: appleAvailable ? 'block' : 'none' }}>
                       <button

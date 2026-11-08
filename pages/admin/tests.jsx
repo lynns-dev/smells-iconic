@@ -46,7 +46,7 @@ export default function Tests() {
       {!data && !error && <p>Loading…</p>}
       {data && data.filter((t) => !t.winner).map((t) => {
         const [a, b] = t.variants;
-        const key = t.checkout ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
+        const key = (t.checkout || t.id === 'shop_pay_checkout_v1') ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
         const conf = !t.checkout && b ? confidence(a, b, key) : null;
         const leader = b && a.visitors && b.visitors ? ((b[key] || 0) / b.visitors > (a[key] || 0) / a.visitors ? b.variant : a.variant) : null;
         return (
@@ -58,6 +58,10 @@ export default function Tests() {
               </span>
             </div>
             {t.checkout && <p style={{ fontSize: 13 }}>50/50 assignment per visitor. Conversion = payment-confirmed purchasing sessions ÷ enrolled checkout sessions. Reloads count once; revenue includes repeat orders. Failures = sessions with a reported payment error. No automatic winner.</p>}
+            {t.id === 'shop_pay_checkout_v1' && <p style={{ fontSize: 12 }}>
+              Mobile: {t.variants.map(v => `${v.variant} ${v.purchased_mobile || 0}/${v.visitors_mobile || 0}`).join(' · ')}
+              {' | '}Desktop: {t.variants.map(v => `${v.variant} ${v.purchased_desktop || 0}/${v.visitors_desktop || 0}`).join(' · ')}
+            </p>}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 10, minWidth: 560 }}>
               <thead>
                 <tr style={{ textAlign: 'right', color: '#5f6368' }}>
