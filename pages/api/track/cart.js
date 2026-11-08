@@ -1,3 +1,4 @@
+import { recordCheckoutOutcome } from '../../../lib/checkoutExperimentStore';
 // Public, fire-and-forget cart/checkout step tracking for the admin's Cart
 // drop-off report (lib/cartFunnel.js). Sent by lib/cartTracking.js. Never
 // fails in a way the shopper would notice.
@@ -37,6 +38,9 @@ export default async function handler(req, res) {
     dwellSec: Number(d.dwellSec) || undefined,
     items: Array.isArray(d.items) ? d.items.slice(0, 6).map((n) => clip(String(n), 60)).filter(Boolean) : undefined,
   };
+  if (kind === 'pay_failed') {
+    try { await recordCheckoutOutcome(sessionId, kind); } catch (err) { console.error('Checkout failure metric:', err.message); }
+  }
   try {
     await recordCartEvent({ visitorId: id, kind, detail: safeDetail, context: { path, source, device } });
     // Split tests this visitor has seen (lib/experiments.js).

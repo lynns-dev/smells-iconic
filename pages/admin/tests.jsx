@@ -40,14 +40,14 @@ export default function Tests() {
       <Link href="/admin" style={{ fontSize: 13, color: '#5f6368' }}>← Admin</Link>
       <h1 style={{ fontSize: 26, margin: '8px 0 4px' }}>Split tests</h1>
       <p style={{ fontSize: 13, color: '#5f6368', margin: '0 0 20px' }}>
-        Each visitor sees one version of each test, 50/50. A result is worth acting on once each version has 100+ visitors and confidence is 90%+.
+        Each visitor sees one version of each test, 50/50. Checkout results count sessions and confirmed payments. Allow a full business cycle and sufficient purchases before choosing a winner.
       </p>
       {error && <p style={{ color: '#d93025' }}>{error}</p>}
       {!data && !error && <p>Loading…</p>}
       {data && data.filter((t) => !t.winner).map((t) => {
         const [a, b] = t.variants;
-        const key = (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
-        const conf = b ? confidence(a, b, key) : null;
+        const key = t.checkout ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
+        const conf = !t.checkout && b ? confidence(a, b, key) : null;
         const leader = b && a.visitors && b.visitors ? ((b[key] || 0) / b.visitors > (a[key] || 0) / a.visitors ? b.variant : a.variant) : null;
         return (
           <section key={t.id} style={{ border: '1px solid #e1e3e1', borderRadius: 12, padding: 16, marginBottom: 16, overflowX: 'auto' }}>
@@ -57,10 +57,11 @@ export default function Tests() {
                 {t.winner ? `Ended: "${t.winner}" for everyone` : `Running since ${t.started}`}
               </span>
             </div>
+            {t.checkout && <p style={{ fontSize: 13 }}>50/50 assignment per visitor. Conversion = payment-confirmed purchasing sessions ÷ enrolled checkout sessions. Reloads count once; revenue includes repeat orders. Failures = sessions with a reported payment error. No automatic winner.</p>}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 10, minWidth: 560 }}>
               <thead>
                 <tr style={{ textAlign: 'right', color: '#5f6368' }}>
-                  {['Version', 'Visitors', 'Added to cart', 'Reached checkout', 'Bought', 'Buy rate', 'Revenue', 'Per visitor'].map((h, i) => (
+                  {['Version', t.checkout ? 'Checkout sessions' : 'Visitors', 'Added to cart', 'Reached checkout', 'Bought', 'Buy rate', 'Revenue', 'Per visitor', 'Payment failures', 'Average order'].map((h, i) => (
                     <th key={h} style={{ padding: '6px 8px', textAlign: i ? 'right' : 'left', fontWeight: 500 }}>{h}</th>
                   ))}
                 </tr>
@@ -76,13 +77,15 @@ export default function Tests() {
                     <td style={{ padding: '6px 8px' }}>{pct(v.purchased || 0, v.visitors)}</td>
                     <td style={{ padding: '6px 8px' }}>{money(v.revenue)}</td>
                     <td style={{ padding: '6px 8px' }}>{v.visitors ? money((v.revenue || 0) / v.visitors) : '—'}</td>
+                    <td style={{ padding: '6px 8px' }}>{t.checkout ? pct(v.pay_failed || 0, v.visitors) : '—'}</td>
+                    <td style={{ padding: '6px 8px' }}>{t.checkout && v.orders ? money(v.revenue / v.orders) : '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p style={{ fontSize: 12, color: '#5f6368', margin: '8px 0 0' }}>
               {conf == null
-                ? 'Not enough visitors yet to call it.'
+                ? (t.checkout ? 'Keep running until a planned sample size is reached; no automatic winner.' : 'Not enough visitors yet to call it.')
                 : `Leading: ${leader} · ${conf}% confidence on ${key === 'purchased' ? 'buy rate' : 'add-to-cart rate'}${conf >= 90 ? ' (ready to call)' : ''}`}
             </p>
           </section>
