@@ -293,6 +293,38 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { cart, total, hydrated, clear, setQty, appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal } = useCart();
 
+  const [checkoutVariant, setCheckoutVariant] = React.useState(null);
+  const singlePage = checkoutVariant === 'single_page';
+  React.useEffect(() => {
+    if (!hydrated || !cart.length) return;
+    let active = true;
+    // Decide locally with the same salted SHA-256 bucket as the server.
+    // A slow enrollment response must never put a treatment visitor in control.
+    (async () => {
+      const visitorId = getVisitorId();
+      const sessionId = getSessionId();
+      let assigned = 'control';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      try {
+        if (!visitorId || !sessionId) throw new Error('Storage unavailable');
+        const digest = new Uint8Array(await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`checkout_single_page_v1:${visitorId}`)));
+        assigned = digest[0] < 128 ? 'control' : 'single_page';
+        const response = await fetch('/api/track/checkout-experiment', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visitorId, sessionId }), signal: controller.signal,
+        });
+        const data = await response.json();
+        if (active) setCheckoutVariant(response.ok ? data.variant : assigned);
+      } catch {
+        // Preserve the assigned layout if the server enrolled this session
+        // but its response was lost. Checkout stays usable during outages.
+        if (active) setCheckoutVariant(assigned);
+      } finally { clearTimeout(timeout); }
+    })();
+    return () => { active = false; };
+  }, [hydrated, cart.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Restored once at mount so a refresh mid-checkout resumes on the same
   // step with the form filled in (lib/checkoutProgress.js).
   const [savedProgress] = React.useState(loadCheckoutProgress);
@@ -303,6 +335,7 @@ export default function CheckoutPage() {
   const [smsOptIn, setSmsOptIn] = React.useState(false);
   const [shipping, setShipping] = React.useState(savedProgress?.shipping ?? EMPTY_ADDRESS);
   const [step, setStep] = React.useState(savedProgress?.step === 2 && addressComplete(savedProgress?.shipping) && savedProgress?.email ? 2 : 1);
+  const paymentVisible = singlePage || step === 2;
   const [card, setCard] = React.useState({ number: '', expiry: '', cvc: '' });
 
   // Square card (Step 2) and Step 2's Apple Pay / Google Pay, which reuse
@@ -363,8 +396,8 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
   React.useEffect(() => {
-    if (hydrated && step === 2) trackCart('payment_step');
-  }, [hydrated, step]);
+    if (hydrated && checkoutVariant && paymentVisible) trackCart('payment_step');
+  }, [hydrated, checkoutVariant, paymentVisible]);
 
   // Bounced back here after a declined or abandoned redirect payment —
   // the cart was never cleared for that path.
@@ -421,7 +454,7 @@ export default function CheckoutPage() {
   // Square's card form mounts into #square-card-container, which only
   // exists on Step 2 — remounted fresh each time Step 2 is entered.
   React.useEffect(() => {
-    if (!SQUARE_ENABLED || step !== 2 || !hydrated || cart.length === 0) return undefined;
+    if (!SQUARE_ENABLED || !paymentVisible || !hydrated || cart.length === 0) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -440,7 +473,7 @@ export default function CheckoutPage() {
       squareCardRef.current = null;
       setSquareReady(false);
     };
-  }, [step, hydrated, cart.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [paymentVisible, hydrated, cart.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step 2 Apple Pay / Google Pay — recreated when the total changes so the
   // wallet sheet always shows the amount actually charged.
@@ -628,7 +661,7 @@ export default function CheckoutPage() {
     e.preventDefault();
     setError('');
 
-    if (step === 1) {
+    if (step === 1 && !singlePage) {
       if (!addressComplete(shipping)) {
         setError('Enter your ZIP code so we can fill in your city and state.');
         return;
@@ -639,6 +672,12 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!addressComplete(shipping) || !email.trim()) {
+      setError('Enter your email and complete shipping address before paying.');
+      return;
+    }
+    saveContact();
+    trackCart('address');
     setSubmitting(true);
     trackCart('pay_attempt', { method: 'Card' });
     try {
@@ -743,6 +782,8 @@ export default function CheckoutPage() {
 
       <div className="checkout-grid" style={checkoutGrid}>
         <div className="form-col" style={formCol}>
+          {!checkoutVariant && <p role="status">Loading checkout…</p>}
+          <div style={{ display: checkoutVariant ? undefined : 'none' }}>
           <div ref={formTopRef} />
           <div className="mobile-order-summary">
             <OrderSummaryPanel cart={cart} setQty={setQty} {...totalsProps} {...discountProps} />
@@ -754,7 +795,7 @@ export default function CheckoutPage() {
               if (step === 2 && e.key === 'Enter' && e.target.type !== 'submit') e.preventDefault();
             }}
           >
-            {step === 1 && (
+            {(step === 1 || singlePage) && (
               <section style={{ marginTop: 28 }}>
                 <div onBlur={handleIdentityBlur}>
                   <p style={fieldGroupLabel}>Shipping address</p>
@@ -774,7 +815,7 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 26 }}>
+                <div style={{ marginTop: 26, display: singlePage ? 'none' : undefined }}>
                   <p style={fieldGroupLabel}>Country</p>
                   <select value="United States" readOnly style={{ ...bigInput, color: T.soft }}>
                     <option>United States</option>
@@ -809,9 +850,9 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {error && <p ref={errorRef} style={errorText}>{error}</p>}
+                {!singlePage && error && <p ref={errorRef} style={errorText}>{error}</p>}
 
-                <button type="submit" style={{ ...bigButton, marginTop: 24 }} disabled={submitting}>
+                <button type="submit" style={{ ...bigButton, marginTop: 24, display: singlePage ? 'none' : undefined }} disabled={submitting}>
                   Continue to final step
                 </button>
 
@@ -821,12 +862,13 @@ export default function CheckoutPage() {
               </section>
             )}
 
-            {step === 2 && (
+            {paymentVisible && (
               <section style={{ marginTop: 28 }}>
                 <h1 style={stepTitle}>How do you want to pay?</h1>
+                {singlePage && <p style={{ fontWeight: 700 }}>Order total: ${grandTotal.toFixed(2)} · Includes shipping</p>}
                 <p style={{ fontSize: 13, color: T.soft, marginTop: 10 }}>All transactions are secure and encrypted.</p>
 
-                <label style={{ display: 'block', marginTop: 18, fontSize: 13, color: T.ink }}>
+                <label style={{ display: singlePage ? 'none' : 'block', marginTop: 18, fontSize: 13, color: T.ink }}>
                   How did you hear about us? <span style={{ color: T.soft }}>(optional)</span>
                   <select
                     defaultValue={hydrated ? getHeardFrom() : ''}
@@ -956,7 +998,7 @@ export default function CheckoutPage() {
                 {error && <p ref={errorRef} style={errorText}>{error}</p>}
 
                 <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                  <button type="button" onClick={() => goToStep(1)} style={bigButtonSecondary} disabled={submitting}>
+                  <button type="button" onClick={() => goToStep(1)} style={{ ...bigButtonSecondary, display: singlePage ? 'none' : undefined }} disabled={submitting}>
                     Back
                   </button>
                   <button
@@ -982,6 +1024,7 @@ export default function CheckoutPage() {
               </section>
             )}
           </form>
+          </div>
         </div>
 
         <aside className="order-summary" style={summaryCol}>
