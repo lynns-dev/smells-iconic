@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   const { code } = req.body || {};
-  if (!code || !code.trim()) {
+  if (typeof code !== 'string' || !code.trim()) {
     return res.status(400).json({ valid: false });
   }
 

@@ -1,3 +1,4 @@
+import { paymentFetch } from '../lib/paymentFetch';
 import React from 'react';
 import { loadAfterpayConfig as loadConfig } from '../lib/afterpayClient';
 
@@ -39,7 +40,7 @@ export default function AfterpayButton({ total, getOrder, onError, onReady }) {
     onError('');
     setBusy(true);
     try {
-      const res = await fetch('/api/afterpay/checkout', {
+      const res = await paymentFetch('/api/afterpay/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(order),

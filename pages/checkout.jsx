@@ -1,3 +1,4 @@
+import { paymentFetch } from '../lib/paymentFetch';
 import ShopPayWallet from '../components/ShopPayWallet';
 import React from 'react';
 import Link from 'next/link';
@@ -607,7 +608,7 @@ export default function CheckoutPage() {
     const { email, shipping, cart, grandTotal } = { ...latestRef.current, ...overrides };
     rememberIdentity({ email, phone: shipping?.phone });
     const purchaseEventId = generateEventId();
-    const res = await fetch('/api/square-checkout', {
+    const res = await paymentFetch('/api/square-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -709,7 +710,7 @@ export default function CheckoutPage() {
         process.env.NEXT_PUBLIC_QB_ENVIRONMENT || 'sandbox'
       );
       const orderShipping = { ...shipping, ...splitName(shipping.name) };
-      const res = await fetch('/api/qb-checkout', {
+      const res = await paymentFetch('/api/qb-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

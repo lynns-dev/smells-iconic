@@ -1,3 +1,4 @@
+import { validateCheckout } from '../../lib/validateCheckout';
 // Charges a QuickBooks Payments card token via the Payments API.
 //
 // The access token is fetched from lib/qbServerAuth.js, which transparently
@@ -23,6 +24,12 @@ export default async function handler(req, res) {
 
   let accessToken;
   try {
+    let checked;
+    try { checked = await validateCheckout(req.body); }
+    catch (error) { return res.status(400).json({ error: error.message }); }
+    const lines = req.body.items || req.body.cart;
+    const canonical = lines.map((line, index) => ({ ...line, ...checked.items[index] }));
+    req.body = { ...req.body, amount: checked.total, ...(req.body.items ? { items: canonical } : { cart: canonical }) };
     accessToken = await getValidAccessToken();
   } catch (err) {
     return res.status(500).json({ error: err.message });

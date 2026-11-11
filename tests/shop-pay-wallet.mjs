@@ -50,7 +50,7 @@ const products = synthetic({ getProductById: id => id === fixture.id ? fixture :
 const mocks = {
   crypto: synthetic({ default: crypto }), './products': products,
   './experimentsStore': synthetic({ recordExposure: async () => {}, recordExperimentStep: async () => {} }),
-  './shipping': synthetic({ SHIPPING_COST: 3, FREE_SHIPPING_MIN: 100, STANDARD_SHIPPING: 3, FREE_SHIPPING_THRESHOLD: 100 }),
+  './shipping': synthetic({ SHIPPING_COST: 3, FREE_SHIPPING_MIN: 100, shippingFor: () => 3, STANDARD_SHIPPING: 3, FREE_SHIPPING_THRESHOLD: 100 }),
   './discountsStore': synthetic({ getDiscounts: async () => [{ code: 'TEN', type: 'percent', value: 10 }] }),
   './promos': synthetic({ findPromo: () => null }), './uniqueDiscounts': synthetic({ findUniqueDiscount: async () => null }),
   './metaCapi': synthetic({ getBrowserContext: () => ({}) }),

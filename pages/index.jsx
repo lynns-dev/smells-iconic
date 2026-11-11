@@ -252,7 +252,7 @@ export default function HomePage() {
         <h2 style={{ ...S.h2, marginTop: 12 }}>Get access <span style={S.it}>before it drops.</span></h2>
         <p style={{ color: T.soft, fontSize: 15, margin: '16px auto 28px', maxWidth: '40ch' }}>Get first access to new drops before they sell out, plus 15% off your first mist.</p>
         {newsDone ? (
-          <p style={{ fontSize: 15, color: T.ink }}>You're on the list — use code <strong>ICONIC15</strong> for 15% off.</p>
+          <p style={{ fontSize: 15, color: T.ink }}>You're on the list — use code <strong>{promo?.code || 'ICONIC15'}</strong> for 15% off.</p>
         ) : (
           <form style={newsForm} onSubmit={handleNewsletter}>
             <input type="email" required placeholder="Email address" aria-label="email" style={newsInput} value={newsEmail} onChange={(e) => setNewsEmail(e.target.value)} />

@@ -1,3 +1,4 @@
+import { paymentFetch } from '../lib/paymentFetch';
 import React from 'react';
 import { useRouter } from 'next/router';
 import { useCart } from '../lib/useCart';
@@ -47,7 +48,7 @@ export default function CashAppPayButton({ order, purchaseKey, onError, onReady,
       try {
         const config = await loadAfterpayConfig();
         if (!config.enabled || !config.script) return;
-        const res = await fetch('/api/afterpay/checkout', {
+        const res = await paymentFetch('/api/afterpay/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...orderRef.current, cashAppPay: true }),

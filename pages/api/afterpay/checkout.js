@@ -1,3 +1,4 @@
+import { validateCheckout } from '../../../lib/validateCheckout';
 // Called when the shopper clicks the Afterpay button: stores the order as a
 // pending record and creates the Afterpay checkout (lib/afterpay.js), then
 // returns the URL to send the shopper to. With cashAppPay: true it creates
@@ -19,6 +20,12 @@ export default async function handler(req, res) {
   if (!afterpayConfig().enabled) return res.status(404).json({ error: 'Afterpay is not available.' });
 
   try {
+    let checked;
+    try { checked = await validateCheckout(req.body); }
+    catch (error) { return res.status(400).json({ error: error.message }); }
+    const lines = req.body.items || req.body.cart;
+    const canonical = lines.map((line, index) => ({ ...line, ...checked.items[index] }));
+    req.body = { ...req.body, amount: checked.total, ...(req.body.items ? { items: canonical } : { cart: canonical }) };
     const { amount, items, email, shipping, eventId, url, attribution, sessionId, cashAppPay } = req.body || {};
     if (!amount || Number(amount) <= 0) return res.status(400).json({ error: 'Invalid amount' });
     if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items in cart' });

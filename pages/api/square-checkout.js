@@ -1,3 +1,4 @@
+import { validateCheckout } from '../../lib/validateCheckout';
 // Charges a Square payment token via the Payments API.
 //
 // Like the QuickBooks integration it replaces, a Square card charge
@@ -36,6 +37,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    let checked;
+    try { checked = await validateCheckout(req.body); }
+    catch (error) { return res.status(400).json({ error: error.message }); }
+    const lines = req.body.items || req.body.cart;
+    const canonical = lines.map((line, index) => ({ ...line, ...checked.items[index] }));
+    req.body = { ...req.body, amount: checked.total, ...(req.body.items ? { items: canonical } : { cart: canonical }) };
     const { token, amount, items, email, shipping, eventId, url, paymentMethod, attribution, sessionId } = req.body;
 
     if (!token) return res.status(400).json({ error: 'Missing card token' });
