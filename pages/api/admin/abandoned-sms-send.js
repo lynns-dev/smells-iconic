@@ -1,18 +1,12 @@
 // Admin "Send abandoned checkout text" (Visitors tab and Email →
 // Subscribers): texts one shopper the abandoned-checkout text
 // (admin → Texts → Abandoned checkout text) with a link that reopens
-// checkout with their saved cart. One ResendSMS credit per text.
+// checkout with their saved cart. Twilio messaging charges apply.
 //
-// Works for anyone who typed a phone number, but:
-// - never to a number marked opted out (STOP) on the text list;
-// - only 11am–8pm Eastern (US quiet hours);
-// - if the number has no text consent on file (they didn't tick "Text me"
-//   at checkout), the admin has to confirm that explicitly
-//   (confirmNoConsent) — texting marketing to a number without written
-//   consent is a TCPA risk the owner takes on per text.
+// Requires recorded SMS consent, respects opt-outs and quiet hours.
 import { getSubscriber, markAbandonedSmsSent, claimOnce } from '../../../lib/subscribersStore';
 import { getSmsSubscribers, normalizeUsPhone } from '../../../lib/email/smsStore';
-import { sendSms, smsConfigured } from '../../../lib/sms/resendSms';
+import { sendSms, smsConfigured } from '../../../lib/sms/provider';
 import { getSmsAutomations, inSendWindow, createTrackedLink, fillMessage, logSmsEvent } from '../../../lib/sms/smsAutomations';
 import { getProductById } from '../../../lib/products';
 import { bumpFlowStat } from '../../../lib/email/flowStats';
@@ -23,7 +17,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   try {
-    if (!smsConfigured()) return res.status(400).json({ error: 'ResendSMS isn’t connected (RESENDSMS_API_KEY).' });
+    if (!smsConfigured()) return res.status(400).json({ error: 'Twilio is not connected or sending is paused.' });
     const s = await getSubscriber(req.body?.key);
     if (!s) return res.status(404).json({ error: 'No contact found.' });
     const phone = normalizeUsPhone(s.phone);
@@ -33,8 +27,8 @@ export default async function handler(req, res) {
     const listed = (await getSmsSubscribers()).find((x) => x.phone === phone);
     if (listed?.status === 'unsubscribed') return res.status(400).json({ error: 'This number opted out of texts (STOP).' });
     const hasConsent = listed?.status === 'subscribed' && Boolean(listed.consentAt);
-    if (!hasConsent && req.body?.confirmNoConsent !== true) {
-      return res.status(409).json({ error: 'No text consent on file for this number.', needsConfirm: true });
+    if (!hasConsent) {
+      return res.status(403).json({ error: 'SMS opt-in is required before texting this shopper.' });
     }
     if (!inSendWindow()) return res.status(400).json({ error: 'Texts only go out 11am–8pm Eastern. Try again then.' });
     // Stops a double click sending two texts.

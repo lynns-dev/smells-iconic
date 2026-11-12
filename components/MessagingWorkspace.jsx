@@ -204,15 +204,11 @@ export function MessagingOverview({
     : loaded.automationsError
       ? false
       : null;
-  const smsReady = !smsAvailable
+  const smsReady = sms?.error
     ? false
-    : sms?.error
-      ? false
-      : sms
-        ? Boolean(
-            sms.configured && !sms.balanceError && sms.balance?.credits > 0,
-          )
-        : null;
+    : sms
+      ? Boolean(sms.connection?.canSend)
+      : null;
   const sentTotal =
     aggregate?.sent ??
     campaigns.reduce(
@@ -314,23 +310,23 @@ export function MessagingOverview({
                     : smsReady === null
                       ? "Checking…"
                       : smsReady
-                        ? "Credits available"
-                        : smsAvailable && sms?.configured
-                          ? "Check connection"
+                        ? "Ready to send"
+                        : sms?.connection?.connected
+                          ? "Sending paused"
                           : "Needs setup"
                 }
               />
             </div>
             <p>
-              {!smsAvailable
-                ? "Opt-ins are collected. A sending connection is still needed."
-                : sms?.balanceError
-                  ? "The provider connection needs attention before sending."
+              {sms?.error
+                ? "The SMS connection could not be checked."
+                : !sms
+                  ? "Checking the Twilio connection."
                   : smsReady
-                    ? `${sms.subscribed || 0} opted-in ${sms.subscribed === 1 ? "contact" : "contacts"} · ${sms.balance.credits} credits available.`
-                    : sms
-                      ? "Review your provider connection and available credits."
-                      : "Checking your SMS provider and available credits."}
+                    ? `${sms.subscribed || 0} opted-in contacts · Twilio sending enabled.`
+                    : sms.connection?.connected
+                      ? "Twilio is connected. Sending is paused until launch."
+                      : "Connect your new Twilio account to prepare SMS sending."}
             </p>
             <button
               className="mw-text-button"
@@ -452,25 +448,137 @@ export function MessagingOverview({
   );
 }
 
+export function TwilioConnectionPanel() {
+  const [connection, setConnection] = React.useState(null);
+  const [error, setError] = React.useState("");
+  const load = React.useCallback(async () => {
+    setError("");
+    try {
+      const r = await fetch("/api/admin/sms/connection");
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Could not check Twilio.");
+      setConnection(data.connection);
+    } catch (e) {
+      setError(e.message);
+    }
+  }, []);
+  React.useEffect(() => {
+    load();
+  }, [load]);
+  return (
+    <section className="mw-recent">
+      <div className="mw-section-title">
+        <h2>Twilio connection</h2>
+        <ChannelBadge
+          ready={Boolean(connection?.canSend)}
+          label={
+            connection?.canSend
+              ? "Ready to send"
+              : connection?.connected
+                ? "Sending paused"
+                : "Setup required"
+          }
+        />
+      </div>
+      <p className="mw-help">
+        Connect the new account and an approved SMS sender. Sending stays paused
+        until explicitly enabled; the retired provider is never used as a
+        fallback.
+      </p>
+      {error && (
+        <div className="mw-error" role="alert">
+          {error}
+        </div>
+      )}
+      {!connection ? (
+        <p role="status">Checking connection…</p>
+      ) : (
+        <>
+          <div className="mw-sms-status">
+            <span>Account credentials</span>
+            <strong>
+              {connection.connected
+                ? `Connected (${connection.accountType || "account"})`
+                : connection.hasAccount && connection.hasToken
+                  ? "Could not verify"
+                  : "Not connected"}
+            </strong>
+          </div>
+          <div className="mw-sms-status">
+            <span>Sending number or Messaging Service</span>
+            <strong>{connection.hasSender ? "Configured" : "Needed"}</strong>
+          </div>
+          <div className="mw-sms-status">
+            <span>Sending enabled</span>
+            <strong>{connection.enabled ? "Enabled" : "Paused"}</strong>
+          </div>
+          {connection.error && (
+            <div className="mw-error" role="alert">
+              {connection.error}
+            </div>
+          )}
+          <p className="mw-help">
+            US business messaging requires an approved sender setup. Trial
+            accounts can only message verified recipients. Phone-number and
+            messaging charges are billed by Twilio.
+          </p>
+          <details className="mw-disclosure">
+            <summary>Connection setup details</summary>
+            <div>
+              <p className="mw-help">
+                Enter credentials securely in this store’s deployment settings.
+                Do not put tokens in a customer message or chat.
+              </p>
+              <ul>
+                {[
+                  "TWILIO_ACCOUNT_SID",
+                  "TWILIO_AUTH_TOKEN",
+                  "TWILIO_MESSAGING_SERVICE_SID (or TWILIO_PHONE_NUMBER)",
+                  "TWILIO_SMS_ENABLED=false until launch",
+                ].map((field) => (
+                  <li key={field}>
+                    <code>{field}</code>
+                  </li>
+                ))}
+              </ul>
+              <p className="mw-help">
+                Use a separate Messaging Service or sending number for each
+                brand, with Advanced Opt-Out enabled.
+              </p>
+              <label className="mw-field">
+                Incoming messages URL
+                <input
+                  aria-label="Twilio incoming messages URL"
+                  value={connection.inboundUrl || ""}
+                  readOnly
+                />
+              </label>
+              <label className="mw-field">
+                Delivery status URL
+                <input
+                  aria-label="Twilio delivery status URL"
+                  value={connection.statusUrl || ""}
+                  readOnly
+                />
+              </label>
+              <p className="mw-help">
+                Configure callbacks as HTTP POST. Incoming requests are verified
+                with Twilio signatures.
+              </p>
+            </div>
+          </details>
+        </>
+      )}
+      <button type="button" className="mw-secondary" onClick={load}>
+        Check connection
+      </button>
+    </section>
+  );
+}
 export function SmsSetupPanel({ children }) {
   return (
     <>
-      <section className="mw-setup-panel">
-        <div className="mw-channel-icon">
-          <MessageIcon name="texts" size={25} />
-        </div>
-        <div>
-          <ChannelBadge ready={false} label="Sending not connected" />
-          <h2>Your SMS audience is here.</h2>
-          <p>
-            Phone numbers and opt-in records are being collected. Connect an SMS
-            sender to start sending messages from this store.
-          </p>
-          <p className="mw-muted">
-            You can review and export your existing contacts below.
-          </p>
-        </div>
-      </section>
+      <TwilioConnectionPanel />
       {children}
     </>
   );

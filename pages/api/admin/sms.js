@@ -1,32 +1,28 @@
-// Admin → Texts (pages/admin/email.jsx): ResendSMS connection + credits,
+// Admin → Texts (pages/admin/email.jsx): Twilio connection and readiness,
 // the automated text flows, one-off broadcasts, test texts and opt-outs.
-// Behind the admin login (middleware.js). Sends cost ResendSMS credits —
+// Behind the admin login (middleware.js). Twilio messaging charges apply —
 // every send here is an explicit admin action.
 import { createHash } from 'crypto';
 import { getSmsSubscribers, setSmsStatus, normalizeUsPhone } from '../../../lib/email/smsStore';
-import { sendSms, getSmsBalance, smsConfigured, smsSegments } from '../../../lib/sms/resendSms';
+import { sendSms, getSmsConnection, smsConfigured, smsSegments } from '../../../lib/sms/provider';
 import {
   getSmsAutomations, updateSmsAutomation, SMS_FLOW_DESCRIPTIONS, SEND_WINDOW, inSendWindow,
   createTrackedLink, fillMessage, logSmsEvent, getSmsLog, claimOnce,
 } from '../../../lib/sms/smsAutomations';
 import { getFlowStats, bumpFlowStat } from '../../../lib/email/flowStats';
 
-const BATCH = 100;
+
 
 async function overview() {
   const [flows, subs, log] = await Promise.all([getSmsAutomations(), getSmsSubscribers(), getSmsLog()]);
-  let balance = null;
-  let balanceError = null;
-  if (smsConfigured()) {
-    try { balance = await getSmsBalance(); } catch (err) { balanceError = err.message; }
-  }
+  const connection = await getSmsConnection();
   const broadcasts = log.filter((e) => e.broadcastId).slice(0, 20);
   const statKeys = [...flows.map((f) => ({ flowId: f.id, stepIndex: 0 })), ...broadcasts.map((b) => ({ flowId: `sms_bc_${b.broadcastId}`, stepIndex: 0 }))];
   const stats = await getFlowStats(statKeys).catch(() => new Map());
   return {
-    configured: smsConfigured(),
-    balance,
-    balanceError,
+    provider: 'Twilio',
+    configured: connection.canSend,
+    connection,
     sendWindow: SEND_WINDOW,
     inSendWindow: inSendWindow(),
     subscribed: subs.filter((s) => s.status === 'subscribed').length,
@@ -85,23 +81,13 @@ export default async function handler(req, res) {
           : null;
         const message = fillMessage(template, { link: link?.url || '' });
         const { segments } = smsSegments(message);
-        const balance = await getSmsBalance();
-        const needed = recipients.length * segments;
-        if (balance.credits < needed) {
-          return res.status(402).json({ error: `Not enough ResendSMS credits: need about ${needed}, have ${balance.credits}. Top up at resendsms.com.` });
-        }
-
         let sent = 0;
         const errors = [];
-        for (let i = 0; i < recipients.length; i += BATCH) {
-          const batch = recipients.slice(i, i + BATCH);
-          try {
-            await sendSms(batch, message);
-            sent += batch.length;
-          } catch (err) {
-            errors.push(err.message);
-            if (/credit/i.test(err.message)) break;
-          }
+        // One message per Twilio request: count actual accepted recipients,
+        // and stop on ambiguous responses rather than duplicating messages.
+        for (const phone of recipients) {
+          try { await sendSms(phone, message); sent += 1; }
+          catch (err) { errors.push(err.message); if (err.smsDeliveryUncertain || err.smsProviderStatus === 401 || err.smsProviderStatus === 403) break; }
         }
         if (sent) await bumpFlowStat(`sms_bc_${broadcastId}`, 0, 'sent', null, sent).catch(() => {});
         await logSmsEvent({ broadcastId, message, recipients: recipients.length, sent, errors: errors.slice(0, 3) }).catch(() => {});

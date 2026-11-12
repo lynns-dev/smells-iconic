@@ -1,4 +1,4 @@
-import MessagingWorkspace, { MessagingOverview, SmsSetupPanel, EmailMessageEditor, SmsAudience, ChannelBadge } from '../../components/MessagingWorkspace';
+import MessagingWorkspace, { MessagingOverview, SmsSetupPanel, TwilioConnectionPanel, EmailMessageEditor, SmsAudience, ChannelBadge } from '../../components/MessagingWorkspace';
 import React from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -213,7 +213,7 @@ export default function EmailAdmin() {
   }, [loadSubscribers, loadCampaigns, loadEmailAnalytics, loadAutomations, loadTemplates, loadSettings, loadDomainIdentity]);
 
   React.useEffect(() => {
-    fetch('/api/admin/sms').then(response => {
+    fetch('/api/admin/sms/connection').then(response => {
       if (!response.ok) throw new Error('SMS connection could not be checked.');
       return response.json();
     }).then(setSmsOverview).catch(error => setSmsOverview({ error: error.message }));
@@ -1579,8 +1579,8 @@ const sidebarLink = {
 const sidebarLinkActive = { background: T.accent, color: '#FFFFFF', fontWeight: 600 };
 
 
-// Admin → Texts: automated texts and broadcasts through ResendSMS
-// (pages/api/admin/sms.js, lib/sms/). Every send costs ResendSMS credits.
+// Admin → Texts: automated texts and broadcasts through Twilio
+// (pages/api/admin/sms.js, lib/sms/). Twilio messaging charges apply.
 function TextsTab() {
   const [smsPanel, setSmsPanel] = React.useState('automations');
   const [data, setData] = React.useState(null);
@@ -1626,41 +1626,35 @@ function TextsTab() {
     const single = unicode ? 70 : 160;
     const multi = unicode ? 67 : 153;
     const segs = len === 0 ? 0 : len <= single ? 1 : Math.ceil(len / multi);
-    return `${len} characters · ${segs} credit${segs === 1 ? '' : 's'} per text${unicode ? ' (emoji/special characters make texts cost more)' : ''} · {{LINK}} adds ~30`;
+    return `${len} characters · ${segs} segment${segs === 1 ? '' : 's'} per text${unicode ? ' (emoji/special characters increase segment count)' : ''} · {{LINK}} adds ~30`;
   };
 
   return (
     <>
       {!data.configured && (
         <div style={{ background: '#FDECEA', color: '#8A1F11', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
-          <strong>ResendSMS isn&rsquo;t connected.</strong> Your sending connection needs to be finished before texts can go out. Open the Connection tab to review its status.
+          <strong>Twilio sending is paused.</strong> Your sending connection needs to be finished before texts can go out. Open the Connection tab to review its status.
         </div>
       )}
-      {data.configured && data.balance && data.balance.credits < Math.max(10, data.subscribed) && (
-        <div style={{ background: '#FFF4E5', color: '#7A4A00', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
-          <strong>Low on credits: {data.balance.credits} left.</strong> Nothing sends at 0. Top up at resendsms.com (credits never expire).
-        </div>
-      )}
-
       <div className="mw-segmented mw-sms-tabs" role="group" aria-label="SMS tools">
         {[['automations', 'Automations'], ['broadcast', 'Broadcast'], ['contacts', 'Contacts'], ['connection', 'Connection']].map(([id, label]) => <button type="button" key={id} aria-pressed={smsPanel === id} onClick={() => setSmsPanel(id)}>{label}</button>)}
       </div>
       <Section title="Sending status">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {tile(data.configured ? (data.balance ? data.balance.credits : '—') : 'Off', data.balanceError ? `Credits (error: ${data.balanceError})` : 'ResendSMS credits')}
+          {tile(data.connection?.canSend ? 'Ready' : data.connection?.connected ? 'Paused' : 'Set up', 'Twilio connection')}
           {tile(data.subscribed, 'On the text list')}
           {tile(data.unsubscribed, 'Opted out')}
           {tile(data.inSendWindow ? 'Open' : 'Closed', 'Send window (11am–8pm ET)')}
         </div>
 <details style={{ marginTop: 16 }}><summary style={{ fontSize: 12, cursor: 'pointer' }}>How sending and opt-outs work</summary>        <p style={{ fontSize: 12, color: T.soft, margin: '14px 0 0', lineHeight: 1.5 }}>
-          Numbers join from the &ldquo;Text me new drops and offers&rdquo; box at checkout (unticked by default; the consent wording is saved with each number). Texts only go to numbers on that list, only between 11am and 8pm Eastern. ResendSMS doesn&rsquo;t pass replies back to the store, so when someone replies STOP, mark them opted out below.
+          Numbers join from the &ldquo;Text me new drops and offers&rdquo; box at checkout (unticked by default; the consent wording is saved with each number). Texts only go to numbers on that list, only between 11am and 8pm Eastern. Twilio replies and delivery updates use signed callbacks. STOP replies block further sends in the store as well as through Twilio.
         </p></details>
       </Section>
 
       {smsPanel === 'automations' && <>      <Section title="Automated texts">
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
           <input type="tel" aria-label="Mobile number for SMS tests" placeholder="Your mobile, for test texts" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} style={{ ...formInput, width: 240, maxWidth: '100%' }} />
-          <span style={{ fontSize: 12, color: T.soft }}>Test texts use 1 credit each.</span>
+          <span style={{ fontSize: 12, color: T.soft }}>Twilio messaging charges apply.</span>
         </div>
         {data.flows.map((f) => {
           const e = edits[f.id] || {};
@@ -1709,7 +1703,7 @@ function TextsTab() {
                 <button
                   type="button"
                   disabled={busy === `test-${f.id}` || !data.configured || !testPhone}
-                  onClick={async () => { if (await api(`test-${f.id}`, 'POST', { action: 'test', phone: testPhone, message })) { setMsg((m) => ({ ...m, [`test-${f.id}`]: `Sent to ${testPhone} (1 credit).` })); load(); } }}
+                  onClick={async () => { if (await api(`test-${f.id}`, 'POST', { action: 'test', phone: testPhone, message })) { setMsg((m) => ({ ...m, [`test-${f.id}`]: `Accepted by Twilio for ${testPhone}. Check delivery status in Twilio.` })); load(); } }}
                   style={S.btnOutline}
                 >
                   Send test
@@ -1734,7 +1728,7 @@ function TextsTab() {
             type="button"
             disabled={busy === 'broadcast' || !data.configured || !data.subscribed}
             onClick={async () => {
-              if (!window.confirm(`Text ${data.subscribed} number${data.subscribed === 1 ? '' : 's'} now? This uses at least ${data.subscribed} ResendSMS credits and can't be undone.`)) return;
+              if (!window.confirm(`Text ${data.subscribed} number${data.subscribed === 1 ? '' : 's'} now? This incurs Twilio messaging charges and can't be undone.`)) return;
               const out = await api('broadcast', 'POST', { action: 'broadcast', message: broadcast.message, link: broadcast.link, confirmCount: data.subscribed });
               if (out) { setMsg((m) => ({ ...m, broadcast: `Sent to ${out.sent}.${out.errors?.length ? ` Errors: ${out.errors.join('; ')}` : ''}` })); load(); }
             }}
@@ -1760,7 +1754,7 @@ function TextsTab() {
 
 </>}
       {smsPanel === 'contacts' && <SmsSubscribers onChange={load} />}
-      {smsPanel === 'connection' && <Section title="ResendSMS connection"><p className="mw-help">This connection is used by the existing text-sending tools. Delivery status and incoming replies are separate capabilities.</p><div className="mw-sms-status"><strong>Sending configuration</strong><ChannelBadge ready={Boolean(data.configured)} label={data.configured ? 'Configured' : 'Not connected'} /></div><div className="mw-sms-status"><strong>Provider balance</strong><span>{data.balance ? `${data.balance.credits} credits` : 'Unavailable'}</span></div>{data.balanceError && <div className="mw-error" role="alert"><div><strong>The provider could not be reached.</strong><p>{data.balanceError}</p></div></div>}<button type="button" className="mw-secondary" onClick={load}>Check connection again</button></Section>}
+      {smsPanel === 'connection' && <TwilioConnectionPanel />}
 
     </>
   );

@@ -1,8 +1,4 @@
-// "Send abandoned checkout text" — admin → Visitors and admin → Email →
-// Subscribers. Texts the shopper a link back to checkout with their cart
-// (pages/api/admin/abandoned-sms-send.js). Anyone who typed a phone
-// number can be texted, except numbers that replied STOP; numbers with no
-// text consent on file get an extra warning before sending.
+// Manual checkout recovery requires recorded SMS consent.
 import React from 'react';
 import { T, S } from '../lib/adminTheme';
 
@@ -21,19 +17,19 @@ export default function AbandonedSmsButton({ contactKey, phone, smsStatus, sentA
   if (smsStatus === 'unsubscribed') return <span style={{ fontSize: 12, color: T.soft }}>Opted out of texts (STOP)</span>;
   if (!hasCart) return null;
   const consented = smsStatus === 'subscribed';
+  if (!consented) return <span style={{ fontSize: 12, color: T.soft }}>SMS opt-in required</span>;
 
-  const post = (confirmNoConsent) => fetch('/api/admin/abandoned-sms-send', {
+  const post = () => fetch('/api/admin/abandoned-sms-send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key: contactKey, confirmNoConsent }),
+    body: JSON.stringify({ key: contactKey }),
   }).then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
 
   const send = async () => {
-    const warn = consented ? '' : '\n\nThis number has NOT opted in to texts (they didn’t tick “Text me” at checkout). Texting marketing without written consent is a TCPA risk (fines per text). Only send if you’re comfortable with that.';
-    if (!window.confirm(`Text ${phone} a link back to their checkout now? Uses 1 ResendSMS credit.${warn}`)) return;
+    if (!window.confirm(`Text ${phone} a checkout recovery link? Twilio messaging charges apply.`)) return;
     setState({ busy: true, sentAt: null, error: '' });
     try {
-      const { ok, data } = await post(!consented);
+      const { ok, data } = await post();
       if (!ok) throw new Error(data.error || 'Could not send the text.');
       setState({ busy: false, sentAt: data.sentAt, error: '' });
     } catch (err) {
