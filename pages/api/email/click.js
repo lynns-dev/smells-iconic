@@ -59,11 +59,12 @@ export default async function handler(req, res) {
     }
 
     if (flowId === 'abandoned_checkout') {
+      const test = testId && ['a','b'].includes(variant) ? {testId:String(testId),variant} : null;
       const target = safeLocalPath(req.query.u) || '/checkout';
       await quietly([
-        bumpFlowStat('abandoned_checkout', 0, 'clicks'),
-        claimFirst('click', String(sendId)).then((first) => first && bumpFlowStat('abandoned_checkout', 0, 'clickers')),
-        countOpen('abandoned_checkout', 0, String(sendId), null),
+        bumpFlowStat('abandoned_checkout', 0, 'clicks', test),
+        claimFirst('click', String(sendId)).then((first) => first && bumpFlowStat('abandoned_checkout', 0, 'clickers', test)),
+        countOpen('abandoned_checkout', 0, String(sendId), test),
       ]);
       return res.redirect(302, target);
     }

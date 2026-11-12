@@ -1142,6 +1142,7 @@ export default function EmailAdmin() {
 
                         <AbTestPanel
                           automation={a}
+                          settings={settings}
                           stepIndex={i}
                           step={step}
                           perf={emailAnalytics.flows.find((f) => f.id === a.id)?.steps.find((r) => r.index === i)}
@@ -1211,6 +1212,7 @@ function LegacyAbandonedCheckout({ perf }) {
           </div>
         </div>
       )}
+      <CheckoutLayoutTest />
     </div>
   );
 }
@@ -1236,7 +1238,7 @@ function FlowPerformance({ flows, thresholds, onSelect }) {
   return (
     <Section title="Automation performance">
       <p style={{ fontSize: 12, color: T.soft, margin: '0 0 12px', lineHeight: 1.5 }}>
-        Click rate = people who clicked ÷ emails sent. Open rate counts from when open tracking went live and reads high because Apple Mail preloads images, so treat it as a spam-folder warning and judge emails on clicks.
+        Click rate = email deliveries clicked at least once ÷ emails sent. Repeat clicks do not increase the rate. Open rate counts from when open tracking went live and reads high because Apple Mail preloads images, so treat it as a spam-folder warning and judge emails on clicks.
         {thresholds && <> Flagged when a flow has {thresholds.minSent}+ sends and click rate is under {thresholds.clickRateFloor}% or open rate is under {thresholds.openRateFloor}%.</>}
       </p>
       <div style={{ overflowX: 'auto' }}>
@@ -1303,7 +1305,7 @@ function HealthBadge({ health }) {
 // HTML, subscribers are split 50/50 (stable per person), and the results
 // compare click rate with a confidence figure. Ending the test with B as
 // the winner copies B into the step (lib/email/automationsStore.js).
-function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated }) {
+function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated, settings }) {
   const [open, setOpen] = React.useState(Boolean(step.abTest?.enabled));
   const [draft, setDraft] = React.useState({ subject: '', html: '' });
   const [busy, setBusy] = React.useState(false);
@@ -1392,13 +1394,16 @@ function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated }
           </table>
           <p style={{ fontSize: 12, color: T.ink, margin: '8px 0' }}>
             {perf?.abTest?.leader
-              ? `${perf.abTest.leader.toUpperCase()} is ahead on click rate · ${perf.abTest.confidence}% confidence${perf.abTest.confidence < 95 ? ' (wait for 95%+ before calling it)' : ' — safe to pick a winner'}`
+              ? `${perf.abTest.leader.toUpperCase()} is ahead on click rate · ${perf.abTest.confidence}% confidence${perf.abTest.confidence < 95 ? ' (wait for 95%+ before calling it)' : ' — review sample size and conversions before choosing'}`
               : 'No clicks to compare yet.'}
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button type="button" disabled={busy} onClick={() => window.confirm('End the test and keep variant A?') && call({ action: 'ab-end', winner: 'a' })} style={S.btnOutline}>Keep A, end test</button>
             <button type="button" disabled={busy} onClick={() => window.confirm('End the test and replace this step with variant B?') && call({ action: 'ab-end', winner: 'b' })} style={S.btnFill}>B wins, use B</button>
-            {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
+            <details style={{ marginTop: 12 }}><summary>Preview variant B</summary>
+        <iframe title="Variant B preview" sandbox="" srcDoc={renderEmailHtml((running ? running.html : draft.html) || step.html, settings || {}, { preview: true })} style={{ width: '100%', maxWidth: 600, height: 480, border: '1px solid #ddd' }} />
+      </details>
+      {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
           </div>
         </>
       ) : (
@@ -1776,4 +1781,31 @@ function SmsSubscribers({ onChange }) {
       </div>
     </Section>
   );
+}
+
+function CheckoutLayoutTest() {
+  const [data,setData] = React.useState(null);
+  const [error,setError] = React.useState('');
+  const [busy,setBusy] = React.useState(false);
+  async function load(body) {
+    setBusy(true);setError('');
+    try {
+      const r=await fetch('/api/admin/email/checkout-layout-test',body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});
+      const value=await r.json();if(!r.ok)throw new Error(value.error || 'Could not load test.');setData(value);
+    } catch(e){setError(e.message);}finally{setBusy(false);}
+  }
+  React.useEffect(()=>{load();},[]);
+  return <div style={{...stepCard,marginTop:16}}>
+    <strong>Abandoned checkout · layout A/B test{data?.test?.enabled?' · running':''}</strong>
+    <p>50/50 stable assignment for automatic reminders. A keeps the current layout; B puts the same checkout button before the saved cart with a larger mobile tap area. Subject, copy, cart restoration, eligibility and timing stay the same.</p>
+    <p>Judge unique clicked deliveries first; review orders and sample size before choosing a winner. No automatic winner selection.</p>
+    {error&&<p role="alert">{error}</p>}
+    {data?.test?.enabled ? <>
+      <table style={{width:'100%'}}><thead><tr><th>Variant</th><th>Sent</th><th>Clicked</th><th>Click rate</th></tr></thead><tbody>{['a','b'].map(v=><tr key={v}><td>{v.toUpperCase()}</td><td>{data.results?.[v]?.sent || 0}</td><td>{data.results?.[v]?.clickers || 0}</td><td>{data.results?.[v]?.sent?`${data.results[v].clickRate}%`:'—'}</td></tr>)}</tbody></table>
+      <button disabled={busy} onClick={()=>load()}>Refresh results</button>
+      <button disabled={busy} onClick={()=>window.confirm('End the checkout test and keep A?')&&load({action:'stop',winner:'a'})}>Keep A, end test</button>
+      <button disabled={busy} onClick={()=>window.confirm('End the checkout test and use B?')&&load({action:'stop',winner:'b'})}>Use B, end test</button>
+    </>:<button disabled={busy||!data} onClick={()=>load({action:'start'})}>Start checkout layout A/B test</button>}
+    {data?.previews&&<div>{['a','b'].map(v=><details key={v}><summary>Preview checkout variant {v.toUpperCase()}</summary><iframe title={`Checkout variant ${v.toUpperCase()} preview`} sandbox="" srcDoc={data.previews[v]} style={{width:'100%',maxWidth:600,height:500,border:'1px solid #ddd'}} /></details>)}</div>}
+  </div>;
 }
