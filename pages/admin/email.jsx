@@ -1,3 +1,4 @@
+import MessagingWorkspace, { MessagingOverview, SmsSetupPanel, EmailMessageEditor, SmsAudience, ChannelBadge } from '../../components/MessagingWorkspace';
 import React from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -43,6 +44,43 @@ export default function EmailAdmin() {
   const [domainIdentityLoading, setDomainIdentityLoading] = React.useState(false);
   const [scheduleAt, setScheduleAt] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('overview');
+  const [campaignComposerOpen, setCampaignComposerOpen] = React.useState(false);
+  const [loadStates, setLoadStates] = React.useState({});
+  const [loadErrors, setLoadErrors] = React.useState({});
+  const [smsOverview, setSmsOverview] = React.useState(null);
+  const adminGet = React.useCallback(async (url) => {
+    setLoadStates(prev => ({ ...prev, [url]: 'loading' }));
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(response.status === 401 ? 'Your session expired. Sign in again.' : 'Could not load this section.');
+      setLoadStates(prev => ({ ...prev, [url]: 'ready' }));
+      setLoadErrors(prev => { const next = { ...prev }; delete next[url]; return next; });
+      return response;
+    } catch (error) {
+      setLoadStates(prev => ({ ...prev, [url]: 'error' }));
+      setLoadErrors(prev => ({ ...prev, [url]: error.message }));
+      throw error;
+    }
+  }, []);
+  React.useEffect(() => {
+    if (!router.isReady) return;
+    const tab = typeof router.query.tab === 'string' ? router.query.tab : 'overview';
+    if (TABS.some(item => item.id === tab)) setActiveTab(tab);
+  }, [router.isReady, router.query.tab]);
+  const navigateMessaging = (tab) => {
+    setActiveTab(tab);
+    router.replace({ pathname: router.pathname, query: { ...router.query, tab } }, undefined, { shallow: true });
+  };
+  React.useEffect(() => {
+    if (activeTab === 'campaigns' && campaignComposerOpen) {
+      document.getElementById('campaign-composer')?.scrollIntoView({ block: 'start' });
+    }
+  }, [activeTab, campaignComposerOpen]);
+  const createEmail = () => {
+    navigateMessaging('campaigns');
+    setCampaignComposerOpen(true);
+  };
+
   const [automationMessage, setAutomationMessage] = React.useState({});
   const [syncingDesign, setSyncingDesign] = React.useState(false);
   const [syncDesignMessage, setSyncDesignMessage] = React.useState('');
@@ -114,55 +152,55 @@ export default function EmailAdmin() {
   const abandonedFlow = automations.find((a) => a.id === 'abandoned_checkout');
 
   const loadSubscribers = React.useCallback(() => {
-    fetch('/api/admin/email/subscribers')
+    adminGet('/api/admin/email/subscribers')
       .then((r) => r.json())
       .then((data) => {
         setSubscribers(data.subscribers || []);
         setGradeSummary(data.gradeSummary || null);
       })
       .catch(() => {});
-  }, []);
+  }, [adminGet]);
 
   const loadCampaigns = React.useCallback(() => {
-    fetch('/api/admin/email/campaigns').then((r) => r.json()).then((data) => setCampaigns(data.campaigns || [])).catch(() => {});
-  }, []);
+    adminGet('/api/admin/email/campaigns').then((r) => r.json()).then((data) => setCampaigns(data.campaigns || [])).catch(() => {});
+  }, [adminGet]);
 
   const loadEmailAnalytics = React.useCallback(() => {
-    fetch('/api/admin/email/analytics')
+    adminGet('/api/admin/email/analytics')
       .then((r) => r.json())
       .then((data) => setEmailAnalytics({ campaigns: data.campaigns || {}, automations: data.automations || {}, flows: data.flows || [], thresholds: data.thresholds || null, aggregate: data.aggregate || null }))
       .catch(() => {});
-  }, []);
+  }, [adminGet]);
 
   const loadAutomations = React.useCallback(() => {
-    fetch('/api/admin/email/automations').then((r) => r.json()).then((data) => {
+    adminGet('/api/admin/email/automations').then((r) => r.json()).then((data) => {
       setAutomations(data.automations || []);
       setSendingReady(data.sendingReady || null);
     }).catch(() => {});
-  }, []);
+  }, [adminGet]);
 
   const loadTemplates = React.useCallback(() => {
-    fetch('/api/admin/email/templates').then((r) => r.json()).then((data) => setTemplates(data.templates || [])).catch(() => {});
-  }, []);
+    adminGet('/api/admin/email/templates').then((r) => r.json()).then((data) => setTemplates(data.templates || [])).catch(() => {});
+  }, [adminGet]);
 
   const loadSettings = React.useCallback(() => {
-    fetch('/api/admin/email/settings')
+    adminGet('/api/admin/email/settings')
       .then((r) => r.json())
       .then((data) => {
         setSettings(data.settings || null);
         setSettingsForm(data.settings || null);
       })
       .catch(() => {});
-  }, []);
+  }, [adminGet]);
 
   const loadDomainIdentity = React.useCallback(() => {
     setDomainIdentityLoading(true);
-    fetch('/api/admin/email/resend-identity')
+    adminGet('/api/admin/email/resend-identity')
       .then((r) => r.json())
       .then(setDomainIdentity)
       .catch(() => {})
       .finally(() => setDomainIdentityLoading(false));
-  }, []);
+  }, [adminGet]);
 
   React.useEffect(() => {
     loadSubscribers();
@@ -173,6 +211,13 @@ export default function EmailAdmin() {
     loadSettings();
     loadDomainIdentity();
   }, [loadSubscribers, loadCampaigns, loadEmailAnalytics, loadAutomations, loadTemplates, loadSettings, loadDomainIdentity]);
+
+  React.useEffect(() => {
+    fetch('/api/admin/sms').then(response => {
+      if (!response.ok) throw new Error('SMS connection could not be checked.');
+      return response.json();
+    }).then(setSmsOverview).catch(error => setSmsOverview({ error: error.message }));
+  }, []);
 
   const handleSuppressSubscriber = async (email) => {
     if (!confirm(`Suppress ${email}? They will never receive an email again.`)) return;
@@ -316,6 +361,7 @@ export default function EmailAdmin() {
   };
 
   const handleUseTemplate = (templateId) => {
+    setCampaignComposerOpen(true);
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
     // A copy, not a live link back to the template — editing this
@@ -506,7 +552,7 @@ export default function EmailAdmin() {
   return (
     <div style={{ minHeight: '100vh', background: T.paper }}>
       <Head>
-        <title>{`Email — ${BRAND.name} admin`}</title>
+        <title>{`Email & SMS — ${BRAND.name} admin`}</title>
       </Head>
       <style jsx global>{`
         .admin-shell { display: flex; flex-direction: column; max-width: 1200px; margin: 0 auto; }
@@ -552,31 +598,12 @@ export default function EmailAdmin() {
         }
       `}</style>
 
-      <div className="admin-shell">
-        <aside className="admin-sidebar">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <div>
-              <Link href="/admin" style={{ fontSize: 13, color: T.accent, textDecoration: 'none' }}>&lsaquo; Store admin</Link>
-              <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em', marginTop: 4 }}>{BRAND.name} email</div>
-            </div>
-            <button onClick={handleLogout} style={{ ...S.btnOutline, height: 30, padding: '0 12px', fontSize: 13 }}>Sign out</button>
-          </div>
-          <nav className="pill-nav">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{ ...sidebarLink, ...(activeTab === tab.id ? sidebarLinkActive : {}) }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="admin-main">
+      <MessagingWorkspace brand={BRAND.name} tabs={TABS} activeTab={activeTab} onNavigate={navigateMessaging} onLogout={handleLogout} onCreate={createEmail} errors={loadErrors} onRetry={() => { loadSubscribers(); loadCampaigns(); loadEmailAnalytics(); loadAutomations(); loadTemplates(); loadSettings(); loadDomainIdentity(); }}>
         {activeTab === 'overview' && (
         <>
+        <MessagingOverview subscribers={subscribers} campaigns={campaigns} automations={automations} aggregate={emailAnalytics.aggregate} sendingReady={sendingReady} sms={smsOverview} smsAvailable={true} loaded={{ campaignsError: loadStates['/api/admin/email/campaigns'] === 'error', automationsError: loadStates['/api/admin/email/automations'] === 'error', contacts: loadStates['/api/admin/email/subscribers'] === 'ready', campaigns: loadStates['/api/admin/email/campaigns'] === 'ready', analytics: loadStates['/api/admin/email/analytics'] === 'ready', automations: loadStates['/api/admin/email/automations'] === 'ready' }} onNavigate={navigateMessaging} onCreate={createEmail} />
+        <details className="mw-disclosure"><summary>Audience growth & detailed performance</summary><div>
+
         <Section title="Analytics">
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <div style={gradeTile}>
@@ -637,6 +664,7 @@ export default function EmailAdmin() {
             </div>
           </Section>
         )}
+        </div></details>
         </>
         )}
 
@@ -732,10 +760,10 @@ export default function EmailAdmin() {
           title={`Subscribers (${visibleSubscribers.length}${visibleSubscribers.length !== subscribers.length ? ` of ${subscribers.length}` : ''})`}
           action={<a href="/api/admin/email/subscribers?format=csv" style={S.btnOutline}>Export CSV</a>}
         >
-          <form onSubmit={handleAddSubscriber} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
+          <details className="mw-disclosure"><summary>Add an email contact</summary><div><form onSubmit={handleAddSubscriber} style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
             <input
               type="email"
-              placeholder="Add subscriber by email…"
+              aria-label="Email address to add" placeholder="Add subscriber by email…"
               value={newSubscriberEmail}
               onChange={(e) => setNewSubscriberEmail(e.target.value)}
               style={{ ...formInput, width: 260, maxWidth: '100%' }}
@@ -745,7 +773,7 @@ export default function EmailAdmin() {
               {addingSubscriber ? 'Adding…' : 'Add subscriber'}
             </button>
             {addSubscriberMessage && <span style={{ fontSize: 12, color: T.ink }}>{addSubscriberMessage}</span>}
-          </form>
+          </form></div></details>
           <p style={{ fontSize: 12, color: T.soft, marginTop: 0, marginBottom: 20 }}>
             Skips double opt-in and marks them subscribed immediately — only add someone here if you already have a lawful basis to email them.
           </p>
@@ -756,7 +784,7 @@ export default function EmailAdmin() {
             <div>
               <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
-                  placeholder="Search by email…"
+                  aria-label="Search audience by email" placeholder="Search by email…"
                   value={subscriberSearch}
                   onChange={(e) => setSubscriberSearch(e.target.value)}
                   style={{ ...formInput, width: 260, maxWidth: '100%' }}
@@ -851,7 +879,7 @@ export default function EmailAdmin() {
 
         {activeTab === 'campaigns' && (
         <>
-        <Section title={`Templates (${templates.length})`}>
+        <details className="mw-disclosure"><summary>Saved email templates ({templates.length})</summary><div><Section title={`Templates (${templates.length})`}>
           {templates.length === 0 ? (
             <p style={{ color: T.soft, fontSize: 14 }}>No saved templates yet — build a campaign below, then "Save as template" to reuse it later.</p>
           ) : (
@@ -862,7 +890,7 @@ export default function EmailAdmin() {
               </div>
             ))
           )}
-        </Section>
+        </Section></div></details>
 
         <Section title={`Campaigns (${campaigns.length})`}>
           {campaigns.length > 0 && (
@@ -906,30 +934,30 @@ export default function EmailAdmin() {
               })}
             </div>
           )}
-          <form onSubmit={handleCreateCampaign}>
+          <section id="campaign-composer" className="mw-disclosure"><button type="button" className="mw-disclosure-button" aria-expanded={campaignComposerOpen} aria-controls="campaign-composer-body" onClick={() => setCampaignComposerOpen(open => !open)}>Create an email <span aria-hidden="true">{campaignComposerOpen ? '−' : '+'}</span></button><div id="campaign-composer-body" hidden={!campaignComposerOpen}><form onSubmit={handleCreateCampaign}>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
               <div style={{ flex: 2, minWidth: 220 }}>
-                <label style={formLabel}>Subject</label>
+                <label style={formLabel} htmlFor="campaign-subject">Subject</label>
                 <input
-                  value={campaignForm.subject}
+                  id="campaign-subject" value={campaignForm.subject}
                   onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
                   style={formInput}
                   required
                 />
               </div>
               <div style={{ flex: 1, minWidth: 160 }}>
-                <label style={formLabel}>From name</label>
+                <label style={formLabel} htmlFor="campaign-fromName">From name</label>
                 <input
-                  value={campaignForm.fromName}
+                  id="campaign-fromName" value={campaignForm.fromName}
                   onChange={(e) => setCampaignForm({ ...campaignForm, fromName: e.target.value })}
                   style={formInput}
                   placeholder="Your store name"
                 />
               </div>
               <div style={{ width: 160 }}>
-                <label style={formLabel}>Segment</label>
+                <label style={formLabel} htmlFor="campaign-segment">Audience segment</label>
                 <select
-                  value={campaignForm.segment}
+                  id="campaign-segment" value={campaignForm.segment}
                   onChange={(e) => setCampaignForm({ ...campaignForm, segment: e.target.value })}
                   style={formInput}
                 >
@@ -954,13 +982,8 @@ export default function EmailAdmin() {
 
             <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
               <div className="col-html">
-                <label style={formLabel}>HTML content</label>
-                <textarea
-                  placeholder="Paste your email HTML here…"
-                  value={campaignForm.contentHtml}
-                  onChange={(e) => setCampaignForm({ ...campaignForm, contentHtml: e.target.value })}
-                  style={{ ...formInput, height: 360, padding: 12, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.5 }}
-                />
+                <label style={formLabel}>Email content</label>
+                <EmailMessageEditor value={campaignForm.contentHtml} onChange={contentHtml => setCampaignForm(prev => ({ ...prev, contentHtml }))} />
 
                 <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                   <input
@@ -1007,7 +1030,7 @@ export default function EmailAdmin() {
               </button>
               {testMessage['campaign-composer'] && <span style={{ fontSize: 12, color: T.ink }}>{testMessage['campaign-composer']}</span>}
             </div>
-          </form>
+          </form></div></section>
         </Section>
         </>
         )}
@@ -1169,8 +1192,7 @@ export default function EmailAdmin() {
         </Section>
         </>
         )}
-        </main>
-      </div>
+      </MessagingWorkspace>
     </div>
   );
 }
@@ -1560,6 +1582,7 @@ const sidebarLinkActive = { background: T.accent, color: '#FFFFFF', fontWeight: 
 // Admin → Texts: automated texts and broadcasts through ResendSMS
 // (pages/api/admin/sms.js, lib/sms/). Every send costs ResendSMS credits.
 function TextsTab() {
+  const [smsPanel, setSmsPanel] = React.useState('automations');
   const [data, setData] = React.useState(null);
   const [edits, setEdits] = React.useState({});
   const [msg, setMsg] = React.useState({});
@@ -1568,7 +1591,7 @@ function TextsTab() {
   const [broadcast, setBroadcast] = React.useState({ message: 'Smells Iconic: new drop is live {{LINK}} Reply STOP to opt out', link: '/shop' });
 
   const load = React.useCallback(() => {
-    fetch('/api/admin/sms').then((r) => r.json()).then(setData).catch(() => setData({ error: 'Could not load.' }));
+    fetch('/api/admin/sms').then(async r => { const result = await r.json(); if (!r.ok) throw new Error(result.error || 'Could not load SMS.'); return result; }).then(setData).catch(() => setData({ error: 'Could not load.' }));
   }, []);
   React.useEffect(load, [load]);
 
@@ -1610,7 +1633,7 @@ function TextsTab() {
     <>
       {!data.configured && (
         <div style={{ background: '#FDECEA', color: '#8A1F11', borderRadius: 14, padding: '14px 18px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
-          <strong>ResendSMS isn&rsquo;t connected.</strong> Add <code>RESENDSMS_API_KEY</code> (resendsms.com → API Keys) in Vercel → Project → Settings → Environment Variables, then redeploy.
+          <strong>ResendSMS isn&rsquo;t connected.</strong> Your sending connection needs to be finished before texts can go out. Open the Connection tab to review its status.
         </div>
       )}
       {data.configured && data.balance && data.balance.credits < Math.max(10, data.subscribed) && (
@@ -1619,19 +1642,26 @@ function TextsTab() {
         </div>
       )}
 
-      <Section title="Texts (SMS)">
+      <div className="mw-segmented mw-sms-tabs" role="group" aria-label="SMS tools">
+        {[['automations', 'Automations'], ['broadcast', 'Broadcast'], ['contacts', 'Contacts'], ['connection', 'Connection']].map(([id, label]) => <button type="button" key={id} aria-pressed={smsPanel === id} onClick={() => setSmsPanel(id)}>{label}</button>)}
+      </div>
+      <Section title="Sending status">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {tile(data.configured ? (data.balance ? data.balance.credits : '—') : 'Off', data.balanceError ? `Credits (error: ${data.balanceError})` : 'ResendSMS credits')}
           {tile(data.subscribed, 'On the text list')}
           {tile(data.unsubscribed, 'Opted out')}
           {tile(data.inSendWindow ? 'Open' : 'Closed', 'Send window (11am–8pm ET)')}
         </div>
-        <p style={{ fontSize: 12, color: T.soft, margin: '14px 0 0', lineHeight: 1.5 }}>
+<details style={{ marginTop: 16 }}><summary style={{ fontSize: 12, cursor: 'pointer' }}>How sending and opt-outs work</summary>        <p style={{ fontSize: 12, color: T.soft, margin: '14px 0 0', lineHeight: 1.5 }}>
           Numbers join from the &ldquo;Text me new drops and offers&rdquo; box at checkout (unticked by default; the consent wording is saved with each number). Texts only go to numbers on that list, only between 11am and 8pm Eastern. ResendSMS doesn&rsquo;t pass replies back to the store, so when someone replies STOP, mark them opted out below.
-        </p>
+        </p></details>
       </Section>
 
-      <Section title="Automated texts">
+      {smsPanel === 'automations' && <>      <Section title="Automated texts">
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
+          <input type="tel" aria-label="Mobile number for SMS tests" placeholder="Your mobile, for test texts" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} style={{ ...formInput, width: 240, maxWidth: '100%' }} />
+          <span style={{ fontSize: 12, color: T.soft }}>Test texts use 1 credit each.</span>
+        </div>
         {data.flows.map((f) => {
           const e = edits[f.id] || {};
           const message = e.message ?? f.message;
@@ -1690,13 +1720,10 @@ function TextsTab() {
             </div>
           );
         })}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 6 }}>
-          <input type="tel" placeholder="Your mobile, for test texts" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} style={{ ...formInput, width: 240, maxWidth: '100%' }} />
-          <span style={{ fontSize: 12, color: T.soft }}>Test texts use 1 credit each.</span>
-        </div>
       </Section>
 
-      <Section title="Send a text to everyone">
+</>}
+      {smsPanel === 'broadcast' && <>      <Section title="Send an SMS broadcast">
         <label style={formLabel}>Message</label>
         <textarea value={broadcast.message} onChange={(e) => setBroadcast({ ...broadcast, message: e.target.value })} style={{ ...formInput, height: 80, padding: 12, fontSize: 13, lineHeight: 1.5 }} />
         <div style={{ fontSize: 11, color: T.soft, margin: '4px 0 10px' }}>{segInfo(broadcast.message)}</div>
@@ -1713,7 +1740,7 @@ function TextsTab() {
             }}
             style={S.btnFill}
           >
-            {busy === 'broadcast' ? 'Sending…' : `Send to ${data.subscribed}`}
+            {busy === 'broadcast' ? 'Sending…' : `Send to ${data.subscribed} opted-in contacts`}
           </button>
           {msg.broadcast && <span style={{ fontSize: 12 }}>{msg.broadcast}</span>}
         </div>
@@ -1731,57 +1758,16 @@ function TextsTab() {
         )}
       </Section>
 
-      <SmsSubscribers onChange={load} />
+</>}
+      {smsPanel === 'contacts' && <SmsSubscribers onChange={load} />}
+      {smsPanel === 'connection' && <Section title="ResendSMS connection"><p className="mw-help">This connection is used by the existing text-sending tools. Delivery status and incoming replies are separate capabilities.</p><div className="mw-sms-status"><strong>Sending configuration</strong><ChannelBadge ready={Boolean(data.configured)} label={data.configured ? 'Configured' : 'Not connected'} /></div><div className="mw-sms-status"><strong>Provider balance</strong><span>{data.balance ? `${data.balance.credits} credits` : 'Unavailable'}</span></div>{data.balanceError && <div className="mw-error" role="alert"><div><strong>The provider could not be reached.</strong><p>{data.balanceError}</p></div></div>}<button type="button" className="mw-secondary" onClick={load}>Check connection again</button></Section>}
+
     </>
   );
 }
 
 // The text list (lib/email/smsStore.js), with each number's consent record.
-function SmsSubscribers({ onChange }) {
-  const [list, setList] = React.useState(null);
-  const [busy, setBusy] = React.useState('');
-  const load = React.useCallback(() => {
-    fetch('/api/admin/email/sms').then((r) => r.json()).then((d) => setList(d.subscribers || [])).catch(() => setList([]));
-  }, []);
-  React.useEffect(load, [load]);
-  const setStatus = async (phone, status) => {
-    if (status === 'unsubscribed' && !window.confirm(`Mark ${phone} as opted out? They won't get any more texts.`)) return;
-    setBusy(phone);
-    const res = await fetch('/api/admin/sms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'status', phone, status }) });
-    const out = await res.json().catch(() => ({}));
-    setBusy('');
-    if (!res.ok) { alert(out.error || 'Failed.'); return; }
-    load();
-    onChange?.();
-  };
-  if (!list) return null;
-  return (
-    <Section
-      title={`Text list (${list.length})`}
-      action={list.length > 0 && <a href="/api/admin/email/sms?format=csv" style={S.btnOutline}>Export CSV</a>}
-    >
-      {list.length === 0 && <p style={{ color: T.soft, fontSize: 13, margin: 0 }}>No one has opted in to texts yet. New opt-ins from checkout show up here.</p>}
-      <div className="table-scroll">
-        <div style={{ minWidth: 560 }}>
-          {list.slice().reverse().slice(0, 100).map((s) => (
-            <div key={s.phone} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '8px 0', borderBottom: `1px solid ${T.line}`, alignItems: 'center' }}>
-              <div style={{ flex: '0 0 130px' }}>{s.phone}</div>
-              <div style={{ flex: 1, color: T.soft, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.email || '—'}</div>
-              <div style={{ flex: '0 0 90px', color: T.soft }}>{s.consentAt ? new Date(s.consentAt).toLocaleDateString() : '—'}</div>
-              <div style={{ flex: '0 0 150px', textAlign: 'right' }}>
-                {s.status === 'subscribed' ? (
-                  <button type="button" disabled={busy === s.phone} onClick={() => setStatus(s.phone, 'unsubscribed')} style={{ ...S.btnOutline, height: 28, fontSize: 12 }}>Mark opted out (STOP)</button>
-                ) : (
-                  <span style={{ fontSize: 12, color: T.soft }}>Opted out</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </Section>
-  );
-}
+function SmsSubscribers(props) { return <SmsAudience canManage={true} {...props} />; }
 
 function CheckoutLayoutTest() {
   const [data,setData] = React.useState(null);
