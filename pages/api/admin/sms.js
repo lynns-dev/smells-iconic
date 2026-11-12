@@ -114,6 +114,6 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET, PUT, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    return res.status(err.smsProviderStatus ? 502 : 400).json({ error: err.message, ...(err.smsProviderStatus ? { source: 'sms_provider', providerStatus: err.smsProviderStatus } : {}) });
   }
 }
