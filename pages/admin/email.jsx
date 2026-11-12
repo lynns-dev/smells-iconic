@@ -1142,6 +1142,7 @@ export default function EmailAdmin() {
 
                         <AbTestPanel
                           automation={a}
+                          settings={settings}
                           stepIndex={i}
                           step={step}
                           perf={emailAnalytics.flows.find((f) => f.id === a.id)?.steps.find((r) => r.index === i)}
@@ -1236,7 +1237,7 @@ function FlowPerformance({ flows, thresholds, onSelect }) {
   return (
     <Section title="Automation performance">
       <p style={{ fontSize: 12, color: T.soft, margin: '0 0 12px', lineHeight: 1.5 }}>
-        Click rate = people who clicked ÷ emails sent. Open rate counts from when open tracking went live and reads high because Apple Mail preloads images, so treat it as a spam-folder warning and judge emails on clicks.
+        Click rate = email deliveries clicked at least once ÷ emails sent. Repeat clicks do not increase the rate. Open rate counts from when open tracking went live and reads high because Apple Mail preloads images, so treat it as a spam-folder warning and judge emails on clicks.
         {thresholds && <> Flagged when a flow has {thresholds.minSent}+ sends and click rate is under {thresholds.clickRateFloor}% or open rate is under {thresholds.openRateFloor}%.</>}
       </p>
       <div style={{ overflowX: 'auto' }}>
@@ -1303,7 +1304,7 @@ function HealthBadge({ health }) {
 // HTML, subscribers are split 50/50 (stable per person), and the results
 // compare click rate with a confidence figure. Ending the test with B as
 // the winner copies B into the step (lib/email/automationsStore.js).
-function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated }) {
+function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated, settings }) {
   const [open, setOpen] = React.useState(Boolean(step.abTest?.enabled));
   const [draft, setDraft] = React.useState({ subject: '', html: '' });
   const [busy, setBusy] = React.useState(false);
@@ -1392,13 +1393,16 @@ function AbTestPanel({ automation, stepIndex, step, perf, onChangeB, onUpdated }
           </table>
           <p style={{ fontSize: 12, color: T.ink, margin: '8px 0' }}>
             {perf?.abTest?.leader
-              ? `${perf.abTest.leader.toUpperCase()} is ahead on click rate · ${perf.abTest.confidence}% confidence${perf.abTest.confidence < 95 ? ' (wait for 95%+ before calling it)' : ' — safe to pick a winner'}`
+              ? `${perf.abTest.leader.toUpperCase()} is ahead on click rate · ${perf.abTest.confidence}% confidence${perf.abTest.confidence < 95 ? ' (wait for 95%+ before calling it)' : ' — review sample size and conversions before choosing'}`
               : 'No clicks to compare yet.'}
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button type="button" disabled={busy} onClick={() => window.confirm('End the test and keep variant A?') && call({ action: 'ab-end', winner: 'a' })} style={S.btnOutline}>Keep A, end test</button>
             <button type="button" disabled={busy} onClick={() => window.confirm('End the test and replace this step with variant B?') && call({ action: 'ab-end', winner: 'b' })} style={S.btnFill}>B wins, use B</button>
-            {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
+            <details style={{ marginTop: 12 }}><summary>Preview variant B</summary>
+        <iframe title="Variant B preview" sandbox="" srcDoc={renderEmailHtml((running ? running.html : draft.html) || step.html, settings || {}, { preview: true })} style={{ width: '100%', maxWidth: 600, height: 480, border: '1px solid #ddd' }} />
+      </details>
+      {msg && <span style={{ fontSize: 12, color: T.danger }}>{msg}</span>}
           </div>
         </>
       ) : (
