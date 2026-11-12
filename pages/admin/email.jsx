@@ -1212,6 +1212,7 @@ function LegacyAbandonedCheckout({ perf }) {
           </div>
         </div>
       )}
+      <CheckoutLayoutTest />
     </div>
   );
 }
@@ -1780,4 +1781,31 @@ function SmsSubscribers({ onChange }) {
       </div>
     </Section>
   );
+}
+
+function CheckoutLayoutTest() {
+  const [data,setData] = React.useState(null);
+  const [error,setError] = React.useState('');
+  const [busy,setBusy] = React.useState(false);
+  async function load(body) {
+    setBusy(true);setError('');
+    try {
+      const r=await fetch('/api/admin/email/checkout-layout-test',body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});
+      const value=await r.json();if(!r.ok)throw new Error(value.error || 'Could not load test.');setData(value);
+    } catch(e){setError(e.message);}finally{setBusy(false);}
+  }
+  React.useEffect(()=>{load();},[]);
+  return <div style={{...stepCard,marginTop:16}}>
+    <strong>Abandoned checkout · layout A/B test{data?.test?.enabled?' · running':''}</strong>
+    <p>50/50 stable assignment for automatic reminders. A keeps the current layout; B puts the same checkout button before the saved cart with a larger mobile tap area. Subject, copy, cart restoration, eligibility and timing stay the same.</p>
+    <p>Judge unique clicked deliveries first; review orders and sample size before choosing a winner. No automatic winner selection.</p>
+    {error&&<p role="alert">{error}</p>}
+    {data?.test?.enabled ? <>
+      <table style={{width:'100%'}}><thead><tr><th>Variant</th><th>Sent</th><th>Clicked</th><th>Click rate</th></tr></thead><tbody>{['a','b'].map(v=><tr key={v}><td>{v.toUpperCase()}</td><td>{data.results?.[v]?.sent || 0}</td><td>{data.results?.[v]?.clickers || 0}</td><td>{data.results?.[v]?.sent?`${data.results[v].clickRate}%`:'—'}</td></tr>)}</tbody></table>
+      <button disabled={busy} onClick={()=>load()}>Refresh results</button>
+      <button disabled={busy} onClick={()=>window.confirm('End the checkout test and keep A?')&&load({action:'stop',winner:'a'})}>Keep A, end test</button>
+      <button disabled={busy} onClick={()=>window.confirm('End the checkout test and use B?')&&load({action:'stop',winner:'b'})}>Use B, end test</button>
+    </>:<button disabled={busy||!data} onClick={()=>load({action:'start'})}>Start checkout layout A/B test</button>}
+    {data?.previews&&<div>{['a','b'].map(v=><details key={v}><summary>Preview checkout variant {v.toUpperCase()}</summary><iframe title={`Checkout variant ${v.toUpperCase()} preview`} sandbox="" srcDoc={data.previews[v]} style={{width:'100%',maxWidth:600,height:500,border:'1px solid #ddd'}} /></details>)}</div>}
+  </div>;
 }
