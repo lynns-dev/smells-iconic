@@ -48,6 +48,7 @@ const synthetic = (exports) => new vm.SyntheticModule(Object.keys(exports), func
 const products = synthetic({ getProductById: id => id === fixture.id ? fixture : null,
   UPSELL_ID: 'upsell', UPSELL_PRICE: 19, TASSEL_GIFT: { id: 'gift', price: 15 }, FREE_GIFT: { id: 'gift', price: 20 }, FREE_GIFT_THRESHOLD: 50 });
 const mocks = {
+  react: synthetic({ default: {} }), './session': synthetic({ getSessionId: () => 'test-session', getVisitorId: () => 'test-visitor' }),
   crypto: synthetic({ default: crypto }), './products': products,
   './experimentsStore': synthetic({ recordExposure: async () => {}, recordExperimentStep: async () => {} }),
   './shipping': synthetic({ SHIPPING_COST: 3, FREE_SHIPPING_MIN: 100, shippingFor: () => 3, STANDARD_SHIPPING: 3, FREE_SHIPPING_THRESHOLD: 100 }),
@@ -109,5 +110,10 @@ const experiment = await moduleAt('lib/shopPayExperiment.js'); await experiment.
 const cohort = experiment.namespace.walletVariant;
 assert.equal(cohort('stable-visitor'), cohort('stable-visitor'));
 const treatmentCount = Array.from({length: 1000}, (_, i) => cohort(`visitor-${i}`)).filter(v => v === 'shop_pay').length;
-assert.ok(treatmentCount > 450 && treatmentCount < 550, 'approximately 50/50 cohorts');
-console.log(`Shop Pay A/B test: stable cohorts; ${treatmentCount}/1000 in treatment.`);
+assert.equal(treatmentCount, 1000, 'Shop Pay is permanent for every visitor');
+store.set('exp:shop_pay_checkout_v1:session:prior-session', JSON.stringify({variant:'control',visitorId:'prior-visitor',device:'desktop'}));
+const beforeEnrollment = JSON.stringify([...store]);
+assert.equal(await experiment.namespace.enrollWalletTest('prior-visitor','prior-session','desktop'), 'shop_pay');
+await experiment.namespace.recordWalletTestPurchase('prior-session',53);
+assert.equal(JSON.stringify([...store]), beforeEnrollment, 'ended test neither reuses control nor records more experiment results');
+console.log('Permanent Shop Pay: all visitors, prior control sessions, and stopped experiment tracking passed.');
