@@ -19,7 +19,8 @@ function Tracking() {
   const cart = useCart();
   const sessionIdRef = React.useRef(null);
   const journeyRef = React.useRef({ path: null, scrollPct: 0, field: null, sentSig: null });
-  const isAdmin = router.pathname.startsWith('/admin');
+  // Birthday inputs stay out of page-view, field-focus and recording setup.
+  const isAdmin = router.pathname.startsWith('/admin') || router.pathname === '/birthday';
 
   React.useEffect(() => {
     sessionIdRef.current = getSessionId();

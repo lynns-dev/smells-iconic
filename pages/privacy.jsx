@@ -3,7 +3,7 @@ import PolicyLayout, { PolicySection } from '../components/PolicyLayout';
 
 export default function PrivacyPolicy() {
   return (
-    <PolicyLayout title="Privacy Policy" updated="July 2026">
+    <PolicyLayout title="Privacy Policy" updated="November 2026">
       <p>
         This policy explains what information Smells Iconic ("we," "us") collects when you visit smellsiconic.com or place an
         order, how we use it, and the choices you have. By using this site, you agree to the collection and use of
@@ -21,6 +21,11 @@ export default function PrivacyPolicy() {
           location (city/country, from your IP address), device and browser type, and how you arrived at the site
           (e.g. an ad click). We use cookies and similar technologies to collect this.
         </p>
+      </PolicySection>
+
+      <PolicySection title="Optional birthday program">
+        <p>If you choose to join our birthday program, we collect your email address and birthday month and day, without a birth year, together with your program consent and the time it was recorded. We associate these details with your email for this brand only. Birthday signup is separate from general email and SMS marketing subscriptions, and no purchase is required.</p>
+        <p style={{ marginTop: 12 }}>We are collecting preferences while the program is being planned; gifts and benefits are not guaranteed, and this signup does not activate messages or payments. You can ask us to update or remove your birthday details and withdraw consent using the contact details below. We retain them while your birthday-program consent is active or until you ask us to remove them; a minimal withdrawal record may remain.</p>
       </PolicySection>
 
       <PolicySection title="How we use it">

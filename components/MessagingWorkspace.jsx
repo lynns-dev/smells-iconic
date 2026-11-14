@@ -132,6 +132,7 @@ export default function MessagingWorkspace({
             <strong>A little more connected.</strong>
             <p>One place for the messages that bring people back.</p>
           </div>
+          <Link href="/admin/birthdays" className="mw-back">Birthday program</Link>
           <Link href="/admin" className="mw-back">
             ← Back to store
           </Link>

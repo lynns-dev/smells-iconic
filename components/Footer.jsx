@@ -7,8 +7,9 @@ export default function Footer() {
     <footer style={footer}>
       <div style={{ ...S.wrap, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 18 }}>
         <span style={{ fontFamily: T.display, fontWeight: 400, fontSize: 16 }}>SMELLS — ICONIC</span>
-        <div style={{ display: 'flex', gap: 24, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft }}>
           <Link href="/shop">Shop</Link>
+          <Link href="/birthday">Birthday program</Link>
           <Link href="/#notes">Scent</Link>
           <Link href="/#reviews">Reviews</Link>
           <Link href="/contact">Contact</Link>
