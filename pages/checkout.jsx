@@ -1,3 +1,4 @@
+import CheckoutDiscount from '../components/CheckoutDiscount';
 import { paymentFetch } from '../lib/paymentFetch';
 import ShopPayWallet from '../components/ShopPayWallet';
 import React from 'react';
@@ -9,7 +10,6 @@ import AddressFields from '../components/AddressFields';
 import { SMS_CONSENT_TEXT } from '../lib/sms/consent';
 import PayPalButton from '../components/PayPalButton';
 import TopBanner from '../components/TopBanner';
-import SaleCallout from '../components/SaleCallout';
 import { shippingFor } from '../lib/shipping';
 import { thumbImages } from '../lib/products';
 import {
@@ -166,7 +166,7 @@ function OrderSummaryPanel({
     <div style={reviewCard}>
       <OrderItemList cart={cart} setQty={setQty} />
 
-      <DiscountField
+      <CheckoutDiscount
         discountCode={discountCode} setDiscountCode={setDiscountCode} discountMessage={discountMessage}
         setDiscountMessage={setDiscountMessage} appliedDiscount={appliedDiscount} clearDiscount={clearDiscount}
         handleApplyDiscount={handleApplyDiscount}
@@ -182,35 +182,6 @@ function OrderSummaryPanel({
   );
 }
 
-function DiscountField({ discountCode, setDiscountCode, discountMessage, setDiscountMessage, appliedDiscount, clearDiscount, handleApplyDiscount }) {
-  return (
-    <div style={{ marginTop: 6 }}>
-      <SaleCallout appliedDiscount={appliedDiscount} onApply={handleApplyDiscount} style={{ marginBottom: 10 }} />
-      <div style={{ display: 'flex', gap: 10 }}>
-        <input
-          placeholder="Discount code"
-          value={discountCode}
-          onChange={(e) => {
-            setDiscountCode(e.target.value);
-            if (appliedDiscount) clearDiscount();
-            setDiscountMessage('');
-          }}
-          // Enter must apply the code, not fall through to native form submit.
-          onKeyDown={(e) => {
-            if (e.key !== 'Enter') return;
-            e.preventDefault();
-            handleApplyDiscount();
-          }}
-          style={{ ...bigInput, height: 46, flex: 1 }}
-        />
-        <button type="button" style={{ ...smallOutlineButton, height: 46 }} onClick={handleApplyDiscount}>Apply</button>
-      </div>
-      {discountMessage && (
-        <p style={{ fontSize: 12, color: appliedDiscount ? T.ink : '#a13d2b', marginTop: 8 }}>{discountMessage}</p>
-      )}
-    </div>
-  );
-}
 
 function Totals({ subtotal, discountTotal, codeDiscountAmount, appliedDiscount, shippingCost, addressEntered, grandTotal, big }) {
   return (
@@ -293,7 +264,7 @@ function ReviewsCarousel({ reviews }) {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, total, hydrated, clear, setQty, appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal } = useCart();
+  const { cart, total, hydrated, clear, setQty, appliedDiscount, applyDiscount, clearDiscount: clearCartDiscount, codeDiscountAmount, discountedTotal } = useCart();
 
   const [checkoutVariant, setCheckoutVariant] = React.useState(null);
   const singlePage = checkoutVariant === 'single_page';
@@ -354,6 +325,13 @@ export default function CheckoutPage() {
   const [discountMessage, setDiscountMessage] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
+  const clearDiscount = React.useCallback(() => {
+    clearCartDiscount();
+    setError(current => /discount|promo.*code/i.test(current) ? '' : current);
+  }, [clearCartDiscount]);
+  React.useEffect(() => {
+    if (/discount|promo.*code/i.test(error)) setDiscountMessage(error);
+  }, [error]);
   const errorRef = React.useRef(null);
   const formTopRef = React.useRef(null);
 
@@ -578,6 +556,7 @@ export default function CheckoutPage() {
     // The sale callout passes its code; the Apply button passes a click event.
     const code = typeof codeArg === 'string' ? codeArg : discountCode;
     if (!code.trim()) return null;
+    setError(current => /discount|promo.*code/i.test(current) ? '' : current);
     setDiscountMessage('Checking…');
     const data = await applyDiscount(code);
     if (data.valid) {
@@ -1044,7 +1023,7 @@ export default function CheckoutPage() {
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <DiscountField {...discountProps} />
+            <CheckoutDiscount {...discountProps} />
           </div>
 
           <Totals {...totalsProps} big />
