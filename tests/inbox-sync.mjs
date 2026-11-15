@@ -94,6 +94,7 @@ const mocks = {
   "../../../lib/inboxState": state,
   "../../../lib/inboxStore": synthetic({
     getInbox: async () => structuredClone(entries),
+    reconcileInbox: async () => structuredClone(entries),
     updateInboxEntry: async () => {},
     updateInboxEntries: async (ids, updates) => {
       entries = entries.map((e) =>
@@ -168,6 +169,7 @@ assert.equal(
   result.body.snapshot.find((e) => e.id === "b").replies[0].emailId,
   "sent-receipt",
 );
+assert.deepEqual([...result.body.snapshot.find(e => e.id === "b").replies[0].coveredIds], ["a", "b"]);
 entries = structuredClone(fixture);
 providerFails = true;
 result = await call("POST", { id: "b", reply: "Test" });
