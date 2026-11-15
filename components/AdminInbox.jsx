@@ -132,6 +132,7 @@ export default function AdminInbox({ onCount }) {
   const [entries, setEntries] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [refreshError, setRefreshError] = React.useState("");
   const [filter, setFilter] = React.useState("new");
   const [type, setType] = React.useState("all");
   const [query, setQuery] = React.useState("");
@@ -149,7 +150,7 @@ export default function AdminInbox({ onCount }) {
   const load = React.useCallback(async (silent = false) => {
     const ticket = sync.current.beginLoad();
     if (!ticket) return;
-    if (!silent) setLoading(true);
+    if (!silent) { setLoading(true); setError(""); }
     try {
       const response = await fetch("/api/admin/inbox", { cache: "no-store" });
       const data = await response.json();
@@ -157,11 +158,11 @@ export default function AdminInbox({ onCount }) {
         throw new Error(data.error || "Could not refresh the inbox.");
       if (mounted.current && sync.current.accepts(ticket)) {
         setEntries(data.entries || []);
-        setError("");
+        setRefreshError("");
       }
     } catch (failure) {
       if (mounted.current && sync.current.accepts(ticket))
-        setError(failure.message);
+        setRefreshError(failure.message);
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -351,7 +352,7 @@ export default function AdminInbox({ onCount }) {
         </select>
       </div>
 
-      {error && <p style={{ fontSize: 13, color: "#a13d2b" }}>{error}</p>}
+      {(error || refreshError) && <p role="alert" style={{ fontSize: 13, color: "#a13d2b" }}>{error || refreshError}</p>}
 
       <div className={`inbox-shell${open ? " has-open" : ""}`}>
         <div className="inbox-list">
