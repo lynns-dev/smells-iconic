@@ -5,7 +5,7 @@ const records=new Map(), calls=[];
 const test={variants:['control','landing']};
 const context=vm.createContext({process:{env:{}},fetch:async(_url,options)=>{const [command,key,value]=JSON.parse(options.body);if(command==='SET'&&!records.has(key))records.set(key,value);return {ok:true,json:async()=>({result:command==='GET'?records.get(key)||null:'OK'})}}});
 const config=new vm.SyntheticModule(['EXPERIMENTS'],function(){this.setExport('EXPERIMENTS',{babygirl_scent_landing_v1:test})},{context});
-const counters=new vm.SyntheticModule(['recordExperimentStep'],function(){this.setExport('recordExperimentStep',async(...args)=>calls.push(args))},{context});
+const counters=new vm.SyntheticModule(['recordExperimentStep','recordExposure'],function(){this.setExport('recordExposure',async()=>{});this.setExport('recordExperimentStep',async(...args)=>calls.push(args))},{context});
 const mod=new vm.SourceTextModule(await fs.readFile('lib/babygirlExperiment.js','utf8'),{context});
 await mod.link(spec=>spec.endsWith('/experiments')?config:counters);await mod.evaluate();
 const api=mod.namespace;
