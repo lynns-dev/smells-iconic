@@ -46,7 +46,7 @@ export default function Tests() {
       {!data && !error && <p>Loading…</p>}
       {data && data.filter((t) => !t.winner || ['cart_discount_visibility', 'checkout_single_page_v1'].includes(t.id)).map((t) => {
         const [a, b] = t.variants;
-        const key = (t.checkout || t.id === 'shop_pay_checkout_v1') ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
+        const key = t.primaryMetric || ((t.checkout || t.id === 'shop_pay_checkout_v1') ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added');
         const conf = !t.checkout && b ? confidence(a, b, key) : null;
         const leader = b && a.visitors && b.visitors ? ((b[key] || 0) / b.visitors > (a[key] || 0) / a.visitors ? b.variant : a.variant) : null;
         return (
@@ -58,6 +58,7 @@ export default function Tests() {
               </span>
             </div>
             {t.checkout && !t.winner && <p style={{ fontSize: 13 }}>50/50 assignment per visitor. Conversion = payment-confirmed purchasing sessions ÷ enrolled checkout sessions. Reloads count once; revenue includes repeat orders. Failures = sessions with a reported payment error. No automatic winner.</p>}
+            {t.id === 'babygirl_scent_landing_v1' && <p style={{ fontSize: 13 }}>Babygirl visitors keep one format on this device. Buy rate counts server-confirmed purchasing visitors after page exposure; browser success-page visits do not count. Price, offers and checkout are shared.</p>}
             {t.id === 'shop_pay_checkout_v1' && <p style={{ fontSize: 12 }}>
               Mobile: {t.variants.map(v => `${v.variant} ${v.purchased_mobile || 0}/${v.visitors_mobile || 0}`).join(' · ')}
               {' | '}Desktop: {t.variants.map(v => `${v.variant} ${v.purchased_desktop || 0}/${v.visitors_desktop || 0}`).join(' · ')}

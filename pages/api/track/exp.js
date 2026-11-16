@@ -1,3 +1,4 @@
+import { BABYGIRL_TEST, enrollBabygirlSession } from '../../../lib/babygirlExperiment';
 // Public, fire-and-forget: a visitor saw a split test (lib/experiments.js).
 import { recordExposure } from '../../../lib/experimentsStore';
 import { isExcludedTraffic } from '../../../lib/ipFilter';
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
   const who = [visitorId, sessionId].find((v) => typeof v === 'string' && ID_RE.test(v));
   if (!who || typeof id !== 'string' || typeof variant !== 'string' || isExcludedTraffic(req)) return res.status(204).end();
   try {
+    if (id === BABYGIRL_TEST) await enrollBabygirlSession(variant, who, sessionId);
     await recordExposure(id.slice(0, 40), variant.slice(0, 20), who);
   } catch (err) {
     console.error('Experiment exposure failed:', err.message);
