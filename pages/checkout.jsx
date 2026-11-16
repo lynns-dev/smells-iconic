@@ -1,3 +1,4 @@
+import { CHECKOUT_WINNER } from '../lib/checkoutExperimentConfig';
 import CheckoutDiscount from '../components/CheckoutDiscount';
 import { paymentFetch } from '../lib/paymentFetch';
 import ShopPayWallet from '../components/ShopPayWallet';
@@ -266,10 +267,10 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { cart, total, hydrated, clear, setQty, appliedDiscount, applyDiscount, clearDiscount: clearCartDiscount, codeDiscountAmount, discountedTotal } = useCart();
 
-  const [checkoutVariant, setCheckoutVariant] = React.useState(null);
+  const [checkoutVariant, setCheckoutVariant] = React.useState(CHECKOUT_WINNER || null);
   const singlePage = checkoutVariant === 'single_page';
   React.useEffect(() => {
-    if (!hydrated || !cart.length) return;
+    if (CHECKOUT_WINNER || !hydrated || !cart.length) return;
     let active = true;
     // Decide locally with the same salted SHA-256 bucket as the server.
     // A slow enrollment response must never put a treatment visitor in control.

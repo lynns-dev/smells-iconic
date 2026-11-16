@@ -44,7 +44,7 @@ export default function Tests() {
       </p>
       {error && <p style={{ color: '#d93025' }}>{error}</p>}
       {!data && !error && <p>Loading…</p>}
-      {data && data.filter((t) => !t.winner).map((t) => {
+      {data && data.filter((t) => !t.winner || ['cart_discount_visibility', 'checkout_single_page_v1'].includes(t.id)).map((t) => {
         const [a, b] = t.variants;
         const key = (t.checkout || t.id === 'shop_pay_checkout_v1') ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added';
         const conf = !t.checkout && b ? confidence(a, b, key) : null;
@@ -57,7 +57,7 @@ export default function Tests() {
                 {t.winner ? `Ended: "${t.winner}" for everyone` : `Running since ${t.started}`}
               </span>
             </div>
-            {t.checkout && <p style={{ fontSize: 13 }}>50/50 assignment per visitor. Conversion = payment-confirmed purchasing sessions ÷ enrolled checkout sessions. Reloads count once; revenue includes repeat orders. Failures = sessions with a reported payment error. No automatic winner.</p>}
+            {t.checkout && !t.winner && <p style={{ fontSize: 13 }}>50/50 assignment per visitor. Conversion = payment-confirmed purchasing sessions ÷ enrolled checkout sessions. Reloads count once; revenue includes repeat orders. Failures = sessions with a reported payment error. No automatic winner.</p>}
             {t.id === 'shop_pay_checkout_v1' && <p style={{ fontSize: 12 }}>
               Mobile: {t.variants.map(v => `${v.variant} ${v.purchased_mobile || 0}/${v.visitors_mobile || 0}`).join(' · ')}
               {' | '}Desktop: {t.variants.map(v => `${v.variant} ${v.purchased_desktop || 0}/${v.visitors_desktop || 0}`).join(' · ')}
@@ -88,7 +88,7 @@ export default function Tests() {
               </tbody>
             </table>
             <p style={{ fontSize: 12, color: '#5f6368', margin: '8px 0 0' }}>
-              {conf == null
+              {t.winner ? `Permanent: ${t.winner}. Historical results retained; new enrollment stopped.` : conf == null
                 ? (t.checkout ? 'Keep running until a planned sample size is reached; no automatic winner.' : 'Not enough visitors yet to call it.')
                 : `Leading: ${leader} · ${conf}% confidence on ${key === 'purchased' ? 'buy rate' : 'add-to-cart rate'}${conf >= 90 ? ' (ready to call)' : ''}`}
             </p>
