@@ -20,3 +20,9 @@ const source=await fs.readFile('pages/product/[id].jsx','utf8');assert.match(sou
 const tracking=await fs.readFile('pages/api/track/cart.js','utf8');assert.match(tracking,/kind === 'purchased'.*key !== BABYGIRL_TEST/);
 const product=await fs.readFile('lib/products.js','utf8');assert.match(product,/id: 'babygirl',[\s\S]*?price: 28/);
 console.log('PASS: session attribution stays fixed, confirmed purchases use the assigned variant, invalid/unexposed/ended events ignored; browser-purchase exclusion, shared cart, price and single ViewContent verified.');
+let exposureRequests=0;
+const clientContext=vm.createContext({window:{location:{search:''},localStorage:{getItem:()=> 'landing',setItem(){}}},URLSearchParams,fetch:()=>{exposureRequests++;return Promise.resolve({})}});
+const client=new vm.SourceTextModule(await fs.readFile('lib/experiments.js','utf8'),{context:clientContext});
+await client.link(spec=>{const names=spec==='react'?['default']:['getVisitorId','getSessionId'];return new vm.SyntheticModule(names,function(){for(const n of names)this.setExport(n,()=> 'stable-id-123')},{context:clientContext})});await client.evaluate();
+client.namespace.exposeExperiment('babygirl_scent_landing_v1');client.namespace.exposeExperiment('babygirl_scent_landing_v1');assert.equal(exposureRequests,2);
+console.log('PASS: returning exposed visitors refresh session attribution without changing their format.');
