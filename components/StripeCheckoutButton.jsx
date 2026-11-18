@@ -1,11 +1,55 @@
 import React from 'react';
 import { paymentFetch } from '../lib/paymentFetch';
+let stripeScript;
+function loadStripe() {
+  if (window.Stripe) return Promise.resolve(window.Stripe);
+  if (!stripeScript) stripeScript = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://js.stripe.com/endive/stripe.js';
+    script.async = true;
+    script.onload = () => window.Stripe ? resolve(window.Stripe) : reject(new Error('Payment form could not load.'));
+    script.onerror = () => { stripeScript = null; reject(new Error('Payment form could not load.')); };
+    document.head.appendChild(script);
+  });
+  return stripeScript;
+}
+const orderKey = p => JSON.stringify([p.amount, p.items, p.email, p.shipping, p.discountCode, p.freeShipping, p.shippingProtection]);
 export default function StripeCheckoutButton({ getPayload, disabled, onError, onBusy }) {
   const [busy, setBusy] = React.useState(false);
+  const [active, setActive] = React.useState(false);
+  const mount = React.useRef(null);
+  const checkout = React.useRef(null);
+  const version = React.useRef(0);
+  const snapshot = React.useRef(null);
+  const stop = () => { version.current++; checkout.current?.destroy(); checkout.current = null; snapshot.current = null; setActive(false); setBusy(false); onBusy?.(false); };
+  React.useEffect(() => () => { version.current++; checkout.current?.destroy(); onBusy?.(false); }, []);
+  // Never leave a payable session displaying stale address, cart, or discount details.
+  React.useEffect(() => { if (snapshot.current && snapshot.current !== orderKey(getPayload())) stop(); });
   if (process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED !== 'true') return null;
-  return <button id="stripe-checkout-button" type="button" disabled={disabled || busy} style={{ width: '100%', padding: 15, marginTop: 16, cursor: 'pointer' }} onClick={async () => {
-    setBusy(true); onBusy?.(true);
-    try { const response = await paymentFetch('/api/stripe/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(getPayload()) }); const data = await response.json(); if (!response.ok) throw new Error(data.error); const target = new URL(data.url); if (target.protocol !== 'https:' || target.hostname !== 'checkout.stripe.com') throw new Error('Invalid secure checkout address'); window.location.assign(target.href); }
-    catch (e) { onError(e.message || 'Could not start secure checkout.'); setBusy(false); onBusy?.(false); }
-  }}>{busy ? 'Opening secure checkout…' : 'Pay securely with Stripe'}</button>;
+  async function open() {
+    const run = ++version.current;
+    setBusy(true); onBusy?.(true); onError?.('');
+    try {
+      const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+      if (!key) throw new Error('Payment form is temporarily unavailable.');
+      const payload = getPayload(); snapshot.current = orderKey(payload);
+      const Stripe = await loadStripe();
+      if (run !== version.current) return;
+      const stripe = Stripe(key);
+      const response = await paymentFetch('/api/stripe/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await response.json();
+      if (!response.ok || !data.clientSecret) throw new Error(data.error || 'Could not load payment form.');
+      if (run !== version.current) return;
+      const create = stripe.createEmbeddedCheckoutPage;
+      if (!create) throw new Error('Payment form could not load.');
+      const instance = await create.call(stripe, { fetchClientSecret: async () => data.clientSecret });
+      if (run !== version.current) { instance.destroy(); return; }
+      checkout.current = instance; instance.mount(mount.current); setActive(true); setBusy(false);
+    } catch (e) { if (run === version.current) { stop(); onError?.(e.message || 'Could not load payment form.'); } }
+  }
+  return <div style={{ width: '100%', marginTop: 16 }}>
+    {!active && <button id="stripe-checkout-button" type="button" disabled={disabled || busy} style={{ width: '100%', padding: 15, cursor: 'pointer' }} onClick={open}>{busy ? 'Loading payment form…' : 'Continue to secure payment'}</button>}
+    <div ref={mount} style={{ width: '100%' }} />
+    {active && <button type="button" onClick={stop} style={{ marginTop: 10 }}>Edit order details</button>}
+  </div>;
 }

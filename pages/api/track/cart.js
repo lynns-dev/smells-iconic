@@ -1,3 +1,4 @@
+import { BABYGIRL_TEST } from '../../../lib/babygirlExperiment';
 import { recordCheckoutOutcome } from '../../../lib/checkoutExperimentStore';
 // Public, fire-and-forget cart/checkout step tracking for the admin's Cart
 // drop-off report (lib/cartFunnel.js). Sent by lib/cartTracking.js. Never
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
   try {
     await recordCartEvent({ visitorId: id, kind, detail: safeDetail, context: { path, source, device } });
     // Split tests this visitor has seen (lib/experiments.js).
-    try { await recordExperimentStep(exps, kind, id, safeDetail); } catch (err) { console.error('Experiment step failed:', err.message); }
+    try { await recordExperimentStep(kind === 'purchased' && exps && typeof exps === 'object' ? Object.fromEntries(Object.entries(exps).filter(([key]) => key !== BABYGIRL_TEST)) : exps, kind, id, safeDetail); } catch (err) { console.error('Experiment step failed:', err.message); }
     // The visitor's own trail in admin → Visitors.
     await updateJourney(id, { cartStep: STEP_LABELS[kind] || reasonFor(kind, safeDetail) });
   } catch (err) {

@@ -1,4 +1,5 @@
 import React from 'react';
+import BabygirlLanding from '../../components/BabygirlLanding';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -13,7 +14,7 @@ import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
-import { useVariant, exposeExperiment } from '../../lib/experiments';
+import { useVariant, exposeExperiment, getVariant } from '../../lib/experiments';
 
 // Split tests on this page (lib/experiments.js).
 const DUO_ID = 'pick-your-role-duo';
@@ -75,6 +76,12 @@ function AccordionRow({ title, open, onToggle, children }) {
 
 export default function ProductPage({ product }) {
   const c = useCart();
+  const [babygirlVariant, setBabygirlVariant] = React.useState('control');
+  React.useEffect(() => {
+    if (product?.id !== 'babygirl') return;
+    setBabygirlVariant(getVariant('babygirl_scent_landing_v1'));
+    exposeExperiment('babygirl_scent_landing_v1');
+  }, [product?.id]);
   const router = useRouter();
   const [quantity, setQuantity] = React.useState(1);
   const [openSection, setOpenSection] = React.useState('scent-story');
@@ -170,6 +177,8 @@ export default function ProductPage({ product }) {
   // priceCart); with an empty bag it's added at full price and drops to
   // UPSELL_PRICE as soon as they add something else.
   const upsellDiscounted = c.cart.some((i) => i.id !== UPSELL_ID);
+
+  if (product.id === 'babygirl' && babygirlVariant === 'landing') return <BabygirlLanding product={product} cart={c} quantity={quantity} setQuantity={setQuantity} onAdd={handleAdd} upsell={upsell} upsellInBag={upsellInBag} upsellDiscounted={upsellDiscounted} trio={trio} onAddTrio={handleAddTrio} reviewData={reviewData} reviewForm={reviewForm} setReviewForm={setReviewForm} onReviewSubmit={handleReviewSubmit} reviewSubmitting={reviewSubmitting} reviewError={reviewError} reviewSubmitted={reviewSubmitted} ingredients={INGREDIENTS} />;
 
   return (
     <div style={{ paddingBottom: 76 }}>

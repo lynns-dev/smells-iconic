@@ -25,3 +25,6 @@ No live purchase has been made by this implementation task. Existing fulfillment
 
 ## Sole processor activation
 The public Stripe flag also hides prior payment options and skips their SDK initialization on the main checkout. Set STRIPE_ONLY_ENABLED=true only at verified cutover; this blocks new legacy processor payment initiations. Historical webhooks/completions remain available for pre-cutover orders. STRIPE_CHECKOUT_MODE defaults to live; test deployments must explicitly use test and separate test-only data stores. Live deployments reject test-mode sessions before fulfillment.
+
+## Embedded checkout
+The existing checkout now mounts Stripe embedded Checkout in place. Requires NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY from the same account as STRIPE_SECRET_KEY. Uses ui_mode embedded_page, Stripe.js endive createEmbeddedCheckoutPage, and return_url only after payment. Do not activate before verifying iframe renders. Official reference: https://docs.stripe.com/checkout/embedded/quickstart
