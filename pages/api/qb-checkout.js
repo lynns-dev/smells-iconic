@@ -16,6 +16,7 @@ const API_BASE = {
 };
 
 export default async function handler(req, res) {
+  if (process.env.STRIPE_ONLY_ENABLED === 'true') return res.status(410).json({ error: 'Please refresh and use secure Stripe checkout.' });
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

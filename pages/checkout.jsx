@@ -1,3 +1,4 @@
+import StripeCheckoutButton from '../components/StripeCheckoutButton';
 import CheckoutDiscount from '../components/CheckoutDiscount';
 import { paymentFetch } from '../lib/paymentFetch';
 import ShopPayWallet from '../components/ShopPayWallet';
@@ -44,6 +45,7 @@ import { trackCart } from '../lib/cartTracking';
 // Cards go through Square (lib/squareClient.js, /api/square-checkout). Until
 // the Square keys are set the card box falls back to QuickBooks Payments,
 // so card checkout never goes dark.
+const STRIPE_ONLY = process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === 'true';
 const SQUARE_ENABLED = Boolean(process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID && process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -434,7 +436,7 @@ export default function CheckoutPage() {
   // Square's card form mounts into #square-card-container, which only
   // exists on Step 2 — remounted fresh each time Step 2 is entered.
   React.useEffect(() => {
-    if (!SQUARE_ENABLED || !paymentVisible || !hydrated || cart.length === 0) return undefined;
+    if (STRIPE_ONLY || !SQUARE_ENABLED || !paymentVisible || !hydrated || cart.length === 0) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -458,7 +460,7 @@ export default function CheckoutPage() {
   // Step 2 Apple Pay / Google Pay — recreated when the total changes so the
   // wallet sheet always shows the amount actually charged.
   React.useEffect(() => {
-    if (!squareReady) return undefined;
+    if (STRIPE_ONLY || !squareReady) return undefined;
     let cancelled = false;
     const cleanups = [];
     (async () => {
@@ -652,6 +654,8 @@ export default function CheckoutPage() {
       goToStep(2);
       return;
     }
+
+    if (STRIPE_ONLY) { document.getElementById('stripe-checkout-button')?.click(); return; }
 
     if (!addressComplete(shipping) || !email.trim()) {
       setError('Enter your email and complete shipping address before paying.');
@@ -865,6 +869,7 @@ export default function CheckoutPage() {
                     the card box — each shows only when it's available.
                     Google Pay's container stays in the DOM (hidden) because
                     Square's attach() needs it by id. */}
+                {!STRIPE_ONLY && <>
                 <div style={{ marginTop: 20 }}>
                   <ShopPayWallet email={email} shippingCost={shippingCost} grandTotal={grandTotal}
                     purchaseKey="si-purchase" onBusy={setSubmitting} onError={setError} />
@@ -908,6 +913,11 @@ export default function CheckoutPage() {
                   </p>
                 </div>
 
+                </>}
+
+                <StripeCheckoutButton onBusy={setSubmitting} disabled={submitting} onError={setError} getPayload={() => ({ amount: grandTotal, items: cart, email, shipping, eventId: generateEventId(), url: window.location.href, attribution: getStoredAttribution(), sessionId: getSessionId() })} />
+
+                {!STRIPE_ONLY && <>
                 <div style={{ ...paymentList, marginTop: 20 }}>
                   <div style={accordionRow}>
                     <span style={{ fontWeight: 700, fontSize: 16 }}>Credit or Debit Card</span>
@@ -970,6 +980,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                </>}
                 <div style={{ marginTop: 20 }}>
                   <p style={fieldGroupLabel}>Billing address</p>
                   <div style={billingRecap}>
@@ -991,13 +1002,13 @@ export default function CheckoutPage() {
                   <button type="button" onClick={() => goToStep(1)} style={{ ...bigButtonSecondary, display: singlePage ? 'none' : undefined }} disabled={submitting}>
                     Back
                   </button>
-                  <button
+                  {!STRIPE_ONLY && (                  <button
                     type="submit"
                     disabled={submitting || (SQUARE_ENABLED && !squareReady)}
                     style={{ ...bigButton, flex: 1, opacity: submitting || (SQUARE_ENABLED && !squareReady) ? 0.6 : 1 }}
                   >
                     {submitting ? 'Processing…' : `Place order — $${grandTotal.toFixed(2)}`}
-                  </button>
+                  </button>)}
                 </div>
 
                 <div className="mobile-reviews-carousel">
@@ -1009,7 +1020,7 @@ export default function CheckoutPage() {
                   <span>256-bit SSL encrypted &middot; your card details never touch our servers</span>
                 </div>
                 <p style={{ fontSize: 11, color: T.soft, textAlign: 'center', marginTop: 8 }}>
-                  {`Payments securely processed by ${SQUARE_ENABLED ? 'Square' : 'QuickBooks Payments (Intuit)'}`}
+                  {`Payments securely processed by ${STRIPE_ONLY ? 'Stripe' : SQUARE_ENABLED ? 'Square' : 'QuickBooks Payments (Intuit)'}`}
                 </p>
               </section>
             )}

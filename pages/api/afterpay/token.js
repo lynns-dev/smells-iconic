@@ -6,6 +6,7 @@
 import { afterpayConfig, loadPending } from '../../../lib/afterpay';
 
 export default async function handler(req, res) {
+  if (process.env.STRIPE_ONLY_ENABLED === 'true') return res.status(410).json({ error: 'Please refresh and use secure Stripe checkout.' });
   res.setHeader('Cache-Control', 'no-store');
   if (!afterpayConfig().enabled) return res.status(404).json({ error: 'Afterpay is not available.' });
   const pending = await loadPending(req.query.ref).catch(() => null);
