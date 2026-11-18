@@ -58,11 +58,11 @@ export default function StripeCheckoutButton({ getPayload, disabled, onError, on
       if (!response.ok || !data.clientSecret) throw new Error(data.error || 'Could not connect payment fields.');
       if (run !== version.current) return;
       const stripe = Stripe(key);
-      const sdk = stripe.initCheckoutElementsSdk({ clientSecret: data.clientSecret, defaultValues: { billingAddress: contact(payload.shipping) }, elementsOptions: { loader: 'never', appearance: { theme: 'stripe', variables: { colorPrimary: T.ink, colorText: T.ink, colorBackground: '#ffffff', colorDanger: '#a13d2b', fontFamily: 'Arial, sans-serif', fontSizeBase: '15px', borderRadius: '8px', spacingUnit: '4px' }, rules: { '.Input': { border: '1px solid #b8b8b8', boxShadow: 'none', padding: '13px 12px' }, '.Input:focus': { borderColor: T.ink, boxShadow: `0 0 0 1px ${T.ink}` }, '.Label': { fontSize: '13px', marginBottom: '6px' }, '.Block': { boxShadow: 'none' } } } } });
+      const sdk = stripe.initCheckoutElementsSdk({ clientSecret: data.clientSecret, defaultValues: { billingAddress: contact(payload.shipping) }, elementsOptions: { loader: 'never', savedPaymentMethod: { enableSave: 'never' }, appearance: { theme: 'stripe', variables: { colorPrimary: T.ink, colorText: T.ink, colorBackground: '#ffffff', colorDanger: '#a13d2b', fontFamily: 'Arial, sans-serif', fontSizeBase: '15px', borderRadius: '8px', spacingUnit: '4px' }, rules: { '.Input': { border: '1px solid #b8b8b8', boxShadow: 'none', padding: '13px 12px' }, '.Input:focus': { borderColor: T.ink, boxShadow: `0 0 0 1px ${T.ink}` }, '.Label': { fontSize: '13px', marginBottom: '6px' }, '.Block': { boxShadow: 'none' } } } } });
       const loaded = await sdk.loadActions();
       if (loaded.type === 'error') throw new Error(loaded.error.message);
       if (run !== version.current) return;
-      const payment = sdk.createPaymentElement({ layout: 'tabs', fields: { billingDetails: 'never' }, wallets: { applePay: 'never', googlePay: 'never' } });
+      const payment = sdk.createPaymentElement({ layout: 'tabs', fields: { billingDetails: 'never' }, wallets: { applePay: 'never', googlePay: 'never', link: 'never' } });
       const express = sdk.createExpressCheckoutElement({ buttonHeight: 48, paymentMethods: { applePay: 'auto', googlePay: 'auto', link: 'auto', amazonPay: 'never', paypal: 'never', klarna: 'never' } });
       instance = { destroy: () => { payment.destroy(); express.destroy(); } };
       checkout.current = instance;
@@ -102,7 +102,6 @@ export default function StripeCheckoutButton({ getPayload, disabled, onError, on
         <div ref={paymentMount} style={{ minHeight: 108 }} />
         {failed && <button type="button" onClick={open} disabled={disabled} style={{ marginTop: 12, padding: '10px 16px', cursor: 'pointer' }}>Retry payment fields</button>}
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', paddingTop: 14 }}>
-          <span style={{ display: 'block', flex: '0 0 180px', width: 180, height: 24, overflow: 'hidden' }} role="img" aria-label="Visa, Mastercard, American Express and Discover accepted"><img src="/images/square-accepted-cards.png" alt="" width="6033" height="462" style={{ display: 'block', width: 'auto', maxWidth: 'none', height: 24 }} /></span>
           <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: T.soft }}><span aria-hidden="true">🔒</span> Secure checkout powered by Stripe.<br />Your card details are encrypted and never stored on our servers.</p>
         </div>
       </div>
