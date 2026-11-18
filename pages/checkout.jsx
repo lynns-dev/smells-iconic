@@ -1049,7 +1049,7 @@ export default function CheckoutPage() {
           {[
             [ShipIcon, 'Fast shipping', 'Ships within 1 business day.'],
             [ReturnIcon, '45-day guarantee', 'Full refund within 45 days, even if opened. Free returns.'],
-            [LockIcon, 'Secure checkout', `Payments encrypted and processed by ${SQUARE_ENABLED ? 'Square' : 'Intuit'}.`],
+            [LockIcon, 'Secure checkout', `Payments encrypted and processed by ${STRIPE_ONLY ? 'Stripe' : SQUARE_ENABLED ? 'Square' : 'Intuit'}.`],
             [LeafIcon, 'Vegan & cruelty-free', 'Every formula, always.'],
           ].map(([Icon, title, copy]) => (
             <div key={title} style={reassuranceItem}>
