@@ -24,12 +24,12 @@ kv.set('stripe:lock:pi_a','1');await assert.rejects(complete(session,{}),/in pro
 const endpoint=await fs.readFile('pages/api/stripe/session.js','utf8'); assert.ok(endpoint.includes('await validateCheckout(body)')); assert.ok(endpoint.includes('req.headers.origin !== origin')); assert.ok(endpoint.includes('count > 20'));
 console.log('PASS Stripe unpaid, spoofed amount, session binding, store isolation, duplicate replay, durable ledger failure, concurrent lock, canonical pricing and origin/rate checks');
 // Exercise session handler with stubbed canonical-pricing and Stripe services.
-let sessionParams;let sessionsCreated=0;let count=1;let pendingWrites=[];
+let sessionOptions;let sessionParams;let sessionsCreated=0;let count=1;let pendingWrites=[];
 const routeContext=vm.createContext({process:{env},console,URL,Date,JSON,Math,Number,String});
 const routeMock = values=>new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context:routeContext});
 const routeMods={
  'crypto':routeMock({default:{randomUUID:()=> 'reference',createHash:()=>({update:()=>({digest:()=> 'hash'})})}}),
- '../../../lib/stripeServer':routeMock({getStripe:()=>({checkout:{sessions:{create:async params=>{sessionParams=params;sessionsCreated++;return {id:'cs_test_new',client_secret:'cs_test_client_secret_mock'};}}}})}),
+ '../../../lib/stripeServer':routeMock({getStripe:()=>({checkout:{sessions:{create:async (params, options)=>{sessionParams=params;sessionOptions=options;sessionsCreated++;return {id:'cs_test_new',client_secret:'cs_test_client_secret_mock'};}}}})}),
  '../../../lib/validateCheckout':routeMock({validateCheckout:async body=>{if(body.amount!==25)throw new Error('total changed');return {total:25,items:pending.items};}}),
  '../../../lib/metaCapi':routeMock({getBrowserContext:()=>({})}),
  '../../../lib/stripeCheckout':routeMock({stripeCheckoutEnabled:()=>true,stripeKV:async command=>{if(command[0]==='INCR')return count;if(command[0]==='SET')pendingWrites.push(command);return 'OK';}}),
@@ -46,3 +46,5 @@ console.log('PASS session API forged origin, invalid amount and rate limit preve
 await assert.rejects(complete({...session,livemode:false},{}),/mode mismatch/); console.log('PASS test events rejected in live mode');
 
 assert.equal(sessionParams.ui_mode,'embedded_page');assert.ok(sessionParams.return_url.includes('/stripe-return'));assert.equal(sessionParams.success_url,undefined);assert.equal(sessionParams.cancel_url,undefined);assert.equal((await call(env.STRIPE_CHECKOUT_ORIGIN)).data.clientSecret,'cs_test_client_secret_mock');console.log('PASS embedded session mode, return URL, client secret response; no hosted redirect');
+
+assert.equal(sessionOptions.apiVersion,'2026-10-28.endive');console.log('PASS embedded session request explicitly pins compatible API version');
