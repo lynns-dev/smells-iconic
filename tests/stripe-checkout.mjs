@@ -5,7 +5,7 @@ const kv = new Map(); let writes = 0; let orders = []; let failLedger = false;
 const env = { STRIPE_CHECKOUT_ORIGIN: 'https://anese.co', STRIPE_CHECKOUT_ENABLED: 'true', STRIPE_SECRET_KEY: 'mock', STRIPE_WEBHOOK_SECRET: 'mock', KV_REST_API_URL: 'https://kv.invalid', KV_REST_API_TOKEN: 'mock' };
 const context = vm.createContext({ process: {env}, console, URL, Intl, Date, Set, JSON, Math, fetch: async (_url, opts) => { const [op,key,value,...args] = JSON.parse(opts.body); let result; if(op==='GET') result=kv.get(key)||null; if(op==='DEL'){ kv.delete(key); result=1; } if(op==='SET'){ if(args.includes('NX')&&kv.has(key)) result=null; else {kv.set(key,value);result='OK';} } return {ok:true,json:async()=>({result})}; }});
 const mock = values=>new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context});
-const mods={ './stripeServer':mock({getStripe:()=>({})}), './analyticsStore':mock({getOrders:async()=>orders}), './orderFulfillment':mock({fulfillOrder:async order=>{writes++;if(!failLedger)orders.push(order);}}) };
+const mods={ './stripeExperimentPurchase':mock({recordStripeExperimentPurchase:async()=>{}}), './stripeServer':mock({getStripe:()=>({})}), './analyticsStore':mock({getOrders:async()=>orders}), './orderFulfillment':mock({fulfillOrder:async order=>{writes++;if(!failLedger)orders.push(order);}}) };
 const mod = new vm.SourceTextModule(await fs.readFile('lib/stripeCheckout.js','utf8'),{context}); await mod.link(spec=>mods[spec]); await mod.evaluate();
 const complete=mod.namespace.completeStripeSession;
 const pending={origin:'https://anese.co',stripeSessionId:'cs_test_a',amount:25,items:[{id:'p',quantity:1,price:25}],eventId:'e'};
@@ -28,6 +28,9 @@ let sessionOptions;let sessionParams;let sessionsCreated=0;let count=1;let pendi
 const routeContext=vm.createContext({process:{env},console,URL,Date,JSON,Math,Number,String});
 const routeMock = values=>new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context:routeContext});
 const routeMods={
+ '../../../lib/stripeExperimentPurchase':routeMock({snapshotExperimentAttribution:()=>null}),
+ '../../../lib/ipFilter':routeMock({isExcludedTraffic:()=>false,isExcludedIp:()=>false,isOutsideServiceArea:()=>false}),
+ '../../../lib/journeys':routeMock({visitorIdFrom:()=>null}),
  'crypto':routeMock({default:{randomUUID:()=> 'reference',createHash:()=>({update:()=>({digest:()=> 'hash'})})}}),
  '../../../lib/stripeServer':routeMock({getStripe:()=>({checkout:{sessions:{create:async (params, options)=>{sessionParams=params;sessionOptions=options;sessionsCreated++;return {id:'cs_test_new',client_secret:'cs_test_client_secret_mock'};}}}})}),
  '../../../lib/validateCheckout':routeMock({validateCheckout:async body=>{if(body.amount!==25)throw new Error('total changed');return {total:25,items:pending.items};}}),
