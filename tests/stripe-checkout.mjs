@@ -48,3 +48,5 @@ await assert.rejects(complete({...session,livemode:false},{}),/mode mismatch/); 
 assert.equal(sessionParams.ui_mode,'embedded_page');assert.ok(sessionParams.return_url.includes('/stripe-return'));assert.equal(sessionParams.success_url,undefined);assert.equal(sessionParams.cancel_url,undefined);assert.equal((await call(env.STRIPE_CHECKOUT_ORIGIN)).data.clientSecret,'cs_test_client_secret_mock');console.log('PASS embedded session mode, return URL, client secret response; no hosted redirect');
 
 assert.equal(sessionOptions.apiVersion,'2026-10-28.endive');console.log('PASS embedded session request explicitly pins compatible API version');
+
+assert.equal(JSON.stringify(sessionParams.allowed_payment_method_types),'["card"]');assert.equal(sessionParams.payment_method_types,undefined);console.log('PASS current API card-only allowed method filter');
