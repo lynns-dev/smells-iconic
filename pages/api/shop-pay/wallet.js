@@ -4,6 +4,7 @@ import { walletConfigured, shopify, SHOP_ID, createCheckout, loadCheckout, payme
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'GET') {
+    if (process.env.STRIPE_ONLY_ENABLED === 'true') return res.status(200).json({ enabled: false, ready: false });
     if (req.query?.health === '1') {
       if (!walletConfigured()) return res.status(200).json({ ready: false });
       try {
@@ -18,6 +19,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ enabled: walletConfigured() });
   }
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return res.status(405).end(); }
+  if (process.env.STRIPE_ONLY_ENABLED === 'true' && req.body?.action !== 'status') return res.status(410).json({ error: 'Please refresh and use secure Stripe checkout.' });
   if (!walletConfigured() && req.body?.action !== 'status') return res.status(503).json({ error: 'Shop Pay is not available yet.' });
   // Requests are same-origin; no third-party script can submit a payment.
   if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return res.status(403).end();
