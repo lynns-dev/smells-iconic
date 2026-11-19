@@ -639,7 +639,7 @@ const pdpRating = {
 // Brand value proposition, shown under every product's title.
 const VALUE_PROP = 'Scents inspired by the places, flavors and culture you’re obsessed with, in small-batch body mists made to collect.';
 const pdpValueProp = { fontSize: 15, lineHeight: 1.55, color: T.ink, maxWidth: '44ch', margin: '0 0 14px' };
-const pdpTitle = { fontFamily: T.display, fontWeight: 300, fontSize: 'clamp(34px,4.4vw,54px)', lineHeight: 1.02, marginBottom: 10 };
+const pdpTitle = { fontFamily: T.display, fontWeight: 300, fontSize: 'clamp(26px,2.7vw,36px)', lineHeight: 1.15, marginBottom: 10 };
 const pdpTagline = { fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, marginBottom: 14 };
 const pdpDesc = { fontSize: 15, color: '#4a453c', maxWidth: '46ch', marginBottom: 22, lineHeight: 1.6 };
 const pdpPrice = { fontFamily: T.display, fontWeight: 300, fontSize: 28, marginBottom: 22 };

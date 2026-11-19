@@ -142,7 +142,7 @@ export default function HomePage() {
                   {p.archived && <ArchivedX />}
                 </Link>
                 <div style={pcardText}>
-                  <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 21 }}>{p.name}</Link>
+                  <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 17, lineHeight: 1.35, display: 'block' }}>{p.name}</Link>
                   <div style={pnotes}>{p.tagline}</div>
                   <div style={{ fontSize: 13 }}>
                     ${p.price}

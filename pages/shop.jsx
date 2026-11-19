@@ -57,7 +57,7 @@ export default function ShopPage() {
                 {p.archived && <ArchivedX />}
               </Link>
               <div className="collection-card-text" style={cardText}>
-                <Link className="collection-title" href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 300, fontSize: 22 }}>{p.name}</Link>
+                <Link className="collection-title" href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 300, fontSize: 17, lineHeight: 1.35, display: 'block' }}>{p.name}</Link>
                 {reviews[p.id]?.count > 0 && (
                   <div style={ratingRow}>
                     <span style={{ letterSpacing: '1.5px', color: T.ink }}>{'★'.repeat(Math.round(reviews[p.id].average))}{'☆'.repeat(5 - Math.round(reviews[p.id].average))}</span>
@@ -96,7 +96,7 @@ export default function ShopPage() {
           .collection-products { padding:20px 16px 48px !important; }
           .shop-grid { grid-template-columns: minmax(0,1fr); gap: 28px 12px !important; }
           .shop-grid.two-columns { grid-template-columns: repeat(2,minmax(0,1fr)); }
-          .two-columns :global(.collection-title) { font-size: 16px !important; line-height: 1.25; display:block; }
+          .two-columns :global(.collection-title) { font-size: 14px !important; line-height: 1.35; display:block; }
           .two-columns .collection-card-text { padding:12px 0 0 !important; }
           .two-columns .collection-badge { top:6px !important; right:6px !important; left:6px; font-size:8px !important; letter-spacing:0.04em !important; padding:5px !important; }
           .two-columns .collection-notes { font-size:9px !important; letter-spacing:0.05em !important; }
