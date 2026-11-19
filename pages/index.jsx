@@ -103,7 +103,7 @@ export default function HomePage() {
               <div>
                 <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · No. 01 · Babygirl</span>
                 <h1 style={heroH1}>they&rsquo;ll <span style={S.it}>lean in.</span></h1>
-                <p style={heroSub}>Milk, skin musk, marshmallow. The scent people come closer to figure out.</p>
+                <p style={heroSub}>Marshmallow fluff, warm milk and soft vanilla. The scent people come closer to figure out.</p>
                 {siteReviews.count > 0 && (
                   <div style={hrate}>
                     <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
