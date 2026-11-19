@@ -295,7 +295,7 @@ export default function ProductPage({ product: catalogProduct }) {
               <div style={{ ...trioCard, marginTop: 0, marginBottom: 16, borderColor: T.ink }}>
                 <div style={trioVisual}><ProductVisual id={DUO_ID} images={thumbImages(getProductById(DUO_ID))} alt="Pick Your Role Duo" width={54} /></div>
                 <div style={{ flex: 1 }}>
-                  <div style={S.label}>Pick your role · save $8</div>
+                  <div style={S.label}>Pick your role · save ${getProductById(DUO_ID).originalPrice - getProductById(DUO_ID).price}</div>
                   <div style={{ fontFamily: T.display, fontWeight: 300, fontSize: 18, marginTop: 4 }}>Babygirl + Daddy Is a State of Mind</div>
                   <div style={{ fontSize: 12, color: T.soft, marginTop: 2 }}>Two full-size mists, one for each role</div>
                 </div>

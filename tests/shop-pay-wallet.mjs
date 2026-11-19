@@ -46,7 +46,7 @@ const context = vm.createContext({ process: { env: processEnv }, console, Buffer
 const fixture = { id: 'fixture', name: 'Catalog product', price: 50 };
 const synthetic = (exports) => new vm.SyntheticModule(Object.keys(exports), function () { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context });
 const products = synthetic({ getProductById: id => id === fixture.id ? fixture : null,
-  UPSELL_ID: 'upsell', UPSELL_PRICE: 19, TASSEL_GIFT: { id: 'gift', price: 15 }, FREE_GIFT: { id: 'gift', price: 20 }, FREE_GIFT_THRESHOLD: 50 });
+  UPSELL_ID: 'upsell', UPSELL_PRICE: 19, BABYGIRL_PERFUME_ID: 'babygirl-perfume', BABYGIRL_PERFUME_TEST_PRICE: 59, BABYGIRL_PRICE_TEST: 'babygirl_perfume_price_v1', TASSEL_GIFT: { id: 'gift', price: 15 }, FREE_GIFT: { id: 'gift', price: 20 }, FREE_GIFT_THRESHOLD: 50 });
 const mocks = {
   react: synthetic({ default: {} }), './session': synthetic({ getSessionId: () => 'test-session', getVisitorId: () => 'test-visitor' }),
   crypto: synthetic({ default: crypto }), './products': products,

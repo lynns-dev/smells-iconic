@@ -425,7 +425,7 @@ export default function CheckoutPage() {
   }, [hydrated]);
 
   const addressEntered = addressComplete(shipping);
-  // Flat-rate shipping, free at FREE_SHIPPING_MIN or with the exit popup's perk.
+  // Use the same pre-discount subtotal as the server quote.
   const shippingCost = shippingFor(total);
   const grandTotal = discountedTotal + shippingCost;
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
