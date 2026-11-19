@@ -1224,7 +1224,7 @@ function LegacyAbandonedCheckout({ perf }) {
             Sent {data.sent7d} in the last 7 days · {data.sentTotal} in all{data.lastSentAt ? ` · last ${new Date(data.lastSentAt).toLocaleString()}` : ''}
           </div>
           <div style={{ fontSize: 12, color: T.ink, marginTop: 4 }}>
-            Recovered {data.recovered ?? 0} order{data.recovered === 1 ? '' : 's'} ({data.recoveryRate ?? 0}%) · ${Number(data.recoveredRevenue || 0).toFixed(2)} — ordered within 7 days of the email
+            Orders after reminders: {data.recovered ?? 0} order{data.recovered === 1 ? '' : 's'} ({data.recoveryRate ?? 0}%) · ${Number(data.recoveredRevenue || 0).toFixed(2)} — same email address ordered within 7 days; a click is not required and this is not proof the email caused the sale
           </div>
           <div style={{ fontSize: 12, color: T.soft, marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {perf?.sent
@@ -1767,6 +1767,7 @@ function CheckoutLayoutTest() {
   const [data,setData] = React.useState(null);
   const [error,setError] = React.useState('');
   const [busy,setBusy] = React.useState(false);
+  const [nextType,setNextType] = React.useState('offer');
   async function load(body) {
     setBusy(true);setError('');
     try {
@@ -1776,16 +1777,18 @@ function CheckoutLayoutTest() {
   }
   React.useEffect(()=>{load();},[]);
   return <div style={{...stepCard,marginTop:16}}>
-    <strong>Abandoned checkout · layout A/B test{data?.test?.enabled?' · running':''}</strong>
-    <p>50/50 stable assignment for automatic reminders. A keeps the current layout; B puts the same checkout button before the saved cart with a larger mobile tap area. Subject, copy, cart restoration, eligibility and timing stay the same.</p>
-    <p>Judge unique clicked deliveries first; review orders and sample size before choosing a winner. No automatic winner selection.</p>
+    <strong>Abandoned checkout · {data?.test?.type || 'layout'} A/B test{data?.test?.enabled?' · running':''}</strong>
+    <p>50/50 stable assignment for new eligible automatic reminders. {data?.test?.type === 'offer' ? 'A: current saved-cart reminder with no offer mention. B: same reminder plus the existing 20% BLACKFRIDAY20 offer. Subject, button, layout and timing stay identical. The sale remains available sitewide to both groups; this measures highlighting the offer. Automatically pauses when that offer expires.' : data?.test?.type === 'message' ? 'A: saved-cart reminder, “Finish checking out.” B: scent-focused invitation, “See my saved cart.” Subject, layout, offer and timing are identical.' : data?.test?.type === 'subject' ? 'A: “You left something behind.” B: “Still thinking about your scent?” Only the subject changes; email content, offer and timing stay the same.' : 'A keeps the current layout; B puts the same button above the cart. Subject, copy, offer and timing stay the same.'} Both HTML and plain-text links are tracked.</p>
+    <p>Primary metric: unique clicked emails ÷ emails sent. Opens are directional because privacy tools can preload images. Review sample size and clicks before selecting a winner; there is no automatic selection. Orders after reminders are reported separately and are not attributed to this test.</p>
     {error&&<p role="alert">{error}</p>}
     {data?.test?.enabled ? <>
       <table style={{width:'100%'}}><thead><tr><th>Variant</th><th>Sent</th><th>Clicked</th><th>Click rate</th></tr></thead><tbody>{['a','b'].map(v=><tr key={v}><td>{v.toUpperCase()}</td><td>{data.results?.[v]?.sent || 0}</td><td>{data.results?.[v]?.clickers || 0}</td><td>{data.results?.[v]?.sent?`${data.results[v].clickRate}%`:'—'}</td></tr>)}</tbody></table>
       <button disabled={busy} onClick={()=>load()}>Refresh results</button>
+      <button disabled={busy} onClick={()=>load({action:'pause'})}>Pause without a winner</button>
       <button disabled={busy} onClick={()=>window.confirm('End the checkout test and keep A?')&&load({action:'stop',winner:'a'})}>Keep A, end test</button>
       <button disabled={busy} onClick={()=>window.confirm('End the checkout test and use B?')&&load({action:'stop',winner:'b'})}>Use B, end test</button>
-    </>:<button disabled={busy||!data} onClick={()=>load({action:'start'})}>Start checkout layout A/B test</button>}
-    {data?.previews&&<div>{['a','b'].map(v=><details key={v}><summary>Preview checkout variant {v.toUpperCase()}</summary><iframe title={`Checkout variant ${v.toUpperCase()} preview`} sandbox="" srcDoc={data.previews[v]} style={{width:'100%',maxWidth:600,height:500,border:'1px solid #ddd'}} /></details>)}</div>}
+    </>:<div><label>Next test <select value={nextType} onChange={e=>setNextType(e.target.value)}><option value="offer">Offer: no mention vs existing 20% Black Friday code</option><option value="message">Message: saved cart vs scent invitation</option><option value="subject">Subject: generic reminder vs scent question</option><option value="layout">Layout: button below vs above cart</option></select></label><button disabled={busy||!data} onClick={()=>load({action:'start',type:nextType})}>Start abandoned checkout A/B test</button></div>}
+    {data?.test?.history?.length > 0 && <details><summary>Previous checkout email tests</summary>{data.test.history.slice().reverse().map(t=><p key={t.testId}>{t.type} · {t.testId} · {t.outcome === 'offer_expired' ? 'Paused: offer expired, no winner' : t.outcome === 'paused_without_winner' ? 'Paused without a winner' : `Manually selected ${t.winner?.toUpperCase()}`} · A {t.results?.a?.sent || 0} sends / {t.results?.a?.clickers || 0} clicked · B {t.results?.b?.sent || 0} sends / {t.results?.b?.clickers || 0} clicked</p>)}</details>}
+    {data?.previews&&<div>{['a','b'].map(v=><details key={v}><summary>Preview checkout variant {v.toUpperCase()} — {data.subjects?.[v]}</summary><iframe title={`Checkout variant ${v.toUpperCase()} preview`} sandbox="" srcDoc={data.previews[v]} style={{width:'100%',maxWidth:600,height:500,border:'1px solid #ddd'}} /></details>)}</div>}
   </div>;
 }
