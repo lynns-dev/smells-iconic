@@ -272,6 +272,17 @@ export default function ProductPage({ product: catalogProduct }) {
               {' '}<span style={{ fontSize: 14, color: T.soft }}>· {product.size}</span>
             </div>
 
+            {isPerfume && (
+              <div style={proofBox}>
+                <p style={{ ...S.label, margin: '0 0 6px' }}>A little bottle with a lot to say.</p>
+                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: T.ink }}>
+                  Concentration is how much of the formula is fragrance. Perfume typically packs more scent into each mL,
+                  so a little spritz can go a long way. Think of the body mist as your airy all-over layer and the perfume
+                  as your more concentrated hit of milk, marshmallow, and skin musk.
+                </p>
+              </div>
+            )}
+
             {inProofTest && proofVariant === 'proof' && (
               <div style={proofBox}>
                 {product.notes && (
