@@ -6,14 +6,19 @@ import ProductVisual from '../components/ProductVisual';
 import Marquee from '../components/Marquee';
 import Footer from '../components/Footer';
 import { ArchivedX, BringBackButton } from '../components/Archived';
-import { PRODUCTS, archivedLast } from '../lib/products';
+import { PRODUCTS, archivedLast, BABYGIRL_PERFUME_ID, BABYGIRL_PRICE_TEST } from '../lib/products';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 
+import { exposeExperiment } from '../lib/experiments';
+
 export default function ShopPage() {
   const c = useCart();
   const reviews = useAllReviews();
+  React.useEffect(() => {
+    if (c.perfumeVariant) exposeExperiment(BABYGIRL_PRICE_TEST);
+  }, [c.perfumeVariant]);
   return (
     <div>
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
@@ -26,14 +31,14 @@ export default function ShopPage() {
             Shop the <span style={S.it}>archive.</span>
           </h1>
           <p style={{ color: T.ink, fontSize: 15, marginTop: 14, maxWidth: '46ch', marginLeft: 'auto', marginRight: 'auto' }}>
-            A small, considered wardrobe of scent — body mists pulled from the cultural record, worn like a costume.
+            A small, considered wardrobe of scent — scents pulled from the cultural record, worn like a costume.
           </p>
         </div>
       </section>
 
       <section style={{ ...S.wrap, padding: '50px 0 64px' }}>
         <div className="shop-grid" style={grid}>
-          {archivedLast(PRODUCTS.filter((p) => p.id !== 'the-archive-trio').map(c.resolveProduct)).map((p) => (
+          {archivedLast(PRODUCTS.filter((p) => p.id !== 'the-archive-trio' && (p.id !== BABYGIRL_PERFUME_ID || c.perfumeVariant)).map(c.resolveProduct)).map((p) => (
             <div key={p.id} style={card}>
               <Link href={`/product/${p.id}`} style={imgWrap}>
                 {p.badge && !p.archived && <span style={badge}>{p.badge}</span>}

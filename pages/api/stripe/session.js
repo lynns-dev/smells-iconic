@@ -1,6 +1,7 @@
 import { isExcludedTraffic } from '../../../lib/ipFilter';
 import { snapshotExperimentAttribution } from '../../../lib/stripeExperimentPurchase';
 import crypto from 'crypto';
+import { BABYGIRL_PERFUME_ID, BABYGIRL_PERFUME_TEST_PRICE, BABYGIRL_PRICE_TEST } from '../../../lib/products';
 import { getStripe } from '../../../lib/stripeServer';
 import { validateCheckout } from '../../../lib/validateCheckout';
 import { getBrowserContext } from '../../../lib/metaCapi';
@@ -23,7 +24,11 @@ export default async function handler(req, res) {
     if (!origin.startsWith('https://')) throw new Error('Secure checkout origin required');
     const reference = crypto.randomUUID();
     const experimentTrackingExcluded = isExcludedTraffic(req);
-    const experimentAttribution = experimentTrackingExcluded ? null : snapshotExperimentAttribution(body.experiments, body.visitorId || body.sessionId, body.experimentDevice);
+    const experiments = { ...body.experiments };
+    const perfume = quote.items.find(item => item.id === BABYGIRL_PERFUME_ID);
+    const perfumeVariant = perfume?.price === BABYGIRL_PERFUME_TEST_PRICE ? 'price_59' : 'control';
+    if (!perfume || experiments[BABYGIRL_PRICE_TEST] !== perfumeVariant) delete experiments[BABYGIRL_PRICE_TEST];
+    const experimentAttribution = experimentTrackingExcluded ? null : snapshotExperimentAttribution(experiments, body.visitorId || body.sessionId, body.experimentDevice);
     const pending = { experimentTrackingExcluded, experimentAttribution, origin, amount: quote.total, items: quote.items, email: body.email, shipping: body.shipping, eventId: body.eventId, url: body.url, attribution: body.attribution, sessionId: body.sessionId, shippingProtection: Number(body.shippingProtection || 0), browser: getBrowserContext(req) };
     await stripeKV(['SET', `stripe:pending:${reference}`, JSON.stringify(pending), 'EX', 60 * 60 * 24 * 30]);
     const session = await getStripe().checkout.sessions.create({ mode: 'payment', ui_mode: 'elements', allowed_payment_method_types: ['card', 'link'], customer_email: body.email, client_reference_id: reference, line_items: [{ price_data: { currency: 'usd', unit_amount: Math.round(quote.total * 100), product_data: { name: 'Your order', description: quote.items.map(i => `${i.quantity} × ${i.name}`).join(', ').slice(0, 500) } }, quantity: 1 }], return_url: `${origin}/stripe-return?session_id={CHECKOUT_SESSION_ID}`, metadata: { reference, origin }, payment_intent_data: { metadata: { reference, origin } } }, { idempotencyKey: reference, apiVersion: '2026-10-28.endive' });

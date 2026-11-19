@@ -10,7 +10,7 @@ import Marquee from '../../components/Marquee';
 import Footer from '../../components/Footer';
 import DropsOffer from '../../components/DropsOffer';
 import { ArchivedX, BringBackButton } from '../../components/Archived';
-import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../../lib/products';
+import { PRODUCTS, getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages, BABYGIRL_PERFUME_ID, BABYGIRL_PRICE_TEST } from '../../lib/products';
 import { useCart } from '../../lib/useCart';
 import { fbTrack } from '../../lib/fbPixel';
 import { T, S } from '../../lib/theme';
@@ -77,6 +77,10 @@ function AccordionRow({ title, open, onToggle, children }) {
 export default function ProductPage({ product: catalogProduct }) {
   const c = useCart();
   const product = React.useMemo(() => c.resolveProduct(catalogProduct), [catalogProduct, c.resolveProduct]);
+  const isPerfume = product?.id === BABYGIRL_PERFUME_ID;
+  React.useEffect(() => {
+    if (isPerfume && c.perfumeVariant) exposeExperiment(BABYGIRL_PRICE_TEST);
+  }, [isPerfume, c.perfumeVariant]);
   const [babygirlVariant, setBabygirlVariant] = React.useState('control');
   React.useEffect(() => {
     if (product?.id !== 'babygirl') return;
@@ -122,7 +126,7 @@ export default function ProductPage({ product: catalogProduct }) {
   }, [product?.id]);
 
   React.useEffect(() => {
-    if (!product) return;
+    if (!product || (isPerfume && !c.perfumeVariant)) return;
     fbTrack('ViewContent', {
       content_ids: [product.id],
       content_name: product.name,
@@ -130,7 +134,7 @@ export default function ProductPage({ product: catalogProduct }) {
       value: product.price,
       currency: 'USD',
     });
-  }, [product?.id, product?.name, product?.price]);
+  }, [product?.id, product?.name, product?.price, isPerfume, c.perfumeVariant]);
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -155,9 +159,9 @@ export default function ProductPage({ product: catalogProduct }) {
     }
   };
 
-  if (router.isFallback || !product) return null;
+  if (router.isFallback || !product || (isPerfume && !c.perfumeVariant)) return null;
 
-  const related = PRODUCTS.filter((p) => p.id !== product.id && p.id !== SET_ID).slice(0, 4);
+  const related = PRODUCTS.filter((p) => p.id !== product.id && p.id !== SET_ID && p.id !== BABYGIRL_PERFUME_ID).slice(0, 4);
   const trio = getProductById(SET_ID);
   const toggleSection = (key) => setOpenSection((cur) => (cur === key ? null : key));
   const toggleFaq = (i) => setOpenFaq((cur) => (cur === i ? null : i));
