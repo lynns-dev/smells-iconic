@@ -74,8 +74,9 @@ function AccordionRow({ title, open, onToggle, children }) {
   );
 }
 
-export default function ProductPage({ product }) {
+export default function ProductPage({ product: catalogProduct }) {
   const c = useCart();
+  const product = React.useMemo(() => c.resolveProduct(catalogProduct), [catalogProduct, c.resolveProduct]);
   const [babygirlVariant, setBabygirlVariant] = React.useState('control');
   React.useEffect(() => {
     if (product?.id !== 'babygirl') return;
@@ -118,7 +119,7 @@ export default function ProductPage({ product }) {
         if (data && Array.isArray(data.reviews)) setReviewData(data);
       })
       .catch(() => {});
-  }, [product]);
+  }, [product?.id]);
 
   React.useEffect(() => {
     if (!product) return;
@@ -129,7 +130,7 @@ export default function ProductPage({ product }) {
       value: product.price,
       currency: 'USD',
     });
-  }, [product]);
+  }, [product?.id, product?.name, product?.price]);
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -303,6 +304,7 @@ export default function ProductPage({ product }) {
               </div>
             )}
 
+            {product.broughtBack && <p style={{fontSize:14,lineHeight:1.6,margin:'0 0 18px',fontWeight:600}}>Back by popular demand. You asked, we listened — Ginger Crème is back after 50 bring-it-back votes.</p>}
             {product.archived ? (
               <BringBackButton product={product} style={{ marginBottom: 20 }} />
             ) : (

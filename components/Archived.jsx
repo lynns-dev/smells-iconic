@@ -1,3 +1,4 @@
+import { RETURN_PRODUCT, RETURN_VOTES } from '../lib/bringBackAvailability';
 // Archived products (`archived: true` in lib/products.js): a big black X
 // drawn over the product image, and a one-click "Bring it back" vote in
 // place of Add to cart. Votes go to the admin Inbox via
@@ -98,7 +99,7 @@ export function BringBackButton({ product, dark = false, compact = false, style 
       </button>
       {!compact && (
         <div style={{ fontSize: 12, color: dark ? 'rgba(251,245,241,0.7)' : T.soft, marginTop: 8, minHeight: 16 }}>
-          {error || (count > 0 ? `${count} ${count === 1 ? 'vote' : 'votes'} to bring it back` : 'Archived — one click tells us you want it back.')}
+          {error || (count > 0 ? product.id === RETURN_PRODUCT ? `${count} / ${RETURN_VOTES} votes — back at ${RETURN_VOTES}` : `${count} ${count === 1 ? 'vote' : 'votes'} to bring it back` : 'Archived — one click tells us you want it back.')}
         </div>
       )}
       {compact && error && <div style={{ fontSize: 12, color: '#a13d2b', marginTop: 6 }}>{error}</div>}

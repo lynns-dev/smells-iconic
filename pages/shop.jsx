@@ -33,7 +33,7 @@ export default function ShopPage() {
 
       <section style={{ ...S.wrap, padding: '50px 0 64px' }}>
         <div className="shop-grid" style={grid}>
-          {archivedLast(PRODUCTS.filter((p) => p.id !== 'the-archive-trio')).map((p) => (
+          {archivedLast(PRODUCTS.filter((p) => p.id !== 'the-archive-trio').map(c.resolveProduct)).map((p) => (
             <div key={p.id} style={card}>
               <Link href={`/product/${p.id}`} style={imgWrap}>
                 {p.badge && !p.archived && <span style={badge}>{p.badge}</span>}

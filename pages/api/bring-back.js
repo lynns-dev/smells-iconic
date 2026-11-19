@@ -31,6 +31,7 @@ async function recordInInbox(product, count) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control','no-store');
   try {
     if (req.method === 'GET') {
       const product = archived(String(req.query.productId || ''));
@@ -46,7 +47,7 @@ export default async function handler(req, res) {
 
       const { added, count } = await addBringBackVote(product.id, voter);
       if (added) {
-        await recordInInbox(product, count);
+        await recordInInbox(product, count).catch(err => console.error('Vote inbox update failed:',err.message));
         await sendPushToAdmins({ title: 'Bring it back vote', body: `${product.name} — ${count} vote${count === 1 ? '' : 's'} so far`, url: '/admin#inbox' }).catch(() => {});
       }
       return res.status(200).json({ ok: true, count });
