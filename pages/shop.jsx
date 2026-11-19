@@ -11,7 +11,6 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 
-import { SCENT_SUMMARIES } from '../lib/scentPresentation';
 import { exposeExperiment, getVariant } from '../lib/experiments';
 
 export default function ShopPage() {
@@ -65,7 +64,6 @@ export default function ShopPage() {
                     {' '}{reviews[p.id].average.toFixed(1)} ({reviews[p.id].count})
                   </div>
                 )}
-                {SCENT_SUMMARIES[p.id] && <p className="scent-summary" style={{fontSize:14,lineHeight:1.5,margin:'10px 0'}}>{SCENT_SUMMARIES[p.id]}</p>}
                 <div className="collection-notes" style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, margin: '8px 0 10px' }}>{p.tagline}</div>
                 <div style={{ fontSize: 13, marginBottom: 14 }}>
                   ${p.price}
@@ -102,7 +100,6 @@ export default function ShopPage() {
           .two-columns .collection-card-text { padding:12px 0 0 !important; }
           .two-columns .collection-badge { top:6px !important; right:6px !important; left:6px; font-size:8px !important; letter-spacing:0.04em !important; padding:5px !important; }
           .two-columns .collection-notes { font-size:9px !important; letter-spacing:0.05em !important; }
-          .two-columns .scent-summary { font-size:12px !important; }
           .two-columns .collection-add { padding:12px 6px !important; font-size:10px !important; letter-spacing:0.08em !important; min-height:44px; }
           .two-columns .collection-card { min-width:0; }
           .two-columns .collection-card-text :global(button) { max-width:100%; white-space:normal; }

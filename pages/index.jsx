@@ -11,7 +11,6 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 import { exposeExperiment } from '../lib/experiments';
-import { SCENT_SUMMARIES } from '../lib/scentPresentation';
 import { activePromo } from '../lib/promos';
 
 const DEFAULT_MESSAGES = ['15% off with code ICONIC15'];
@@ -144,7 +143,6 @@ export default function HomePage() {
                 </Link>
                 <div style={pcardText}>
                   <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 21 }}>{p.name}</Link>
-                  {SCENT_SUMMARIES[p.id] && <p style={{fontSize:13,lineHeight:1.5,margin:'10px 0'}}>{SCENT_SUMMARIES[p.id]}</p>}
                   <div style={pnotes}>{p.tagline}</div>
                   <div style={{ fontSize: 13 }}>
                     ${p.price}

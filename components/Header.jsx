@@ -18,7 +18,7 @@ export default function Header({ cartCount = 0, onCartClick, overlay = false, sc
       style={{
         ...styles.header,
         position: overlay ? (scrolled ? 'fixed' : 'absolute') : 'sticky',
-        background: transparent ? 'transparent' : 'rgba(251,245,241,0.9)',
+        background: transparent ? 'transparent' : 'rgba(255,255,255,0.95)',
         backdropFilter: transparent ? 'none' : 'blur(10px)',
         borderBottom: transparent ? '1px solid transparent' : `1px solid ${T.line}`,
         transition: 'background .35s ease, border-color .35s ease',
