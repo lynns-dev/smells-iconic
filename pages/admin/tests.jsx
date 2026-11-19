@@ -44,7 +44,7 @@ export default function Tests() {
       </p>
       {error && <p style={{ color: '#d93025' }}>{error}</p>}
       {!data && !error && <p>Loading…</p>}
-      {data && data.filter((t) => !t.winner || ['cart_discount_visibility', 'checkout_single_page_v1'].includes(t.id)).map((t) => {
+      {data && data.filter((t) => !t.winner || ['cart_discount_visibility', 'checkout_single_page_v1', 'babygirl_scent_landing_v1'].includes(t.id)).map((t) => {
         const [a, b] = t.variants;
         const key = t.primaryMetric || ((t.checkout || t.id === 'shop_pay_checkout_v1') ? 'purchased' : (a.purchased || 0) + (b?.purchased || 0) >= 20 ? 'purchased' : 'added');
         const conf = !t.checkout && b ? confidence(a, b, key) : null;

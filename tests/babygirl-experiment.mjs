@@ -24,5 +24,5 @@ let exposureRequests=0;
 const clientContext=vm.createContext({window:{location:{search:''},localStorage:{getItem:()=> 'landing',setItem(){}}},URLSearchParams,fetch:()=>{exposureRequests++;return Promise.resolve({})}});
 const client=new vm.SourceTextModule(await fs.readFile('lib/experiments.js','utf8'),{context:clientContext});
 await client.link(spec=>{const names=spec==='react'?['default']:['getVisitorId','getSessionId'];return new vm.SyntheticModule(names,function(){for(const n of names)this.setExport(n,()=> 'stable-id-123')},{context:clientContext})});await client.evaluate();
-client.namespace.exposeExperiment('babygirl_scent_landing_v1');client.namespace.exposeExperiment('babygirl_scent_landing_v1');assert.equal(exposureRequests,2);
-console.log('PASS: returning exposed visitors refresh session attribution without changing their format.');
+client.namespace.exposeExperiment('babygirl_scent_landing_v1');client.namespace.exposeExperiment('babygirl_scent_landing_v1');assert.equal(exposureRequests,0);assert.equal(client.namespace.getVariant('babygirl_scent_landing_v1'),'control');clientContext.window.location.search='?exp_babygirl_scent_landing_v1=landing';assert.equal(client.namespace.getVariant('babygirl_scent_landing_v1'),'control');
+console.log('PASS: permanent control overrides stored landing assignment and preview override; ended test stops new exposure events.');
