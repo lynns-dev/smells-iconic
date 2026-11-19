@@ -262,7 +262,7 @@ export default function ProductPage({ product: catalogProduct }) {
               )}
             </a>
             <h1 style={pdpTitle}>{product.name}</h1>
-            <p style={pdpValueProp}>{VALUE_PROP}</p>
+            {!isPerfume && <p style={pdpValueProp}>{VALUE_PROP}</p>}
             <div style={pdpTagline}>{product.tagline}</div>
             <p style={pdpDesc}>{product.description}</p>
 
@@ -322,7 +322,7 @@ export default function ProductPage({ product: catalogProduct }) {
               </div>
             )}
 
-            <div style={badgeRow}>Ships in 2–4 days · 45-day guarantee + free returns · Vegan-friendly · Cruelty-free</div>
+            <div style={badgeRow}>Ships in 2–4 days · 45-day guarantee + free returns{!isPerfume && ' · Vegan-friendly · Cruelty-free'}</div>
 
             {upsell && (
               <div style={trioCard}>
@@ -435,8 +435,8 @@ export default function ProductPage({ product: catalogProduct }) {
         <DropsOffer />
       </div>
 
-      {/* UGC — real customers with their bottles. */}
-      <section style={{ ...band, borderTop: `1px solid ${T.line}` }}>
+      {/* UGC — real customers with their body mists. */}
+      {!isPerfume && <section style={{ ...band, borderTop: `1px solid ${T.line}` }}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <h2 style={{ ...S.h2, fontFamily: T.display, fontSize: 'clamp(26px,3vw,38px)' }}>Iconic People, Iconic Scents</h2>
           <div className="ugc-grid" style={ugcGrid}>
@@ -447,7 +447,7 @@ export default function ProductPage({ product: catalogProduct }) {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* REVIEWS */}
       <section id="reviews" style={narrowBand}>
