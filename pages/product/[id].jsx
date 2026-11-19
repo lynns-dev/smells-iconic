@@ -1,3 +1,4 @@
+import { SCENT_SUMMARIES } from '../../lib/scentPresentation';
 import React from 'react';
 import BabygirlLanding from '../../components/BabygirlLanding';
 import Link from 'next/link';
@@ -215,7 +216,7 @@ export default function ProductPage({ product: catalogProduct }) {
                   style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                 />
               ) : activeImage ? (
-                <img src={activeImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <img src={activeImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: activeImage === images[0] ? 'contain' : 'cover', background:'#f5efea', display: 'block' }} />
               ) : (
                 <ProductVisual id={product.id} width={230} />
               )}
@@ -262,9 +263,9 @@ export default function ProductPage({ product: catalogProduct }) {
               )}
             </a>
             <h1 style={pdpTitle}>{product.name}</h1>
-            {!isPerfume && <p style={pdpValueProp}>{VALUE_PROP}</p>}
+            {!isPerfume && <p style={pdpValueProp}>{SCENT_SUMMARIES[product.id] || VALUE_PROP}</p>}
             <div style={pdpTagline}>{product.tagline}</div>
-            <p style={pdpDesc}>{product.description}</p>
+            {!SCENT_SUMMARIES[product.id] && <p style={pdpDesc}>{product.description}</p>}
 
             <div style={pdpPrice}>
               ${unitPrice}

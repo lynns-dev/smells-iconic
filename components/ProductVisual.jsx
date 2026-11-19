@@ -7,23 +7,24 @@ const fillStyle = { width: '100%', height: '100%', display: 'block', objectFit: 
 // Accepts an `images` array; when a second image exists, swaps to it on
 // hover (used on collection/grid cards, not the single-image PDP gallery,
 // which reads the full array itself for its thumbnail strip).
-export default function ProductVisual({ id = 'babygirl', width = 150, images, alt }) {
+export default function ProductVisual({ id = 'babygirl', width = 150, images, alt, framing }) {
   const [showSecond, setShowSecond] = React.useState(false);
   const [image, image2] = images || [];
+  const catalogStyle = framing === 'catalog' ? {objectFit:'contain',padding:0,boxSizing:'border-box',background:'#f5efea'} : {};
 
   if (image) {
     return (
       <div
-        style={{ position: 'relative', width: '100%', height: '100%' }}
+        style={{ position: 'relative', width: '100%', height: '100%', background: framing === 'catalog' ? '#f5efea' : undefined }}
         onMouseEnter={() => image2 && setShowSecond(true)}
         onMouseLeave={() => image2 && setShowSecond(false)}
       >
-        <img src={image} alt={alt || id} style={{ ...fillStyle, opacity: showSecond ? 0 : 1 }} />
+        <img src={image} alt={alt || id} style={{ ...fillStyle, ...catalogStyle, opacity: showSecond ? 0 : 1 }} />
         {image2 && (
           <img
             src={image2}
             alt={alt || id}
-            style={{ ...fillStyle, position: 'absolute', top: 0, left: 0, opacity: showSecond ? 1 : 0 }}
+            style={{ ...fillStyle, ...catalogStyle, objectFit:'cover', padding:0, position: 'absolute', top: 0, left: 0, opacity: showSecond ? 1 : 0 }}
           />
         )}
       </div>

@@ -6,10 +6,12 @@ import ProductVisual from '../components/ProductVisual';
 import Marquee from '../components/Marquee';
 import Footer from '../components/Footer';
 import { ArchivedX, BringBackButton } from '../components/Archived';
-import { PRODUCTS, archivedLast, getFeaturedProducts, getProductById } from '../lib/products';
+import { PRODUCTS, archivedLast, getProductById, BABYGIRL_PERFUME_ID, BABYGIRL_PRICE_TEST } from '../lib/products';
 import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
+import { exposeExperiment } from '../lib/experiments';
+import { SCENT_SUMMARIES } from '../lib/scentPresentation';
 import { activePromo } from '../lib/promos';
 
 const DEFAULT_MESSAGES = ['15% off with code ICONIC15'];
@@ -37,7 +39,21 @@ export default function HomePage() {
     setNewsDone(true);
   };
 
-  const featured = getFeaturedProducts();
+  const collectionRef = React.useRef(null);
+  const perfumeCardRef = React.useRef(null);
+  const featured = archivedLast(PRODUCTS.filter(p => p.id !== 'the-archive-trio' && (p.id !== BABYGIRL_PERFUME_ID || c.perfumeVariant)).map(c.resolveProduct));
+  React.useEffect(() => {
+    if (!c.perfumeVariant || !perfumeCardRef.current) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { exposeExperiment(BABYGIRL_PRICE_TEST); observer.disconnect(); }
+    }, {threshold:0.4});
+    observer.observe(perfumeCardRef.current);
+    return () => observer.disconnect();
+  }, [c.perfumeVariant]);
+  const scrollCollection = direction => {
+    const row = collectionRef.current;
+    if (row) row.scrollBy({left:direction * row.clientWidth * 0.8,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+  };
   // Permanent homepage hero: Babygirl campaign creative.
   const babygirl = getProductById('babygirl');
   const reviewsByProduct = useAllReviews();
@@ -111,16 +127,24 @@ export default function HomePage() {
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <p style={S.label}>The archive</p>
           <h2 style={{ ...S.h2, marginTop: 12 }}>Every character, <span style={S.it}>one closet.</span></h2>
-          <div className="col-grid" style={colGrid}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginTop:24}}>
+            <p style={{fontSize:13,color:T.soft,margin:0}}>Explore the full collection · swipe or scroll</p>
+            <div style={{display:'flex',gap:8}}>
+              <button type="button" aria-label="Previous products" onClick={()=>scrollCollection(-1)} style={{...S.btnOutline,padding:'10px 16px',minHeight:44}}>←</button>
+              <button type="button" aria-label="Next products" onClick={()=>scrollCollection(1)} style={{...S.btnOutline,padding:'10px 16px',minHeight:44}}>→</button>
+            </div>
+          </div>
+          <div ref={collectionRef} className="col-grid" role="region" aria-label="Full product collection" tabIndex={0} style={colGrid}>
             {featured.map((p) => (
-              <div key={p.id} className="col-item" style={pcard}>
+              <div key={p.id} ref={p.id === BABYGIRL_PERFUME_ID ? perfumeCardRef : null} className="col-item" style={pcard}>
                 <Link href={`/product/${p.id}`} style={pimg}>
                   {p.badge && !p.archived && <span style={badge}>{p.badge}</span>}
-                  <ProductVisual id={p.id} images={p.images} alt={p.name} width={104} />
+                  <ProductVisual id={p.id} images={p.images} alt={p.name} width={104} framing="catalog" />
                   {p.archived && <ArchivedX />}
                 </Link>
                 <div style={pcardText}>
                   <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 21 }}>{p.name}</Link>
+                  {SCENT_SUMMARIES[p.id] && <p style={{fontSize:13,lineHeight:1.5,margin:'10px 0'}}>{SCENT_SUMMARIES[p.id]}</p>}
                   <div style={pnotes}>{p.tagline}</div>
                   <div style={{ fontSize: 13 }}>
                     ${p.price}
@@ -272,7 +296,8 @@ export default function HomePage() {
         .hero-text { padding: 0 40px 72px; }
         .hm-grid { grid-template-columns: 1fr 1fr; }
         .hm-cell + .hm-cell { border-left: 1px solid ${T.line}; }
-        .col-grid { grid-template-columns: repeat(4, 1fr); }
+        .col-grid { display:flex; overflow-x:auto; scroll-snap-type:x proximity; padding-bottom:16px; }
+        .col-item { flex:0 0 calc((100% - 72px)/4); min-width:240px; scroll-snap-align:start; }
         .new-scent-grid { grid-template-columns: 1fr 1fr; }
         .rev-grid { grid-template-columns: repeat(3, 1fr); }
         .rev-item:nth-child(n + 2) { border-left: 1px solid ${T.line}; }
@@ -285,13 +310,13 @@ export default function HomePage() {
           .hero-img { order: -1; aspect-ratio: 2174 / 1449; }
           .hero-campaign { aspect-ratio: 4 / 5; background-image: url(/images/si-babygirl-hero-sun-mobile.webp); background-position: center; }
           .hero-text { padding: 40px 24px 48px; }
-          .col-grid { grid-template-columns: repeat(2, 1fr); }
+          .col-item { flex-basis:calc((100% - 24px)/2); }
         }
 
         @media (max-width: 680px) {
           .hm-grid { grid-template-columns: 1fr; }
           .hm-cell + .hm-cell { border-left: none; border-top: 1px solid ${T.line}; }
-          .col-grid { grid-template-columns: 1fr; }
+          .col-item { flex-basis:78%; min-width:220px; }
           .new-scent-grid { grid-template-columns: 1fr; gap: 34px; }
           .rev-grid { grid-template-columns: 1fr; }
           .rev-item { border-left: none; }
@@ -325,13 +350,13 @@ const vtag = { fontSize: 10, letterSpacing: '0.24em', textTransform: 'uppercase'
 const vbig = { fontFamily: T.display, fontWeight: 400, fontSize: 42, lineHeight: 1, marginBottom: 18 };
 const vlist = { listStyle: 'none', fontSize: 14, color: T.soft };
 const vli = { padding: '8px 0' };
-const colGrid = { display: 'grid', margin: '50px auto 0', gap: 24 };
+const colGrid = { display: 'flex', margin: '20px auto 0', gap: 24 };
 const newScentGrid = { ...S.wrap, display: 'grid', gap: 60, alignItems: 'center' };
 const newScentImg = { aspectRatio: '4/5', overflow: 'hidden', border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.paper };
 const pcard = { textAlign: 'center' };
 const badge = { position: 'absolute', top: 14, left: 14, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.soft, background: 'rgba(251,245,241,0.9)', padding: '4px 8px', zIndex: 1 };
 const pimg = { position: 'relative', aspectRatio: '1/1', display: 'block', overflow: 'hidden', width: '100%' };
-const pcardText = { padding: '20px 30px 40px' };
+const pcardText = { padding: '18px 8px 24px' };
 const pnotes = { fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, margin: '8px 0 6px' };
 const revGrid = { display: 'grid', border: `1px solid ${T.line}`, marginTop: 48 };
 const rev = { padding: '34px 30px', textAlign: 'left' };
