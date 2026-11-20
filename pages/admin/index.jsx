@@ -926,6 +926,7 @@ function SubscribersTab({ refreshKey }) {
       title={list ? `${rows.length} ${rows.length === 1 ? 'person' : 'people'}` : 'Subscribers'}
       action={<div style={{ display: 'flex', gap: 8 }}>
         <button type="button" onClick={sendTestReminder} style={S.btnOutline}>Send test reminder</button>
+        <button type="button" onClick={syncExistingStripeTracking} disabled={stripeSyncBusy} style={S.btnOutline}>{stripeSyncBusy ? 'Syncing Stripe…' : 'Sync Stripe tracking'}</button>
         <button type="button" onClick={exportCsv} disabled={!rows.length} style={S.btnOutline}>Export CSV</button>
         <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
       </div>}
@@ -1028,6 +1029,13 @@ function OrdersTab({ refreshKey }) {
   const [busy, setBusy] = React.useState({});
   const [msg, setMsg] = React.useState({});
   const [tracking, setTracking] = React.useState({});
+  const [stripeSyncBusy,setStripeSyncBusy] = React.useState(false);
+  const [stripeSyncMessage,setStripeSyncMessage] = React.useState('');
+  const syncExistingStripeTracking = async () => {
+    setStripeSyncBusy(true);setStripeSyncMessage('');
+    try {const r=await fetch('/api/admin/orders/stripe-tracking',{method:'POST'});const d=await r.json();if(!r.ok)throw new Error(d.error || 'Could not sync tracking.');setStripeSyncMessage(`Stripe tracking: ${d.synced} synced / ${d.fulfilledStripeOrders} fulfilled orders; ${d.pending} queued for retry.`);load();}
+    catch(e){setStripeSyncMessage(e.message);}finally{setStripeSyncBusy(false);}
+  };
   // Address typed into an order's "Send confirmation" box, per order id —
   // starts as the order's own email.
   const [confirmTo, setConfirmTo] = React.useState({});
@@ -1057,7 +1065,7 @@ function OrdersTab({ refreshKey }) {
       const data = await res.json();
       if (data.order) replace(data.order);
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
-      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? 'Tracking saved.' : key === 'confirm' ? `Confirmation sent to ${body.to}.` : 'Updated.' } }));
+      setMsg((m) => ({ ...m, [o.id]: { ok: true, text: key === 'refund' ? 'Refunded.' : key === 'track' ? data.order?.processor === 'stripe' ? data.order?.stripeTrackingSync?.status === 'synced' ? 'Tracking saved and synced to Stripe.' : 'Tracking saved. Stripe sync pending; automatic retry is scheduled.' : 'Tracking saved.' : key === 'confirm' ? `Confirmation sent to ${body.to}.` : 'Updated.' } }));
     } catch (err) {
       setMsg((m) => ({ ...m, [o.id]: { ok: false, text: err.message } }));
     } finally {
@@ -1131,6 +1139,7 @@ function OrdersTab({ refreshKey }) {
         <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
       </div>}
     >
+      {stripeSyncMessage && <p role="status" style={{fontSize:13,marginBottom:12}}>{stripeSyncMessage}</p>}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {ORDER_STATUSES.map(([key, label]) => (
           <button key={key} type="button" onClick={() => setStatusFilter(key)} style={{ ...chip, cursor: 'pointer', background: statusFilter === key ? T.ink : 'rgba(0,0,0,0.05)', color: statusFilter === key ? T.white : T.ink }}>{label}</button>
@@ -1243,6 +1252,7 @@ function OrdersTab({ refreshKey }) {
                       {o.shippedAt && <span style={{ color: T.soft }}> · shipped {new Date(o.shippedAt).toLocaleDateString()}</span>}
                     </div>
                   )}
+                  {o.processor === 'stripe' && (o.trackingNumber || o.stripeTrackingSync) && <p style={{fontSize:12,margin:'8px 0',color:T.soft}}>{o.stripeTrackingSync?.status === 'synced' ? 'Tracking synced to Stripe' : o.stripeTrackingSync?.status === 'pending' ? 'Stripe tracking sync pending — automatic retry is scheduled.' : 'Tracking not yet synced to Stripe — save tracking to sync.'}</p>}
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <select value={t.carrier} onChange={(e) => setT('carrier', e.target.value)} style={field}>
                       {['USPS', 'UPS', 'FedEx', 'DHL', 'Other'].map((c) => <option key={c}>{c}</option>)}

@@ -1,3 +1,4 @@
+import { withTrackingLock, queueStripeTracking, runStripeTrackingJob } from '../../../../lib/stripeTracking';
 import { syncWalletTracking } from '../../../../lib/shopPayWallet';
 // Saves a shipment (carrier, tracking number, optional link) on an order
 // from the Orders tab, which then shows it as shipped. Saving again
@@ -20,12 +21,21 @@ export default async function handler(req, res) {
     const number = clip(trackingNumber, 80);
     const url = clip(trackingUrl, 500);
     if (url && !/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'Tracking link must start with http:// or https://' });
-    const updated = await updateOrderStatus(orderId, number
+    return await withTrackingLock(orderId, async () => {
+    let updated = await updateOrderStatus(orderId, number
       ? { trackingNumber: number, carrier: clip(carrier, 40), trackingUrl: url, shippedAt: new Date().toISOString() }
       : { trackingNumber: null, carrier: null, trackingUrl: null, shippedAt: null });
     if (!updated) return res.status(404).json({ error: 'Order not found' });
-    if (updated.trackingNumber) await syncWalletTracking(updated);
+    if (updated.processor === 'stripe') {
+      try {
+        await queueStripeTracking(updated);
+        updated = await runStripeTrackingJob(updated.id) || updated;
+      } catch {
+        return res.status(502).json({order:updated,error:'Tracking saved in admin, but Stripe sync could not be queued. Save again to retry.'});
+      }
+    } else if (updated.trackingNumber) await syncWalletTracking(updated);
     return res.status(200).json({ order: updated });
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
