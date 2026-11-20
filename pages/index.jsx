@@ -1,3 +1,4 @@
+import CollectionPurchase from '../components/CollectionPurchase';
 import React from 'react';
 import Link from 'next/link';
 import Header from '../components/Header';
@@ -144,14 +145,7 @@ export default function HomePage() {
                 <div style={pcardText}>
                   <Link href={`/product/${p.id}`} style={{ fontFamily: T.display, fontWeight: 400, fontSize: 17, lineHeight: 1.35, display: 'block' }}>{p.name}</Link>
                   <div style={pnotes}>{p.tagline}</div>
-                  <div style={{ fontSize: 13 }}>
-                    ${p.price}
-                    {p.originalPrice > p.price && <s style={{ color: T.soft, marginLeft: 6 }}>${p.originalPrice}</s>}
-                    {' '}· {p.size}
-                  </div>
-                  {p.archived
-                    ? <BringBackButton product={p} style={{ marginTop: 18 }} />
-                    : <button style={{ ...S.btnFill, width: '100%', justifyContent: 'center', marginTop: 18 }} onClick={() => c.add(p)}>Add to cart</button>}
+                  <CollectionPurchase product={p} onAdd={() => c.add(p)} />
                 </div>
               </div>
             ))}
@@ -323,7 +317,7 @@ const vli = { padding: '8px 0' };
 const colGrid = { display: 'flex', margin: '20px auto 0', gap: 24 };
 const newScentGrid = { ...S.wrap, display: 'grid', gap: 60, alignItems: 'center' };
 const newScentImg = { aspectRatio: '4/5', overflow: 'hidden', border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.paper };
-const pcard = { textAlign: 'center' };
+const pcard = { textAlign: 'left' };
 const badge = { position: 'absolute', top: 14, left: 14, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.soft, background: 'rgba(251,245,241,0.9)', padding: '4px 8px', zIndex: 1 };
 const pimg = { position: 'relative', aspectRatio: '1/1', display: 'block', overflow: 'hidden', width: '100%' };
 const pcardText = { padding: '18px 8px 24px' };

@@ -1,3 +1,4 @@
+import CollectionPurchase from '../components/CollectionPurchase';
 import React from 'react';
 import Link from 'next/link';
 import Header from '../components/Header';
@@ -65,14 +66,7 @@ export default function ShopPage() {
                   </div>
                 )}
                 <div className="collection-notes" style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: T.soft, margin: '8px 0 10px' }}>{p.tagline}</div>
-                <div style={{ fontSize: 13, marginBottom: 14 }}>
-                  ${p.price}
-                  {p.originalPrice > p.price && <s style={{ color: T.soft, marginLeft: 6 }}>${p.originalPrice}</s>}
-                  {' '}· {p.size}
-                </div>
-                {p.archived
-                  ? <BringBackButton product={p} />
-                  : <button className="collection-add" style={{ ...S.btnFill, width: '100%', justifyContent: 'center' }} onClick={() => c.add(p)}>Add to cart</button>}
+                <CollectionPurchase product={p} onAdd={() => c.add(p)} />
               </div>
             </div>
           ))}
@@ -100,7 +94,6 @@ export default function ShopPage() {
           .two-columns .collection-card-text { padding:12px 0 0 !important; }
           .two-columns .collection-badge { top:6px !important; right:6px !important; left:6px; font-size:8px !important; letter-spacing:0.04em !important; padding:5px !important; }
           .two-columns .collection-notes { font-size:9px !important; letter-spacing:0.05em !important; }
-          .two-columns .collection-add { padding:12px 6px !important; font-size:10px !important; letter-spacing:0.08em !important; min-height:44px; }
           .two-columns .collection-card { min-width:0; }
           .two-columns .collection-card-text :global(button) { max-width:100%; white-space:normal; }
 
@@ -116,8 +109,8 @@ const banner = {
   background: '#FFFFFF', borderBottom: `1px solid ${T.line}`,
 };
 const grid = { display: 'grid', gap: 28 };
-const card = { textAlign: 'center' };
+const card = { textAlign: 'left' };
 const badge = { position: 'absolute', top: 14, right: 14, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.ink, background: 'rgba(251,245,241,0.92)', padding: '6px 10px', zIndex: 1 };
 const imgWrap = { position: 'relative', aspectRatio: '1/1', display: 'block', overflow: 'hidden', width: '100%' };
 const cardText = { padding: '20px 6px 0' };
-const ratingRow = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12, color: T.soft, marginTop: 8, fontFamily: T.sans };
+const ratingRow = { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6, fontSize: 12, color: T.soft, marginTop: 8, fontFamily: T.sans };
