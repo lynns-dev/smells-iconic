@@ -18,7 +18,7 @@ await api.enrollBabygirlSession('wrong','visitor-555','session-555');assert.equa
 test.winner='control';await api.recordBabygirlPurchase('session-123',28);assert.equal(calls.length,1);
 const source=await fs.readFile('pages/product/[id].jsx','utf8');assert.match(source,/product\.id === 'babygirl' && babygirlVariant === 'landing'/);assert.equal((source.match(/fbTrack\('ViewContent'/g)||[]).length,1);assert.match(source,/onAdd=\{handleAdd\}/);
 const tracking=await fs.readFile('pages/api/track/cart.js','utf8');assert.match(tracking,/kind === 'purchased'.*key !== BABYGIRL_TEST/);
-const product=await fs.readFile('lib/products.js','utf8');assert.match(product,/id: 'babygirl',[\s\S]*?price: 29/);
+const product=await fs.readFile('lib/products.js','utf8');assert.match(product,/id: 'babygirl',[\s\S]*?price: 32/);
 console.log('PASS: session attribution stays fixed, confirmed purchases use the assigned variant, invalid/unexposed/ended events ignored; browser-purchase exclusion, shared cart, price and single ViewContent verified.');
 let exposureRequests=0;
 const clientContext=vm.createContext({window:{location:{search:''},localStorage:{getItem:()=> 'landing',setItem(){}}},URLSearchParams,fetch:()=>{exposureRequests++;return Promise.resolve({})}});

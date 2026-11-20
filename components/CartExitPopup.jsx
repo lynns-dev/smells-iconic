@@ -2,7 +2,6 @@ import React from 'react';
 import { useRouter } from 'next/router';
 import { T, S } from '../lib/theme';
 import { trackCart } from '../lib/cartTracking';
-import { SHIPPING_COST as rate } from '../lib/shipping';
 
 // Shown once (per device, every few days) when a shopper closes their cart
 // without checking out: "What's holding you back?" with quick answers, then
@@ -12,14 +11,12 @@ import { SHIPPING_COST as rate } from '../lib/shipping';
 //
 // Opened by components/CartDrawer.jsx. Store-specific bits come in as props:
 // discountCode/discountLabel (must exist in admin → Discounts), payments
-// (the ways to pay, as shown), freeShipAt, and freeShippingAlways for a
-// store where shipping is already free (no shipping answer or offer).
+// (the ways to pay, as shown).
 
 const ASKED_KEY = 'cart-exit-asked-at';
 const ASK_EVERY_MS = 3 * 24 * 60 * 60 * 1000;
 
 const ANSWERS = [
-  ['shipping', 'Shipping cost'],
   ['price', 'The price'],
   ['reviews', 'Want to read reviews first'],
   ['payment', 'My way to pay isn’t here'],
@@ -40,7 +37,7 @@ function markAsked() {
   try { window.localStorage.setItem(ASKED_KEY, String(Date.now())); } catch { /* storage blocked */ }
 }
 
-export default function CartExitPopup({ open, onClose, cart, applyDiscount, discountCode, discountLabel, payments, freeShipAt, freeShippingAlways }) {
+export default function CartExitPopup({ open, onClose, cart, applyDiscount, discountCode, discountLabel, payments }) {
   const router = useRouter();
   const [answer, setAnswer] = React.useState(null);
   const [otherText, setOtherText] = React.useState('');
@@ -69,9 +66,7 @@ export default function CartExitPopup({ open, onClose, cart, applyDiscount, disc
     setAnswer(key);
     if (key === 'other') return; // waits for their text
     trackCart('exit_answer', { answer: key });
-    if (key === 'shipping') {
-      setResult({ title: 'Standard shipping', body: `Shipping is $${rate} and free on orders of $${freeShipAt} or more before discounts.`, primary: true });
-    } else if (key === 'price') {
+    if (key === 'price') {
       const data = discountCode ? await applyDiscount(discountCode).catch(() => null) : null;
       if (data?.valid) {
         setResult({ title: `${discountLabel || 'A discount'} is yours`, body: `Code ${data.code} is applied to your bag.`, primary: true });
@@ -104,7 +99,7 @@ export default function CartExitPopup({ open, onClose, cart, applyDiscount, disc
             <h2 style={title}>What’s holding you back?</h2>
             <p style={sub}>One tap — it helps us (and we might be able to help you).</p>
             <div style={{ display: 'grid', gap: 8, marginTop: 18 }}>
-              {ANSWERS.filter(([key]) => !(freeShippingAlways && key === 'shipping')).map(([key, label]) => (
+              {ANSWERS.map(([key, label]) => (
                 <button key={key} type="button" onClick={() => choose(key)} style={answerBtn}>{label}</button>
               ))}
             </div>

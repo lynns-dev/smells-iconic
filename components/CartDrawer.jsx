@@ -8,7 +8,7 @@ import { getVisitorId } from '../lib/session';
 import { trackCart } from '../lib/cartTracking';
 import TopBanner from './TopBanner';
 import SaleCallout, { useActivePromo } from './SaleCallout';
-import { shippingFor, FREE_SHIPPING_MIN } from '../lib/shipping';
+import { shippingFor } from '../lib/shipping';
 import { useVariant, exposeExperiment } from '../lib/experiments';
 import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
@@ -58,14 +58,8 @@ export default function CartDrawer({
 
   const subtotal = cart.reduce((sum, item) => sum + (item.originalPrice ?? item.price) * item.quantity, 0);
   const discountTotal = subtotal - total;
-  // Flat-rate shipping (lib/shipping.js). Read after mount: the free-
-  // shipping perk lives in this browser's storage.
-  const [shippingCost, setShippingCost] = React.useState(null);
-  React.useEffect(() => { if (open) setShippingCost(shippingFor(total)); }, [open, total]);
-  const freeShipping = shippingCost === 0;
-  // Free-shipping progress: how far the bag is from FREE_SHIPPING_MIN.
-  const toFreeShipping = Math.max(0, FREE_SHIPPING_MIN - total);
-  const orderTotal = discountedTotal + (shippingCost || 0);
+  const shippingCost = shippingFor();
+  const orderTotal = discountedTotal + shippingCost;
   const [exitOpen, setExitOpen] = React.useState(false);
   const checkoutCtaVariant = useVariant('cart_checkout_cta');
   const discountVisibilityVariant = useVariant('cart_discount_visibility');
@@ -79,9 +73,9 @@ export default function CartDrawer({
   const openedAtRef = React.useRef(0);
   const checkoutClickedRef = React.useRef(false);
   const latestCartRef = React.useRef({});
-  latestCartRef.current = { cart, freeShipping, discountedTotal, total };
+  latestCartRef.current = { cart, shippingCost, discountedTotal };
   React.useEffect(() => {
-    const { cart: items, freeShipping: free, discountedTotal: due } = latestCartRef.current;
+    const { cart: items, shippingCost: shipping, discountedTotal: due } = latestCartRef.current;
     if (open && items.length > 0) {
       exposeExperiment('cart_checkout_cta');
       exposeExperiment('cart_discount_visibility');
@@ -94,8 +88,7 @@ export default function CartDrawer({
     } else if (!open && openedAtRef.current) {
       if (!checkoutClickedRef.current && items.length > 0) {
         trackCart('cart_closed', {
-          shipping: free ? 0 : shippingFor(latestCartRef.current.total),
-          freeAt: FREE_SHIPPING_MIN,
+          shipping,
           subtotal: due,
           dwellSec: (Date.now() - openedAtRef.current) / 1000,
           items: items.map((i) => i.name),
@@ -136,16 +129,9 @@ export default function CartDrawer({
         </div>
 
         {cart.length > 0 && (
-          <div style={{ margin: '0 0 20px', flexShrink: 0 }}>
-            <p style={{ fontSize: 12, color: T.ink, margin: '0 0 8px' }}>
-              {!freeShipping && toFreeShipping > 0
-                ? <>You're <strong>${toFreeShipping.toFixed(2)}</strong> away from free shipping.</>
-                : <><strong>Free shipping unlocked.</strong> Ships within 1 business day.</>}
-            </p>
-            <div style={freeShipTrack} aria-hidden="true">
-              <div style={{ ...freeShipFill, width: freeShipping ? '100%' : `${Math.min(100, (total / FREE_SHIPPING_MIN) * 100)}%` }} />
-            </div>
-          </div>
+          <p style={{ fontSize: 12, color: T.ink, margin: '0 0 20px', flexShrink: 0 }}>
+            <strong>Free shipping on every order.</strong> Ships within 1 business day.
+          </p>
         )}
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -244,12 +230,10 @@ export default function CartDrawer({
               <span>−${codeDiscountAmount.toFixed(2)}</span>
             </div>
           )}
-          {shippingCost !== null && (
-            <div style={summaryRow}>
-              <span style={{ color: T.soft }}>Shipping</span>
-              <span>{freeShipping ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
-            </div>
-          )}
+          <div style={summaryRow}>
+            <span style={{ color: T.soft }}>Shipping</span>
+            <span>Free</span>
+          </div>
           {totalReassuranceVariant === 'reassurance' && <p style={{ fontSize: 11, color: T.soft, margin: '8px 0 0' }}>Shipping is shown above. No shipping surprise at checkout.</p>}
           <div style={{ display: 'flex', justifyContent: 'space-between', margin: '14px 0 18px' }}>
             <span style={S.label}>{totalReassuranceVariant === 'reassurance' ? 'Order total' : 'Total'}</span>
@@ -276,7 +260,6 @@ export default function CartDrawer({
         discountCode={salePromo ? salePromo.code : 'ICONIC15'}
         discountLabel={salePromo ? `${salePromo.value}% off` : '15% off'}
         payments="card, Apple Pay, Google Pay, PayPal or Venmo"
-        freeShipAt={FREE_SHIPPING_MIN}
       />
     </>
   );
@@ -302,8 +285,6 @@ const discountInput = {
   fontFamily: T.sans, fontSize: 13, color: T.ink, outline: 'none', boxSizing: 'border-box',
 };
 
-const freeShipTrack = { height: 4, background: T.line, overflow: 'hidden' };
-const freeShipFill = { height: '100%', background: T.ink, transition: 'width .3s' };
 const summaryRow = { display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0' };
 const upsellBox = { display: 'flex', alignItems: 'center', gap: 14, border: `1px solid ${T.line}`, padding: 12, marginTop: 16 };
 const upsellImg = { width: 64, height: 64, flexShrink: 0, overflow: 'hidden', background: T.paper };

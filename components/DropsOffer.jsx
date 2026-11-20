@@ -119,7 +119,7 @@ export default function DropsOffer() {
             <span style={{ fontSize: 10, letterSpacing: '0.12em', opacity: 0.75, marginTop: 4 }}>Secure checkout · Fast shipping</span>
           </button>
 
-          <p style={{ fontSize: 12, color: T.soft, margin: '12px 0 14px' }}>Ships in 2–4 days · $3 flat-rate shipping</p>
+          <p style={{ fontSize: 12, color: T.soft, margin: '12px 0 14px' }}>Ships in 2–4 days · Free shipping</p>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} aria-label="Ways to pay">
             {PAYMENTS.map((p) => <span key={p} style={payChip}>{p}</span>)}
           </div>
