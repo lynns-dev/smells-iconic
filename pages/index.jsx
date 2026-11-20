@@ -126,7 +126,7 @@ export default function HomePage() {
       <section id="shop" style={band}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <p style={S.label}>The archive</p>
-          <h2 style={{ ...S.h2, marginTop: 12 }}>Every character, <span style={S.it}>one closet.</span></h2>
+          <h2 style={{ ...S.h2, marginTop: 12 }}>Fragrances inspired by culture. <span style={S.it}>Made to collect.</span></h2>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,marginTop:24}}>
             <p style={{fontSize:13,color:T.soft,margin:0}}>Explore the full collection · swipe or scroll</p>
             <div style={{display:'flex',gap:8}}>
