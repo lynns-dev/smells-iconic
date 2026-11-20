@@ -80,10 +80,6 @@ export default function ShopPage() {
 
       <style jsx>{`
         .shop-grid { grid-template-columns: repeat(4, 1fr); }
-        .collection-card-text { isolation:isolate; }
-        .collection-card-text::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:-1; background:linear-gradient(135deg,rgba(255,255,255,.76) 0%,rgba(255,255,255,.12) 44%,rgba(255,255,255,.4) 100%); border-radius:0; }
-        .collection-card-text::after { content:''; position:absolute; inset:1px; pointer-events:none; border-top:1px solid rgba(255,255,255,.98); border-left:1px solid rgba(255,255,255,.78); }
-        @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { .collection-card-text { background:rgba(255,255,255,.96) !important; } }
 
         @media (max-width: 960px) {
           .shop-grid { grid-template-columns: repeat(2, 1fr); }
@@ -96,7 +92,7 @@ export default function ShopPage() {
           .shop-grid { grid-template-columns: minmax(0,1fr); gap: 28px 12px !important; }
           .shop-grid.two-columns { grid-template-columns: repeat(2,minmax(0,1fr)); }
           .two-columns :global(.collection-title) { font-size: 14px !important; line-height: 1.35; display:block; }
-          .two-columns .collection-card-text { padding:14px 12px !important; margin:-16px 4px 0 !important; }
+          .two-columns .collection-card-text { padding:12px 0 0 !important; }
           .two-columns .collection-badge { top:6px !important; right:6px !important; left:6px; font-size:8px !important; letter-spacing:0.04em !important; padding:5px !important; }
           .two-columns .collection-notes { font-size:9px !important; letter-spacing:0.05em !important; }
           .two-columns .collection-card { min-width:0; }
@@ -117,11 +113,5 @@ const grid = { display: 'grid', gap: 28 };
 const card = { textAlign: 'left' };
 const badge = { position: 'absolute', top: 14, right: 14, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.ink, background: 'rgba(251,245,241,0.92)', padding: '6px 10px', zIndex: 1 };
 const imgWrap = { position: 'relative', aspectRatio: '1/1', display: 'block', overflow: 'hidden', width: '100%' };
-const cardText = {
-  position:'relative', zIndex:2, margin:'-20px 8px 0', padding:'18px 16px', textAlign:'left',
-  background:'linear-gradient(155deg,rgba(255,255,255,.72),rgba(248,249,250,.46))',
-  backdropFilter:'blur(18px) saturate(1.3)', WebkitBackdropFilter:'blur(18px) saturate(1.3)',
-  border:'1px solid rgba(255,255,255,.88)', borderRadius:0,
-  boxShadow:'inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(132,145,155,.14), 0 8px 26px rgba(21,17,13,.065), 0 0 0 1px rgba(21,17,13,.055)',
-};
+const cardText = { padding: '16px 0 0', textAlign:'left' };
 const ratingRow = { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6, fontSize: 12, color: T.soft, marginTop: 8, fontFamily: T.sans };
