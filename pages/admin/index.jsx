@@ -926,7 +926,6 @@ function SubscribersTab({ refreshKey }) {
       title={list ? `${rows.length} ${rows.length === 1 ? 'person' : 'people'}` : 'Subscribers'}
       action={<div style={{ display: 'flex', gap: 8 }}>
         <button type="button" onClick={sendTestReminder} style={S.btnOutline}>Send test reminder</button>
-        <button type="button" onClick={syncExistingStripeTracking} disabled={stripeSyncBusy} style={S.btnOutline}>{stripeSyncBusy ? 'Syncing Stripe…' : 'Sync Stripe tracking'}</button>
         <button type="button" onClick={exportCsv} disabled={!rows.length} style={S.btnOutline}>Export CSV</button>
         <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
       </div>}
@@ -1135,6 +1134,7 @@ function OrdersTab({ refreshKey }) {
     <Section
       title={orders ? `${totals.count} order${totals.count === 1 ? '' : 's'} · $${totals.revenue.toFixed(2)}` : 'Orders'}
       action={<div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" onClick={syncExistingStripeTracking} disabled={stripeSyncBusy} style={S.btnOutline}>{stripeSyncBusy ? 'Syncing Stripe…' : 'Sync Stripe tracking'}</button>
         <button type="button" onClick={exportCsv} disabled={!rows.length} style={S.btnOutline}>Export CSV</button>
         <button type="button" onClick={load} style={S.btnOutline}>Refresh</button>
       </div>}

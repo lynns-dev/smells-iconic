@@ -177,34 +177,6 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* HONEST MATH */}
-      <section style={{ ...band, background: T.paper, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}` }}>
-        <div style={{ ...S.wrap, textAlign: 'center' }}>
-          <p style={S.label}>The honest math</p>
-          <h2 style={{ ...S.h2, marginTop: 12 }}>Smells iconic. <span style={S.it}>Costs like a snack.</span></h2>
-          <div className="hm-grid" style={{ display: 'grid', marginTop: 46, border: `1px solid ${T.line}`, textAlign: 'left' }}>
-            <div className="hm-cell" style={vcell}>
-              <div style={vtag}>Designer fragrance</div>
-              <div style={vbig}>$150–300</div>
-              <ul style={vlist}>
-                {['One bottle', 'Smells like everyone else’s TikTok', 'Gone by lunch', 'Sits heavy on the skin'].map((x, i) => (
-                  <li key={i} style={{ ...vli, borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>{x}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="hm-cell" style={{ ...vcell, background: T.ink, color: T.white }}>
-              <div style={{ ...vtag, color: 'rgba(251,245,241,0.6)' }}>One SMELLS — ICONIC mist</div>
-              <div style={{ ...vbig, color: T.white }}>${babygirl.price}</div>
-              <ul style={vlist}>
-                {['A character, not a cologne', 'Internet-coded, not overdone', 'It’s a mist — reapply anywhere', 'Milky, spiced, or cherry-sweet — your era'].map((x, i) => (
-                  <li key={i} style={{ ...vli, color: 'rgba(251,245,241,0.78)', borderTop: i === 0 ? 'none' : `1px solid ${T.dline}` }}>{x}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* REVIEWS */}
       <section id="reviews" style={{ ...band, background: T.paper, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}` }}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
