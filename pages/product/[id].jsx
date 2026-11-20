@@ -1,4 +1,4 @@
-import { SCENT_SUMMARIES } from '../../lib/scentPresentation';
+import { SCENT_SUMMARIES, BABYGIRL_SCENT_STORY } from '../../lib/scentPresentation';
 import React from 'react';
 import BabygirlLanding from '../../components/BabygirlLanding';
 import Link from 'next/link';
@@ -413,8 +413,8 @@ export default function ProductPage({ product: catalogProduct }) {
       <section style={{ ...narrowBand, background: T.ink, borderTop: `1px solid ${T.line}` }}>
         <div style={narrowWrap}>
           <p style={{ ...S.label, color: 'rgba(251,245,241,0.6)' }}>The scent, in full</p>
-          <h2 style={{ ...narrativeHeadline, color: T.white }}>Smell like your favorite obsession.</h2>
-          <p style={{ ...narrativeBody, color: 'rgba(251,245,241,0.82)' }}>{product.longDescription}</p>
+          <h2 style={{ ...narrativeHeadline, color: T.white }}>{product.id.startsWith('babygirl') ? 'Soft, Milky, Musky.' : 'Smell like your favorite obsession.'}</h2>
+          <p style={{ ...narrativeBody, color: 'rgba(251,245,241,0.82)' }}>{product.id.startsWith('babygirl') ? BABYGIRL_SCENT_STORY : product.longDescription}</p>
           <div className="narrative-features" style={featureRow}>
             {BRAND_FEATURES.map(([title, copy]) => (
               <div key={title} style={featureItem}>
