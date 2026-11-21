@@ -201,7 +201,7 @@ export default function ProductPage({ product: catalogProduct }) {
       <section style={{ maxWidth: T.maxw, margin: '0 auto', padding: '0 40px 60px' }}>
         <div className="pdp-grid" style={grid}>
           <div className="pdp-gallery" style={gallery}>
-            <div style={imgSide}>
+            <div className="pdp-main-image" style={imgSide}>
               {product.badge && !product.archived && <span style={imageBadge}>{product.badge}</span>}
               {product.id === 'babygirl' && activeImage === BABYGIRL_VIDEO ? (
                 <video
@@ -612,6 +612,7 @@ export default function ProductPage({ product: catalogProduct }) {
         @media (max-width: 680px) {
           .pdp-grid { grid-template-columns: 1fr; }
           .pdp-gallery { flex-direction: column; }
+          .pdp-main-image { flex: none !important; width: 100%; box-sizing: border-box; }
           .thumb-col { flex-direction: row; }
           .related-grid { grid-template-columns: 1fr; }
           .related-item { border-left: none; }
@@ -624,7 +625,7 @@ export default function ProductPage({ product: catalogProduct }) {
 
 const grid = { display: 'grid', gap: 60, alignItems: 'start' };
 const gallery = { display: 'flex', gap: 14 };
-const imgSide = { position: 'relative', background: T.paper, aspectRatio: '4/5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.line}`, overflow: 'hidden', flex: 1, minWidth: 0 };
+const imgSide = { position: 'relative', background: T.paper, aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.line}`, overflow: 'hidden', flex: 1, minWidth: 0 };
 const imageBadge = {
   position: 'absolute', top: 14, right: 14, fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase',
   color: T.ink, background: 'rgba(251,245,241,0.92)', padding: '6px 10px', zIndex: 1, fontFamily: T.sans,
