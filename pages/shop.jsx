@@ -12,22 +12,11 @@ import { useCart } from '../lib/useCart';
 import { useAllReviews } from '../lib/useReviews';
 import { T, S } from '../lib/theme';
 
-import { exposeExperiment, getVariant } from '../lib/experiments';
+import { exposeExperiment } from '../lib/experiments';
 
 export default function ShopPage() {
   const c = useCart();
   const reviews = useAllReviews();
-  const [mobileGrid, setMobileGrid] = React.useState('control');
-  React.useEffect(() => {
-    const media = window.matchMedia('(max-width: 560px)');
-    const enroll = () => {
-      if (!media.matches) return;
-      setMobileGrid(getVariant('shop_mobile_grid_v1'));
-      exposeExperiment('shop_mobile_grid_v1');
-    };
-    enroll(); media.addEventListener('change', enroll);
-    return () => media.removeEventListener('change', enroll);
-  }, []);
   React.useEffect(() => {
     if (c.perfumeVariant) exposeExperiment(BABYGIRL_PRICE_TEST);
   }, [c.perfumeVariant]);
@@ -49,7 +38,7 @@ export default function ShopPage() {
       </section>
 
       <section className="collection-products" style={{ ...S.wrap, padding: '50px 0 64px' }}>
-        <div className={`shop-grid ${mobileGrid === 'two_columns' ? 'two-columns' : ''}`} style={grid}>
+        <div className="shop-grid two-columns" style={grid}>
           {archivedLast(PRODUCTS.filter((p) => p.id !== 'the-archive-trio' && (p.id !== BABYGIRL_PERFUME_ID || c.perfumeVariant)).map(c.resolveProduct)).map((p) => (
             <div key={p.id} className="collection-card" style={card}>
               <Link href={`/product/${p.id}`} className="collection-image" style={imgWrap}>
