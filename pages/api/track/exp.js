@@ -11,6 +11,7 @@ export default async function handler(req, res) {
     return res.status(405).end();
   }
   const { id, variant, visitorId, sessionId } = req.body || {};
+  if (id === 'pdp_offer_20261122') return res.status(204).end();
   const who = [visitorId, sessionId].find((v) => typeof v === 'string' && ID_RE.test(v));
   if (!who || typeof id !== 'string' || typeof variant !== 'string' || isExcludedTraffic(req)) return res.status(204).end();
   try {

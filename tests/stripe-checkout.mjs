@@ -28,6 +28,7 @@ let sessionOptions;let sessionParams;let sessionsCreated=0;let count=1;let pendi
 const routeContext=vm.createContext({process:{env},console,URL,Date,JSON,Math,Number,String});
 const routeMock = values=>new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context:routeContext});
 const routeMods={
+ '../../../lib/products':routeMock({BABYGIRL_PERFUME_ID:'babygirl-perfume',BABYGIRL_PERFUME_TEST_PRICE:59,BABYGIRL_PRICE_TEST:'babygirl_perfume_price_v1'}),
  '../../../lib/stripeExperimentPurchase':routeMock({snapshotExperimentAttribution:()=>null}),
  '../../../lib/ipFilter':routeMock({isExcludedTraffic:()=>false,isExcludedIp:()=>false,isOutsideServiceArea:()=>false}),
  '../../../lib/journeys':routeMock({visitorIdFrom:()=>null}),

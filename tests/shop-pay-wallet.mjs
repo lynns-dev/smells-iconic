@@ -48,6 +48,7 @@ const synthetic = (exports) => new vm.SyntheticModule(Object.keys(exports), func
 const products = synthetic({ getProductById: id => id === fixture.id ? fixture : null,
   UPSELL_ID: 'upsell', UPSELL_PRICE: 19, BABYGIRL_PERFUME_ID: 'babygirl-perfume', BABYGIRL_PERFUME_TEST_PRICE: 59, BABYGIRL_PRICE_TEST: 'babygirl_perfume_price_v1', TASSEL_GIFT: { id: 'gift', price: 15 }, FREE_GIFT: { id: 'gift', price: 20 }, FREE_GIFT_THRESHOLD: 50 });
 const mocks = {
+  './ipFilter': synthetic({isExcludedTraffic:()=>false}),
   react: synthetic({ default: {} }), './session': synthetic({ getSessionId: () => 'test-session', getVisitorId: () => 'test-visitor' }),
   crypto: synthetic({ default: crypto }), './products': products,
   './experimentsStore': synthetic({ recordExposure: async () => {}, recordExperimentStep: async () => {} }),

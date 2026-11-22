@@ -47,3 +47,15 @@ const legacy={sessionId:'legacy-session',amount:28};values.set('exp:babygirl_sce
 await record({...legacy,experimentTrackingExcluded:true,amount:99});assert.equal(hashes.get('exp:babygirl_scent_landing_v1:landing').purchased,1);
 experiments.active_test.winner='control';await complete(payment('visitor-555').session,{});assert.equal(hashes.get('exp:active_test:treatment').purchased,3,'permanent choices never restart');assert.equal(hashes.has('exp:ended_test:control'),false);assert.equal(hashes.has('exp:draft_test:control'),false);
 console.log('PASS actual Lua: paid-only Stripe→ledger→A/B counters, correct arms/paid revenue, no browser return needed, webhook/status/concurrent retries, existing browser dedupe, repeat-buyer semantics, metric-outage recovery without repeat fulfillment, legacy Babygirl/wallet identity+device, exclusions, and frozen historical winners. No external services or payments.');
+
+const offerPending={stripeSessionId:'cs_offer_a',amount:64,offerExperiment:{visitorId:'offer-buyer',variant:'mix_match',units:3,costKnown:true,contribution:43}};
+await helper.namespace.recordProductOfferPurchase(offerPending);
+await helper.namespace.recordProductOfferPurchase(offerPending);
+let offerHash=hashes.get('exp:pdp_offer_20261122:mix_match');
+assert.equal(offerHash.orders,1);assert.equal(offerHash.purchased,1);assert.equal(offerHash.units,3);assert.equal(offerHash.contribution,43);assert.equal(offerHash.order_revenue,64);
+await helper.namespace.recordProductOfferPurchase({...offerPending,stripeSessionId:'cs_offer_b'});
+assert.equal(offerHash.orders,2);assert.equal(offerHash.purchased,1);assert.equal(offerHash.contribution,86);
+await helper.namespace.recordProductOfferPurchase({...offerPending,stripeSessionId:'cs_offer_c',offerExperiment:{...offerPending.offerExperiment,costKnown:false,contribution:null}});
+assert.equal(offerHash.uncosted_orders,1);assert.equal(offerHash.contribution,86);
+await helper.namespace.recordProductOfferPurchase({...offerPending,stripeSessionId:'cs_offer_excluded',experimentTrackingExcluded:true});assert.equal(offerHash.orders,3);
+console.log('PASS actual offer metric Lua: orders, unique buyers, units, known-cost contribution, mixed-cart coverage, exclusions and replay dedupe');

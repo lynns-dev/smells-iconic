@@ -27,7 +27,7 @@ async function api(body) {
 }
 
 export default function ShopPayWallet({ email, shippingCost, grandTotal, purchaseKey = 'si-purchase', onBusy, onError }) {
-  const { cart, appliedDiscount, clear } = useCart();
+  const { cart, appliedDiscount, clear, offer, checkoutDiscountCode } = useCart();
   const router = useRouter();
   const container = React.useRef(null);
   const callbacks = React.useRef({ onBusy, onError, clear, router });
@@ -37,7 +37,7 @@ export default function ShopPayWallet({ email, shippingCost, grandTotal, purchas
   const [message, setMessage] = React.useState('');
   const [version, setVersion] = React.useState(0);
   const signature = JSON.stringify({ cart: cart.map(i => ({ id: i.id, quantity: i.quantity, upsell: i.upsell === true })),
-    email, discountCode: appliedDiscount?.code || '', freeShipping: shippingCost === 0, expectedAmount: Number(grandTotal.toFixed(2)) });
+    email, offerToken: offer?.token || '', discountCode: checkoutDiscountCode, freeShipping: shippingCost === 0, expectedAmount: Number(grandTotal.toFixed(2)) });
 
   React.useEffect(() => {
     let stopped = false;
