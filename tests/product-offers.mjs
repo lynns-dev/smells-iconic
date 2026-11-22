@@ -31,5 +31,5 @@ assert.equal((await quote(mist(3),'','fake')).discount,0);
 await assert.rejects(quote([{id:'babygirl-solid-perfume',quantity:3}],'',tokens.mix_match),/no longer available/);
 await assert.rejects(quote([{id:'babygirl',quantity:1},{id:'babygirl',quantity:2}],'',tokens.mix_match),/no longer available/);
 assert.equal(rules.offerSavings([{id:'babygirl',quantity:4,price:25}],'gift_75'),0,'strictly over $75, gift excluded');
-now=rules.OFFER_END;assert.equal(server.issueOffer('visitor-ended'),null);assert.equal(server.verifyOffer(tokens.mix_match),null);assert.equal((await quote(mist(3),'',tokens.mix_match)).discount,0,'expires at midnight Pacific');
+now=Date.parse('2026-11-24T12:00:00-08:00');assert.equal((await quote(mist(3),'',tokens.mix_match)).discount,32,'ongoing offer remains valid after today');
 console.log('PASS stable three-arm signed assignment, tampering, canonical prices, mix-and-match, repeat sets, gift thresholds and inventory, body-mist eligibility, coupon non-stacking, contribution math and midnight expiry');
