@@ -98,33 +98,6 @@ export default function HomePage() {
       </div>
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
       <BlackFridayPromo />
-      {/* HERO — permanent Babygirl campaign creative */}
-      <section style={heroWrap}>
-        {babygirl && (
-          <div className="hero-grid" style={heroBg}>
-            <div className="hero-text" style={heroContent}>
-              <div>
-                <span style={{ ...S.label, display: 'block', marginBottom: 26, color: T.ink }}>Body mist · No. 01 · Babygirl</span>
-                <h1 style={heroH1}>Meet <span style={S.it}>Babygirl</span></h1>
-                <p style={heroSub}>Our Babygirl scent in body mist format smells of marshmallow, creamy milk, and soft musk. Made light enough to mist on all day.</p>
-                {siteReviews.count > 0 && (
-                  <div style={hrate}>
-                    <span style={{ letterSpacing: '2px', color: T.ink }}>{'★'.repeat(Math.round(siteReviews.average))}{'☆'.repeat(5 - Math.round(siteReviews.average))}</span>
-                    {' '}{siteReviews.average.toFixed(1)} · {siteReviews.count} review{siteReviews.count === 1 ? '' : 's'}
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Link href={`/product/${babygirl.id}`} style={heroBtn}>Shop Babygirl — ${babygirl.price}</Link>
-                  <a href="#notes" style={heroLink}>The scents</a>
-                </div>
-              </div>
-            </div>
-            <div className="hero-img hero-campaign" role="img" aria-label="Woman in golden sunlight holding Smells Iconic Babygirl body mist" />
-          </div>
-        )}
-      </section>
-
-
       <section id="shop" style={band}>
         <div style={{ ...S.wrap, textAlign: 'center' }}>
           <p style={S.label}>The archive</p>
