@@ -1,3 +1,4 @@
+import BlackFridayPromo from '../components/BlackFridayPromo';
 import CollectionPurchase from '../components/CollectionPurchase';
 import React from 'react';
 import Link from 'next/link';
@@ -96,6 +97,7 @@ export default function HomePage() {
         </div>
       </div>
       <Header cartCount={c.count} onCartClick={() => c.setOpen(true)} />
+      <BlackFridayPromo />
       {/* HERO — permanent Babygirl campaign creative */}
       <section style={heroWrap}>
         {babygirl && (
