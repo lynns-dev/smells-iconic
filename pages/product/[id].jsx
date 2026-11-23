@@ -25,7 +25,7 @@ const DUO_PAGES = ['babygirl', 'daddy-is-a-state-of-mind'];
 // The bundle offered under each body mist ("Save with sets").
 const SET_ID = 'current-drops-set';
 
-const INGREDIENTS = 'Aqua, alcohol denat., fragrance (parfum), glycerin, skin-safe conditioning agents.';
+const INGREDIENTS = 'Water, Polysorbate 20, Phenoxyethanol, Benzoic Acid, Dehydroacetic Acid, Disodium EDTA, Sodium Hydroxide.';
 
 const HOW_TO_USE = [
   ['Fresh out the shower', 'Mist onto clean, warm skin — that’s when it holds longest.'],
