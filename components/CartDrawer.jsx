@@ -10,7 +10,6 @@ import TopBanner from './TopBanner';
 import SaleCallout, { useActivePromo } from './SaleCallout';
 import { shippingFor } from '../lib/shipping';
 import { useVariant, exposeExperiment } from '../lib/experiments';
-import CartExitPopup, { shouldAskCartExit } from './CartExitPopup';
 import { getProductById, UPSELL_ID, UPSELL_PRICE, thumbImages } from '../lib/products';
 
 // Code revealed by the cart's email field (must exist in admin → Discounts).
@@ -60,7 +59,6 @@ export default function CartDrawer({
   const discountTotal = subtotal - total;
   const shippingCost = shippingFor();
   const orderTotal = discountedTotal + shippingCost;
-  const [exitOpen, setExitOpen] = React.useState(false);
   const checkoutCtaVariant = useVariant('cart_checkout_cta');
   const discountVisibilityVariant = useVariant('cart_discount_visibility');
   const totalReassuranceVariant = useVariant('cart_total_reassurance');
@@ -93,11 +91,7 @@ export default function CartDrawer({
           dwellSec: (Date.now() - openedAtRef.current) / 1000,
           items: items.map((i) => i.name),
         });
-        // "What's holding you back?" (components/CartExitPopup.jsx) — not
-        // on checkout itself, and at most once every few days.
-        if (!window.location.pathname.startsWith('/checkout') && shouldAskCartExit()) {
-          setTimeout(() => setExitOpen(true), 350);
-        }
+
       }
       openedAtRef.current = 0;
     }
@@ -252,15 +246,6 @@ export default function CartDrawer({
           </Link>
         </div>
       </aside>
-      <CartExitPopup
-        open={exitOpen}
-        onClose={() => setExitOpen(false)}
-        cart={cart}
-        applyDiscount={applyDiscount}
-        discountCode={salePromo ? salePromo.code : 'ICONIC15'}
-        discountLabel={salePromo ? `${salePromo.value}% off` : '15% off'}
-        payments="card, Apple Pay, Google Pay, PayPal or Venmo"
-      />
     </>
   );
 }
