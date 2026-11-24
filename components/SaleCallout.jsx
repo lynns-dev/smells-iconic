@@ -20,7 +20,7 @@ export default function SaleCallout({ appliedDiscount, onApply, style }) {
   const [accepted,setAccepted]=useState(false);
   if (!promo) return null;
 
-  const applied = appliedDiscount?.code?.toUpperCase() === promo.code;
+  const applied = (appliedDiscount?.couponCode || appliedDiscount?.code)?.toUpperCase() === promo.code;
   const apply = async () => {
     setBusy(true);
     setFailed(false);
@@ -41,7 +41,7 @@ export default function SaleCallout({ appliedDiscount, onApply, style }) {
           <button type="button" style={button} onClick={apply} disabled={busy}>{busy ? '…' : 'Apply'}</button>
         </>
       )}
-      {accepted && !applied && <p role="status" style={{...text,flexBasis:'100%',fontSize:12}}>{promo.code} saved. Your current offer gives a larger saving, so it remains applied. Discounts do not stack.</p>}
+      {accepted && !applied && <p role="status" style={{...text,flexBasis:'100%',fontSize:12}}>{promo.code} saved. The code discounts your paid products and your eligible gift remains free.</p>}
       {failed && <p style={{ ...text, flexBasis: '100%', fontSize: 12, color: '#a13d2b' }}>Couldn’t apply it — try entering {promo.code} as your discount code.</p>}
     </div>
   );

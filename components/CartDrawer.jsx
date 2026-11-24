@@ -65,7 +65,7 @@ export default function CartDrawer({
   const totalReassuranceVariant = useVariant('cart_total_reassurance');
   const [discountCode,setDiscountCode]=React.useState('');
   const [discountMessage,setDiscountMessage]=React.useState('');
-  const handleApplyDiscount=async (code=discountCode)=>{setDiscountMessage('Checking…');const result=await applyDiscount(code);setDiscountMessage(result?.valid?'Code accepted. Checkout uses the larger eligible saving; offers do not stack.':'That code is not valid.');return result;};
+  const handleApplyDiscount=async (code=discountCode)=>{setDiscountMessage('Checking…');const result=await applyDiscount(code);setDiscountMessage(result?.valid?'Code applied to paid products. Your eligible gift remains free.':'That code is not valid.');return result;};
   const [discountExpanded, setDiscountExpanded] = React.useState(false);
 
 

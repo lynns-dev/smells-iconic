@@ -8,7 +8,7 @@ export default function BlackFridayPromo() {
   if(!active) return null;
   return <section className="bf-promo" aria-label="Black Friday sale">
     <div className="bf-photo"><img src="/images/si-black-friday-bows.jpg" alt="Babygirl body mists tied with blue, burgundy and pink bows" fetchPriority="high" /></div>
-    <div className="bf-copy"><p style={{...S.label,color:'#fff'}}>The Black Friday sale</p><h1>Their next<br /><em>signature scent.</em></h1><p style={{fontSize:16,lineHeight:1.6,margin:'0 0 24px'}}>Give a scent they’ll love wearing.</p><p className="bf-saving">20% off sitewide.</p><p className="bf-code">Use code <strong>BLACKFRIDAY20</strong></p><Link href="/shop" className="bf-shop">Shop the sale →</Link><p className="bf-terms">Free shipping on every order. Cannot be combined with other offers.</p></div>
+    <div className="bf-copy"><p style={{...S.label,color:'#fff'}}>The Black Friday sale</p><h1>Their next<br /><em>signature scent.</em></h1><p style={{fontSize:16,lineHeight:1.6,margin:'0 0 24px'}}>Give a scent they’ll love wearing.</p><p className="bf-saving">20% off sitewide.</p><p className="bf-code">Use code <strong>BLACKFRIDAY20</strong></p><Link href="/shop" className="bf-shop">Shop the sale →</Link><p className="bf-terms">Free shipping on every order. Stacks with your eligible free-mist gift.</p></div>
     <style jsx>{`
       .bf-promo{display:grid;grid-template-columns:1fr 1fr;background:#650F24;color:white}
       .bf-photo{height:650px;overflow:hidden}.bf-photo img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 48%}
