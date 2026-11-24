@@ -1,3 +1,4 @@
+import CheckoutDiscount from './CheckoutDiscount';
 import React from 'react';
 import Link from 'next/link';
 import { T, S } from '../lib/theme';
@@ -18,7 +19,7 @@ const UNLOCKED_KEY = 'si-cart-code-unlocked';
 
 export default function CartDrawer({
   cart, open, onClose, add, remove, setQty, total,
-  appliedDiscount, applyDiscount, codeDiscountAmount, discountedTotal,
+  appliedDiscount, applyDiscount, clearDiscount, codeDiscountAmount, discountedTotal,
 }) {
   // Babygirl Solid Perfume, offered under the items until it's in the bag —
   // at UPSELL_PRICE, since the cart always has another item when it shows
@@ -62,6 +63,9 @@ export default function CartDrawer({
   const checkoutCtaVariant = useVariant('cart_checkout_cta');
   const discountVisibilityVariant = useVariant('cart_discount_visibility');
   const totalReassuranceVariant = useVariant('cart_total_reassurance');
+  const [discountCode,setDiscountCode]=React.useState('');
+  const [discountMessage,setDiscountMessage]=React.useState('');
+  const handleApplyDiscount=async (code=discountCode)=>{setDiscountMessage('Checking…');const result=await applyDiscount(code);setDiscountMessage(result?.valid?'Code accepted. Checkout uses the larger eligible saving; offers do not stack.':'That code is not valid.');return result;};
   const [discountExpanded, setDiscountExpanded] = React.useState(false);
 
 
@@ -182,7 +186,7 @@ export default function CartDrawer({
 
         {(discountVisibilityVariant === 'control' || discountExpanded || appliedDiscount) ? (
           <>
-            {salePromo && cart.length > 0 && <SaleCallout appliedDiscount={appliedDiscount} onApply={applyDiscount} style={{ marginTop: 16, flexShrink: 0 }} />}
+            {salePromo && cart.length > 0 && <CheckoutDiscount discountCode={discountCode} setDiscountCode={setDiscountCode} discountMessage={discountMessage} setDiscountMessage={setDiscountMessage} appliedDiscount={appliedDiscount} clearDiscount={clearDiscount} handleApplyDiscount={handleApplyDiscount} />}
             {showUnlock && (
               <div style={unlockBox}>
                 {unlockState === 'done' ? (

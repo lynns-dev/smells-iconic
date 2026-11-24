@@ -17,15 +17,18 @@ export default function SaleCallout({ appliedDiscount, onApply, style }) {
   const promo = useActivePromo();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [accepted,setAccepted]=useState(false);
   if (!promo) return null;
 
   const applied = appliedDiscount?.code?.toUpperCase() === promo.code;
   const apply = async () => {
     setBusy(true);
     setFailed(false);
+    setAccepted(false);
     const data = await Promise.resolve(onApply(promo.code)).catch(() => null);
     setBusy(false);
     if (!data?.valid) setFailed(true);
+    else setAccepted(true);
   };
 
   return (
@@ -38,6 +41,7 @@ export default function SaleCallout({ appliedDiscount, onApply, style }) {
           <button type="button" style={button} onClick={apply} disabled={busy}>{busy ? '…' : 'Apply'}</button>
         </>
       )}
+      {accepted && !applied && <p role="status" style={{...text,flexBasis:'100%',fontSize:12}}>{promo.code} saved. Your current offer gives a larger saving, so it remains applied. Discounts do not stack.</p>}
       {failed && <p style={{ ...text, flexBasis: '100%', fontSize: 12, color: '#a13d2b' }}>Couldn’t apply it — try entering {promo.code} as your discount code.</p>}
     </div>
   );
