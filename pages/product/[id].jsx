@@ -1,4 +1,3 @@
-import ProductOffer from '../../components/ProductOffer';
 import { SCENT_SUMMARIES, BABYGIRL_SCENT_STORY } from '../../lib/scentPresentation';
 import React from 'react';
 import BabygirlLanding from '../../components/BabygirlLanding';
@@ -334,7 +333,6 @@ export default function ProductPage({ product: catalogProduct }) {
                 <button style={{ ...S.btnFill, flex: 1, justifyContent: 'center' }} onClick={handleAdd}>Add to bag</button>
               </div>
             )}
-            <ProductOffer product={product} />
 
             <div style={badgeRow}>Ships in 2–4 days · 45-day guarantee + free returns{!isPerfume && ' · Vegan-friendly · Cruelty-free'}</div>
 
