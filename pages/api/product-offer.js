@@ -10,7 +10,7 @@ export default async function handler(req,res) {
     if(req.body?.expose) {
       const saved=verifyOffer(req.body.token);
       if(!saved) return res.status(400).json({error:'Invalid offer'});
-      if(!isExcludedTraffic(req)) await recordExposure(OFFER_TEST,saved.variant,saved.visitorId);
+      // Permanent offer: no new experiment exposure.
       return res.status(200).json({ok:true});
     }
     const assignment=issueOffer(req.body?.visitorId);
