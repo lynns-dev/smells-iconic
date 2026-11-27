@@ -62,7 +62,7 @@ export default function StripeCheckoutButton({ getPayload, disabled, onError, on
       const loaded = await sdk.loadActions();
       if (loaded.type === 'error') throw new Error(loaded.error.message);
       if (run !== version.current) return;
-      const payment = sdk.createPaymentElement({ layout: 'tabs', fields: { billingDetails: 'never' }, wallets: { applePay: 'never', googlePay: 'never', link: 'never' } });
+      const payment = sdk.createPaymentElement({ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never', link: 'never' } });
       const express = sdk.createExpressCheckoutElement({ buttonHeight: 48, paymentMethods: { applePay: 'auto', googlePay: 'auto', link: 'auto', amazonPay: 'never', paypal: 'never', klarna: 'never' } });
       instance = { destroy: () => { payment.destroy(); express.destroy(); } };
       checkout.current = instance;
