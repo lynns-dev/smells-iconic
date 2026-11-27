@@ -17,7 +17,9 @@ export default async function handler(req, res) {
       Promise.all(dateKeys.map((key) => getOrders(key))),
       getEventCounts(dateKeys),
     ]);
-    const orders = perDay.flat();
+    // Sales totals exclude canceled and fully refunded orders. An archived
+    // order is still a sale; archives only affect the fulfillment queue.
+    const orders = perDay.flat().filter((o) => o.status !== 'cancelled' && o.status !== 'refunded');
     const revenue = orders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
 
     const rate = (num, den) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
